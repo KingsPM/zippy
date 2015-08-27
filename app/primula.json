@@ -1,0 +1,19 @@
+{
+    "primer3": {
+        "enabled": true,
+        "genome": "/Users/dbrawand/dev/snappy/WORK/genome/human_g1k_v37.fasta",
+        "default": {
+            "COMMENT": "default primer3 design parameters",
+        }
+    },
+    "pairing": {
+        "deltaTm": 5.0
+    },
+    "bowtie": {
+        "COMMENT": "BOWTIE seq retrieval configuration",
+        "index": "/Users/dbrawand/dev/snappy/WORK/genome/human_g1k_v37.bowtie",
+        "parameters": [
+            "--something"
+        ]
+    }
+}

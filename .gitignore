@@ -2,6 +2,12 @@
 __pycache__/
 *.py[cod]
 
+# temporary files
+tmp/
+
+# flask virtualenv
+flask/
+
 # C extensions
 *.so
 
