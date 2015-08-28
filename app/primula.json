@@ -1,19 +1,22 @@
 {
+    "import": {
+        "bowtieindex": "/Users/dbrawand/dev/snappy/WORK/genome/human_g1k_v37.bowtie"
+    },
+    "database": "primula.sqlite",
     "primer3": {
-        "enabled": true,
         "genome": "/Users/dbrawand/dev/snappy/WORK/genome/human_g1k_v37.fasta",
-        "default": {
-            "COMMENT": "default primer3 design parameters",
+        "settings": {
+            "PRIMER_MIN_SIZE": 18,
+            "PRIMER_OPT_SIZE": 20,
+            "PRIMER_MAX_SIZE": 23,
+            "PRIMER_OPT_TM": 62.0,
+            "PRIMER_MIN_TM": 58.0,
+            "PRIMER_MAX_TM": 64.0,
+            "PRIMER_MIN_GC": 40.0,
+            "PRIMER_OPT_GC": 50.0,
+            "PRIMER_MAX_GC": 60.0,
+            "PRIMER_PRODUCT_SIZE_RANGE": [[150,250], [100,300], [301,400], [401,500]],
+            "PRIMER_GC_CLAMP": 1
         }
-    },
-    "pairing": {
-        "deltaTm": 5.0
-    },
-    "bowtie": {
-        "COMMENT": "BOWTIE seq retrieval configuration",
-        "index": "/Users/dbrawand/dev/snappy/WORK/genome/human_g1k_v37.bowtie",
-        "parameters": [
-            "--something"
-        ]
     }
 }

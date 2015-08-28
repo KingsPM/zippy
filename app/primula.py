@@ -16,9 +16,9 @@ __email__ = "dbrawand@nhs.net"
 __status__ = "Development"
 
 import sys
+import json
 from primulalib.vcf import VCF
-from primulalib.blat import Blat
-from primulalib.primer import MultiFasta
+from primulalib.primer import MultiFasta, Primer3
 from primulalib.database import PrimerDB
 from argparse import ArgumentParser
 
@@ -42,7 +42,7 @@ parser.add_argument('--version', action='version', version='%(prog)s '+__version
 
 #   configuration files
 config_group = parser.add_argument_group('Configuration options')
-config_group.add_argument("-c", dest="config", default=None,metavar="JSON_FILE", \
+config_group.add_argument("-c", dest="config", default='primula.json',metavar="JSON_FILE", \
     help="configuration file [primula.json]")
 
 #   pipeline options
@@ -70,22 +70,34 @@ db = PrimerDB(config['database'])
 
 # read primers and add to database
 if options.primers:
-    primerfile = MultiFasta(options.primer)
-    for primer in primerfile.getLocations()
-        # add to database
+    primerfile = MultiFasta(options.primers)
+    primers = primerfile.createPrimers(config['import']['bowtieindex'])  # places in genome
+    for primer in primers:
+        print >> sys.stderr, "Adding primer", primer
+        primer.calcProperties()  # calc Tm and GC
+        db.addPrimer(primer)
+
+    print repr(db)
 
 elif options.vcf:
-    vcf = VCF(options.vcf)
-    for variant in VCF:
-        primerpair = db.query(variant, config)  # get primer pair based on Tm and distance (and variant size)
-        if primerpair:
-            #output
-        else:
+    with open(options.vcf) as fh:
+        vcf = VCF(fh)
+    for variant in vcf:
+        print variant
+        if options.database:
+            primerpair = db.query(variant, config)  # get primer pair based on Tm and distance (and variant size)
+            if primerpair:
+                pass
+                #output
+        if options.design:
+            p3 = Primer3(config['primer3']['genome'])
             #design primer
-            p3 = Primer3()
-            primerpair = p3.pickPair(variant)
+            primerpair = p3.design('test',variant.locus(),config['primer3']['settings'])
+            print primerpair
+            sys.exit('debugStop')
             #STORE?
 
-
-elif options.stock:
-    # change stock
+# change stock?
+# elif options.stock:
+#     pass
+#     # change stock
