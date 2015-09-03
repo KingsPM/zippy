@@ -8,7 +8,8 @@ import sqlite3
 import fnmatch
 import copy
 from collections import defaultdict
-
+from primulalib import flatten, commonPrefix
+from primulalib.primer import Primer
 
 class PrimerDB(object):
     def __init__(self, database, user='unkown'):
@@ -19,9 +20,11 @@ class PrimerDB(object):
         # create file table if not exists
         cursor = self.db.cursor()
         try:
-            cursor.execute('CREATE TABLE IF NOT EXISTS primer(id TEXT PRIMARY KEY, seq TEXT, tm REAL, gc REAL)')
-            cursor.execute('CREATE TABLE IF NOT EXISTS design(primerid TEXT PRIMARY KEY, user TEXT, dateadded DATE, FOREIGN KEY(primerid) REFERENCES primer(id) ON UPDATE CASCADE)')
-            cursor.execute('CREATE TABLE IF NOT EXISTS target(primerid TEXT, chrom TEXT, pos TEXT, reverse BOOLEAN, FOREIGN KEY(primerid) REFERENCES primer(id) ON UPDATE CASCADE)')
+            # TABLE
+            cursor.execute('CREATE TABLE IF NOT EXISTS primer(seq TEXT PRIMARY KEY, tm REAL, gc REAL)')
+            cursor.execute('CREATE TABLE IF NOT EXISTS design(seq TEXT, user TEXT, dateadded DATE, FOREIGN KEY(seq) REFERENCES primer(seq) ON UPDATE CASCADE)')
+            cursor.execute('CREATE TABLE IF NOT EXISTS target(seq TEXT, chrom TEXT, pos TEXT, reverse BOOLEAN, FOREIGN KEY(seq) REFERENCES primer(seq) ON UPDATE CASCADE)')
+            cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT PRIMARY KEY, left TEXT, right TEXT, FOREIGN KEY(left) REFERENCES primer(seq) ON UPDATE CASCADE, FOREIGN KEY(right) REFERENCES primer(seq) ON UPDATE CASCADE)')
             self.db.commit()
         except:
             print >> sys.stderr, self.sqlite
@@ -42,11 +45,11 @@ class PrimerDB(object):
             raise
         else:
             cursor = self.db.cursor()
-            cursor.execute('SELECT * FROM primer')
+            cursor.execute('SELECT pairs.*, p1.tm, p2.tm FROM pairs LEFT JOIN primer as p1 ON pairs.left = p1.seq LEFT JOIN primer as p2 ON pairs.right = p2.seq')
             rows = cursor.fetchall()
         finally:
             self.db.close()
-        return "\n".join([ '{:<20} {:<30} {:.1f} {:.2f}'.format(row[0], row[1], row[2], row[3]) for row in rows ])
+        return "\n".join([ '{:<10} {:<30} {:<30} {:.1f} {:.2f}'.format(*row) for row in rows ])
 
     def getPrimers(self, paired=True):
         raise NotImplementedError
@@ -59,17 +62,47 @@ class PrimerDB(object):
         else:
             for p in primers:
                 cursor = self.db.cursor()
-                cursor.execute('''INSERT OR REPLACE INTO primer(id,seq,tm,gc) VALUES(?,?,?,?)''', \
-                    (p.name, p.seq, p.tm, p.gc))
+                cursor.execute('''INSERT OR REPLACE INTO primer(seq,tm,gc) VALUES(?,?,?)''', \
+                    (p.seq, p.tm, p.gc))
                 for l in p.loci:
-                    cursor.execute('''INSERT OR REPLACE INTO target(primerid,chrom,pos,reverse) VALUES(?,?,?,?)''', \
-                        (p.name, l[0], l[1], l[2]))
-                cursor.execute('''INSERT OR REPLACE INTO design(primerid,user,dateadded) VALUES(?,?,?)''', \
-                    (p.name, self.user, datetime.datetime.now()))
+                    cursor.execute('''INSERT OR REPLACE INTO target(seq,chrom,pos,reverse) VALUES(?,?,?,?)''', \
+                        (p.seq, l[0], l[1], l[2]))
+                cursor.execute('''INSERT OR REPLACE INTO design(seq,user,dateadded) VALUES(?,?,?)''', \
+                    (p.seq, self.user, datetime.datetime.now()))
             self.db.commit()
         finally:
             self.db.close()
         return
+
+    def addPair(self, *pairs):
+        '''adds primer pairs (and individual primers)'''
+        # add primers
+        flat = list(set(list(flatten(pairs))))
+        self.addPrimer(*flat)
+        # add pairs
+        try:
+            self.db = sqlite3.connect(self.sqlite)
+        except:
+            raise
+        else:
+            cursor = self.db.cursor()
+            # add pairs
+            for p in pairs:
+                left, right = p[0],p[1]
+                # find common substring in name for automatic naming
+                pairid = commonPrefix(left.name,right.name)
+                if not pairid:  # fallback
+                    pairid = "X"+md5(left.seq+'_'+right.seq).hexdigest()
+                cursor.execute('''INSERT OR REPLACE INTO pairs(pairid,left,right) VALUES(?,?,?)''', \
+                    (pairid, left.seq, right.seq))
+            self.db.commit()
+        finally:
+            self.db.close()
+        return
+
+    def query(variant, cfg):
+        raise NotImplementedError
+        # return primer pairs that would match
 
 ''' SQLite based file and checkpoint manager
     def getTasks(self,status):

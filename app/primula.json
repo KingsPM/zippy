@@ -1,11 +1,15 @@
 {
-    "import": {
-        "bowtieindex": "/Users/dbrawand/dev/snappy/WORK/genome/human_g1k_v37.bowtie"
-    },
     "database": "primula.sqlite",
+    "tiling": {
+        "interval": 500,
+        "overlap": 200,
+        "flank" : 35
+    },
     "primer3": {
-        "genome": "/Users/dbrawand/dev/snappy/WORK/genome/human_g1k_v37.fasta",
+        "COMMENT": "DESIGN GENOME AND PRIMER3 CONFIG",
+        "genome": "/Users/dbrawand/dev/primula/tmp/human_g1k_v37.fasta",
         "settings": {
+            "PRIMER_TASK": "generic",
             "PRIMER_MIN_SIZE": 18,
             "PRIMER_OPT_SIZE": 20,
             "PRIMER_MAX_SIZE": 23,
@@ -15,8 +19,20 @@
             "PRIMER_MIN_GC": 40.0,
             "PRIMER_OPT_GC": 50.0,
             "PRIMER_MAX_GC": 60.0,
-            "PRIMER_PRODUCT_SIZE_RANGE": [[150,250], [100,300], [301,400], [401,500]],
-            "PRIMER_GC_CLAMP": 1
+            "PRIMER_MAX_POLY_X": 4,
+            "PRIMER_PRODUCT_SIZE_RANGE": [[150,250],[100,300],[301,400],[401,500],[501,600],[601,700]],
+            "PRIMER_GC_CLAMP": 1,
+            "PRIMER_NUM_RETURN": 2,
+            "PRIMER_MISPRIMING_LIBRARY":"/Users/dbrawand/dev/primula/tmp/human_repeat_simple.fa"
         }
+    },
+    "targeting": {
+        "COMMENT":"INEX FOR ALTERNATIVE AMPLIFICATION TARGETS",
+        "bowtieindex": "/Users/dbrawand/dev/primula/tmp/human_g1k_v37.bowtie"
+
+    },
+    "snpcheck": {
+        "COMMENT":"COMMON SNPs FOR PRIMER FILTERING (TABIX INDEXED)",
+        "commonsnp": "/Users/dbrawand/dev/primula/tmp/dbsnp_138.b37.G5A.vcf.gz"
     }
 }
