@@ -15,13 +15,15 @@ __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Development"
 
+import os
 import sys
 import json
+import tempfile
 from primulalib.files import VCF, BED, Interval
 from primulalib.primer import MultiFasta, Primer3, Primer
 from primulalib.database import PrimerDB
 from argparse import ArgumentParser
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 '''
 reads fasta fastafile
@@ -82,6 +84,8 @@ if __name__=="__main__":
     config_group = parser.add_argument_group('Configuration options')
     config_group.add_argument("-c", dest="config", default='primula.json',metavar="JSON_FILE", \
         help="configuration file [primula.json]")
+    config_group.add_argument("--debug", dest="debug", default=False,action="store_true", \
+        help="Debugging")
 
     # run modes
     subparsers = parser.add_subparsers(help='help for subcommand')
@@ -133,26 +137,54 @@ if __name__=="__main__":
                 elif options.deep:  ## check if a new combination of primers would work
                     raise NotImplementedError
         # designing
-        for iv in intervals:
-            print iv
+        print >> sys.stderr, 'Designing primers'
+        for i,iv in enumerate(intervals):
+            print >> sys.stderr, '\r'+str(i)+'/'+str(len(intervals)),
+            if options.debug:
+                print iv
             if options.design and iv not in ivpairs.keys():  # not in database
-
-                p3 = Primer3(config['primer3']['genome'],iv.locus(),1000)  # genome and target
-                p3.design('test',config['primer3']['settings'])
-                print p3.pairs[0][0].meta
-                p3.show()  # show placed primers
-                sys.exit()
-
-                print '\n'.join([ str(i)+':'+str(v) for i,v in enumerate(p3.pairs)])
-                continue
-
-                for pair in p3.pairs:
-                    print pair[0].name, pair[1].name
+                p3 = Primer3(config['primer3']['genome'],iv.locus(),300)  # genome and target
+                p3.design(iv.name,config['primer3']['settings'])
+                if options.debug:
+                    p3.show()  # show placed primers
+                if options.debug:
+                    print '\n'.join([ str(i)+':'+str(v) for i,v in enumerate(p3.pairs)])
+                    for pair in p3.pairs:
+                        print pair[0].name, pair[1].name
                 ivpairs[iv] = p3.pairs
 
         # check new designs for mispriming and create valid primer pairs
-        # for k,v in ivpairs:
-        #     print pair[0].name, pair[1].name
+        ## write to fasta (process batch at once
+        print >> sys.stderr, "\rChecking genome wide mispriming"
+        fh = tempfile.NamedTemporaryFile(suffix='.fa',prefix="primers_",delete=False)
+        for k,v in ivpairs.items():
+            print k
+            for pairnumber, pair in enumerate(v):
+                print >> fh, pair[0].fasta('_'.join([ k.name, str(pairnumber), "left" ]))
+                print >> fh, pair[1].fasta('_'.join([ k.name, str(pairnumber), "right" ]))
+        fh.close()
+        ## create primers with mispriming added
+        pairs = importPrimerPairs(fh.name)
+        ## remove fasta file
+        os.unlink(fh.name)
+        ## add SNPinfo (SNPcheck)
+        counter = Counter()
+        for p in pairs:
+            counter['pairs'] += 1
+            if len(p[0].loci)==1 and len(p[1].loci)==1:
+                print p[0].loci[0]
+                print p[1].loci[0]
+                # is unique
+                counter['unique'] += 1
+                p[0].snpCheck(config['snpcheck']['common'])
+                p[1].snpCheck(config['snpcheck']['common'])
+                # no snp in the last third of the sequence (3 prime)
+                if len(p[0].snp)==0 and len(p[1].snp==0):
+                    counter['unique'] += 1
+                    # no snp at ALL
+                    print p[0],p[1]
+        ## print primer
+
 
 
     # change stock?

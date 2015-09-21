@@ -1,8 +1,8 @@
 {
     "database": "primula.sqlite",
     "tiling": {
-        "interval": 500,
-        "overlap": 200,
+        "interval": 300,
+        "overlap": 100,
         "flank" : 35
     },
     "primer3": {
@@ -20,9 +20,9 @@
             "PRIMER_OPT_GC": 50.0,
             "PRIMER_MAX_GC": 60.0,
             "PRIMER_MAX_POLY_X": 4,
-            "PRIMER_PRODUCT_SIZE_RANGE": [[150,250],[100,300],[301,400],[401,500],[501,600],[601,700]],
+            "PRIMER_PRODUCT_SIZE_RANGE": [[100,500]],
             "PRIMER_GC_CLAMP": 1,
-            "PRIMER_NUM_RETURN": 2,
+            "PRIMER_NUM_RETURN": 100,
             "PRIMER_MISPRIMING_LIBRARY":"/Users/dbrawand/dev/primula/tmp/human_repeat_simple.fa"
         }
     },
@@ -33,6 +33,6 @@
     },
     "snpcheck": {
         "COMMENT":"COMMON SNPs FOR PRIMER FILTERING (TABIX INDEXED)",
-        "commonsnp": "/Users/dbrawand/dev/primula/tmp/dbsnp_138.b37.G5A.vcf.gz"
+        "common": "/Users/dbrawand/dev/primula/tmp/dbsnp_138.b37.G5A.vcf.gz"
     }
 }

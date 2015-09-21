@@ -25,6 +25,7 @@ class PrimerDB(object):
             cursor.execute('CREATE TABLE IF NOT EXISTS design(seq TEXT, user TEXT, dateadded DATE, FOREIGN KEY(seq) REFERENCES primer(seq) ON UPDATE CASCADE)')
             cursor.execute('CREATE TABLE IF NOT EXISTS target(seq TEXT, chrom TEXT, pos TEXT, reverse BOOLEAN, FOREIGN KEY(seq) REFERENCES primer(seq) ON UPDATE CASCADE)')
             cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT PRIMARY KEY, left TEXT, right TEXT, FOREIGN KEY(left) REFERENCES primer(seq) ON UPDATE CASCADE, FOREIGN KEY(right) REFERENCES primer(seq) ON UPDATE CASCADE)')
+            cursor.execute('CREATE TABLE IF NOT EXISTS status(pairid TEXT, status INT, stock TEXT, FOREIGN KEY(pairid) REFERENCES pairs(pairid) ON UPDATE CASCADE)')
             self.db.commit()
         except:
             print >> sys.stderr, self.sqlite

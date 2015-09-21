@@ -104,6 +104,9 @@ class BED(object):
         self.entries = tiles
         return
 
+    def __len__(self):
+        return len(self.entries)
+
     def __iter__(self):
         for e in self.entries:
             yield e
