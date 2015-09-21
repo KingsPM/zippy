@@ -8,8 +8,8 @@ import sqlite3
 import fnmatch
 import copy
 from collections import defaultdict
-from primulalib import flatten, commonPrefix
-from primulalib.primer import Primer
+from zippylib import flatten, commonPrefix
+from zippylib.primer import Primer
 
 class PrimerDB(object):
     def __init__(self, database, user='unkown'):
@@ -37,7 +37,7 @@ class PrimerDB(object):
         return
 
     def __str__(self):
-        return '<PrimulaDB at %s>' % self.sqlite
+        return '<ZippyDB at %s>' % self.sqlite
 
     def __repr__(self):
         try:

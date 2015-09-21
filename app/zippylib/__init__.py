@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from primulalib.primer import Primer
+from zippylib.primer import Primer
 
 '''recursive function to flatten arbitrarily nested containers (list,tuples)'''
 def flatten(container):

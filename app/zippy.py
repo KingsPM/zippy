@@ -2,7 +2,7 @@
 
 __doc__=="""
 ################################################################
-# Primula - Primer database and automated design               #
+# Zippy - Primer database and automated design                 #
 # -- Organisation: Viapath Analytics / King's College Hospital #
 # -- From: 26/08/2015                                          #
 ################################################################
@@ -19,9 +19,9 @@ import os
 import sys
 import json
 import tempfile
-from primulalib.files import VCF, BED, Interval
-from primulalib.primer import MultiFasta, Primer3, Primer
-from primulalib.database import PrimerDB
+from zippylib.files import VCF, BED, Interval
+from zippylib.primer import MultiFasta, Primer3, Primer
+from zippylib.database import PrimerDB
 from argparse import ArgumentParser
 from collections import defaultdict, Counter
 
@@ -76,14 +76,14 @@ design primers from Vcf
     design primer pairs
 '''
 if __name__=="__main__":
-    parser = ArgumentParser(prog="primula.py", description= 'Primula - Primer design and database')
+    parser = ArgumentParser(prog="zippy.py", description= 'Zippy - Primer design and database')
     parser.add_argument('--version', action='version', version='%(prog)s '+__version__+'('+__status__+')',\
         help="Displays version")
 
     #   configuration files
     config_group = parser.add_argument_group('Configuration options')
-    config_group.add_argument("-c", dest="config", default='primula.json',metavar="JSON_FILE", \
-        help="configuration file [primula.json]")
+    config_group.add_argument("-c", dest="config", default='zippy.json',metavar="JSON_FILE", \
+        help="configuration file [zippy.json]")
     config_group.add_argument("--debug", dest="debug", default=False,action="store_true", \
         help="Debugging")
 

@@ -1,4 +1,4 @@
-# primula
+# Zippy
 Primer database and design
 
 ## Description
