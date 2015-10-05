@@ -16,6 +16,7 @@ import sys
 from math import ceil
 from collections import Counter
 from hashlib import md5
+from zippylib import ConfigError
 
 class Interval(object):
     def __init__(self,chrom,chromStart,chromEnd,name='',reverse=False):
@@ -139,6 +140,30 @@ class VCF(object):  # reads the whole file!
     def __iter__(self):
         for e in self.entries:
             yield e
+
+'''generic data class with formatted output'''
+class Data(object):
+    def __init__(self,data,header):
+        self.header = header
+        self.data = data
+
+    def writefile(self, fi):
+        if fi.endswith('.interval') or fi.endswith('.bed'):
+            try:
+                assert set(['chrom','chromStart','chromEnd','name']).issubset(set(self.header))
+                fh = open(fi,'w')
+            except AssertionError:
+                raise ConfigError('Wrong data format for interval/bed')
+            except:
+                raise
+            else:
+                for row in sorted(self.data):
+                    d = dict(zip(self.header,row))
+                    if fi.endswith('bed'):
+                        fh.write('\t'.join(map(str,[d['chrom'], d['chromStart'], d['chromEnd'], d['name']]))+'\n')
+                    else:
+                        fh.write('\t'.join(map(str,[d['chrom'], d['chromStart'], d['chromEnd'], '+', d['name']]))+'\n')
+                fh.close()
 
 
 if __name__=="__main__":

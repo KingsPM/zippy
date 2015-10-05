@@ -101,9 +101,47 @@ class PrimerDB(object):
             self.db.close()
         return
 
-    def query(variant, cfg):
+    def query(self, variant, cfg):
         raise NotImplementedError
         # return primer pairs that would match
+
+    def dump(self,what,**kwargs):
+        if what=='amplicons':
+            # dump amplicons (all possible)
+            try:
+                self.db = sqlite3.connect(self.sqlite)
+            except:
+                raise
+            else:
+                cursor = self.db.cursor()
+                # FWD strand
+                cursor.execute('''SELECT DISTINCT t1.chrom, t1.pos, t2.pos+length(t2.seq), p.pairid
+                    FROM pairs AS p
+                    LEFT JOIN target AS t1 ON p.left = t1.seq
+                    LEFT JOIN target AS t2 ON p.right = t2.seq
+                    WHERE t1.chrom = t2.chrom
+                    AND t2.pos+length(t2.seq)-t1.pos >= ?
+                    AND t2.pos+length(t2.seq)-t1.pos <= ?
+                    AND t1.reverse = 0
+                    AND t2.reverse = 1
+                    ORDER BY t1.chrom, t1.pos;''', (kwargs['size'][0],kwargs['size'][1]))
+                rows = cursor.fetchall()
+                # REV strand
+                cursor.execute('''SELECT DISTINCT t1.chrom, t1.pos, t2.pos+length(t2.seq), p.pairid
+                    FROM pairs AS p
+                    LEFT JOIN target AS t1 ON p.right = t1.seq
+                    LEFT JOIN target AS t2 ON p.left = t2.seq
+                    WHERE t1.chrom = t2.chrom
+                    AND t2.pos+length(t2.seq)-t1.pos >= ?
+                    AND t2.pos+length(t2.seq)-t1.pos <= ?
+                    AND t1.reverse = 0
+                    AND t2.reverse = 1
+                    ORDER BY t1.chrom, t1.pos;''', (kwargs['size'][0],kwargs['size'][1]))
+                rows += cursor.fetchall()
+            finally:
+                self.db.close()
+            return rows, ('chrom','chromStart','chromEnd','name')  # rows and colnames
+            # return [ '{}\t{}\t{}\t{}'.format(*row) for row in rows ]
 
 ''' SQLite based file and checkpoint manager
     def getTasks(self,status):

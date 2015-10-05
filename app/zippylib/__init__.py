@@ -22,3 +22,10 @@ def commonPrefix(left,right,stripchars='-_ ',commonlength=3):
         return left[:max(matchingPositions)].rstrip(stripchars)
     else:
         return None
+
+'''exception class for configuration errors'''
+class ConfigError(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return "[!] CONFIGURATION ERROR\n\t", repr(self.value)

@@ -19,9 +19,11 @@ import os
 import sys
 import json
 import tempfile
-from zippylib.files import VCF, BED, Interval
+from zippylib.files import VCF, BED, Interval, Data
 from zippylib.primer import MultiFasta, Primer3, Primer
 from zippylib.database import PrimerDB
+from zippylib import ConfigError
+
 from argparse import ArgumentParser
 from collections import defaultdict, Counter
 
@@ -36,17 +38,20 @@ def importPrimerPairs(fastafile):
     for primer in primers:
         primer.calcProperties()  # calc Tm and GC
     # find pairs
-    left_suffix, rite_suffix = ['l','L','5'],['r','R','3']
+    left_suffix, rite_suffix = ['F','f','L','l','5'],['R','r','3']
     pairs = []
     for i in range(len(primers)):
-        primerI = primers[i].name.split('_')
+        primerI = [ primers[i].name[:-1], primers[i].name[-1:] ]
         for j in range(i,len(primers)):
-            primerJ = primers[j].name.split('_')
-            if '_'.join(primerI[:-1]) == '_'.join(primerJ[:-1]):
-                if primerI[-1][0] in left_suffix and primerJ[-1][0] in rite_suffix:
+            if i==j: continue  # skip same primer
+            primerJ = [ primers[j].name[:-1], primers[j].name[-1:] ]
+            if primerI[0] == primerJ[0]:
+                if primerI[1] in left_suffix and primerJ[1] in rite_suffix:
                     pairs.append([primers[i], primers[j]])
-                elif primerJ[-1][0] in left_suffix and primerI[-1][0] in rite_suffix:
+                elif primerJ[1] in left_suffix and primerI[1] in rite_suffix:
                     pairs.append([primers[j], primers[i]])
+                else:
+                    raise Exception('saasd')
     # return valid pairs
     return pairs
 
@@ -84,7 +89,7 @@ if __name__=="__main__":
     config_group = parser.add_argument_group('Configuration options')
     config_group.add_argument("-c", dest="config", default='zippy.json',metavar="JSON_FILE", \
         help="configuration file [zippy.json]")
-    config_group.add_argument("--debug", dest="debug", default=False,action="store_true", \
+    config_group.add_argument("--debug", dest="debug", default=False, action="store_true", \
         help="Debugging")
 
     # run modes
@@ -108,6 +113,14 @@ if __name__=="__main__":
         help="Design primers if not in database")
     parser_retrieve.set_defaults(which='get')
 
+    ## dump specific datasets from database
+    parser_dump = subparsers.add_parser('dump', help='Data dump')
+    parser_dump.add_argument("--amplicons", dest="amplicons", default='', type=str, \
+        help="Retrieve possible amplicons of given size (eg. 100-800)")
+    parser_dump.add_argument("--outfile", dest="outfile", default='', type=str, \
+        help="Output file name (bed,interval,fasta)")
+    parser_dump.set_defaults(which='dump')
+
     options = parser.parse_args()
 
     ## read configuration (convert unicode to ascii string)
@@ -122,8 +135,33 @@ if __name__=="__main__":
 
     if options.which=='add':  # read primers and add to database
         pairs = importPrimerPairs(options.primers)  # import (and locate) primer pairs
-        db.addPair(*pairs)  # store pairs in database (assume they are correctly designed as mispriming is ignored)
-        print repr(db)  # show database content (debugging only)
+        db.addPair(*pairs)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
+        sys.stderr.write('Added {} primer pairs to database\n'.format(len(pairs)))
+        if options.debug: print repr(db)  # show database content (debugging only)
+    elif options.which=='dump':  # data dump fucntions (`for bulk downloads`)
+        if options.amplicons:
+            # dump amplicons fo given size to stdout
+            try:
+                l = options.amplicons.split('-')
+                assert len(l)==2
+                amplen = map(int,l)
+            except (AssertionError, ValueError):
+                raise ConfigError('must give amplicon size to retrieve')
+            except:
+                raise
+            else:
+                # get amplicons amplen
+                data,colnames = db.dump('amplicons',size=amplen)
+
+            # format data output
+            if options.outfile:
+                dump = Data(data,colnames)
+                dump.writefile(options.outfile)  # sets format by file extension
+            else:
+                print '\t'.join(colnames)
+                for row in data:
+                    print '\t'.join(map(str,row))
+
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
         intervals = readTargets(options.targets)  # get intervals from file or commandline
         ivpairs = {}  # found/designed primer pairs (from database or design)

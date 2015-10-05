@@ -12,15 +12,16 @@ class MultiFasta(object):
         self.file = file
 
     def createPrimers(self,db,bowtie='bowtie2'):
-        ## run bowtie (max 100 alignments, allow for one gap/mismatch?)
-        ####proc = subprocess.check_call( \
-        ####    [bowtie, '-f', '--end-to-end', \
-        ####    '-k 100', '-L 10', '-N 1', '-D 20', '-R 3', \
-        ####    '-x', db, '-U', self.file, '>', self.file+'.sam' ])
+        # run bowtie (max 1000 alignments, allow for one gap/mismatch?)
+        mapfile = self.file+'.sam'
+        if not os.path.exists(mapfile):
+            proc = subprocess.check_call( \
+                [bowtie, '-f', '--end-to-end', \
+                '-k 1000', '-L 10', '-N 1', '-D 20', '-R 3', \
+                '-x', db, '-U', self.file, '>', mapfile ])
         # read SAM OUTPUT
         primers = {}
-        ####mappings = pysam.Samfile(self.file+'.sam','r')
-        mappings = pysam.Samfile("/var/folders/m1/qn57ldw54wd4_ct7y7sggl3h0000gn/T/primers_ERY4FE.fa.sam",'r')
+        mappings = pysam.Samfile(self.file+'.sam','r')
         print self.file
         for aln in mappings:
             #print aln.rname, aln.qname, aln.pos, aln.seq
@@ -29,7 +30,7 @@ class MultiFasta(object):
                 primers[aln.qname] = Primer(aln.qname,aln.seq)
             # add full matching loci
             if not any(zip(*aln.cigar)[0]): # all matches (full length)
-                primers[aln.qname].addTarget(aln.rname, aln.pos, aln.is_reverse)
+                primers[aln.qname].addTarget(mappings.getrname(aln.reference_id), aln.pos, aln.is_reverse)
             # add other significant matches (1 mismatch/gap)
             elif zip(*aln.cigar)[0].count(0) >= len(aln.seq)-1:
                 primers[aln.qname].sigmatch += 1
@@ -55,9 +56,9 @@ class Primer(object):
     def __str__(self):
         return '<Primer ('+self.name+'): '+self.seq+', Targets: '+str(len(self.loci))+' (other significant: '+str(self.sigmatch)+')>'
 
-    def __repr__(self):
-        '''primer sequence with locations and annotations'''
-        raise NotImplementedError
+    # def __repr__(self):
+    #     '''primer sequence with locations and annotations'''
+    #     raise NotImplementedError
 
     def snpCheck(self,database):
         db = pysam.TabixFile(database)
@@ -77,7 +78,8 @@ class Primer(object):
 
     def snpFilter(self,position):
         # return list of boolean if spliced position has Variant
-        for l on self.loci:
+        for l in self.loci:
+            raise NotImplementedError
 
 
     def fasta(self,seqname=None):
