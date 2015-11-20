@@ -11,9 +11,9 @@ Vagrant.configure(2) do |config|
     sandbox.vm.provider "virtualbox" do |vb|
       vb.gui = false
       vb.cpus = 2
-      vb.memory = 2048
+      vb.memory = 4096
     end
-    sandbox.vm.provision "shell", path: "minimal.sh"  # base install and dotfile import
+    #sandbox.vm.provision "shell", path: "minimal.sh"  # base install and dotfile import
     sandbox.vm.provision "docker" do |d|
         d.pull_images "debian:jessie"
     end

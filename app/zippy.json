@@ -7,7 +7,7 @@
     },
     "primer3": {
         "COMMENT": "DESIGN GENOME AND PRIMER3 CONFIG",
-        "genome": "/Users/dbrawand/dev/zippy/tmp/human_g1k_v37.fasta",
+        "genome": "/home/vagrant/dev/zippy/zippy_resources/human_g1k_v37.fasta",
         "settings": {
             "PRIMER_TASK": "generic",
             "PRIMER_MIN_SIZE": 18,
@@ -23,16 +23,20 @@
             "PRIMER_PRODUCT_SIZE_RANGE": [[100,500]],
             "PRIMER_GC_CLAMP": 1,
             "PRIMER_NUM_RETURN": 100,
-            "PRIMER_MISPRIMING_LIBRARY":"/Users/dbrawand/dev/zippy/tmp/human_repeat_simple.fa"
+            "PRIMER_MISPRIMING_LIBRARY":"/home/vagrant/dev/zippy/zippy_resources/human_repeat_simple.fa"
         }
     },
     "targeting": {
         "COMMENT":"INEX FOR ALTERNATIVE AMPLIFICATION TARGETS",
-        "bowtieindex": "/Users/dbrawand/dev/zippy/tmp/human_g1k_v37.bowtie"
+        "bowtieindex": "/home/vagrant/dev/zippy/zippy_resources/human_g1k_v37.bowtie"
 
     },
     "snpcheck": {
         "COMMENT":"COMMON SNPs FOR PRIMER FILTERING (TABIX INDEXED)",
-        "common": "/Users/dbrawand/dev/zippy/tmp/dbsnp_138.b37.G5A.vcf.gz"
+        "common": "/home/vagrant/dev/zippy/zippy_resources/dbsnp_138.b37.G5A.vcf.gz"
+    },
+    "filtering": {
+        "mispriming": [1,10],
+        "commonSnps": [null,10]
     }
 }

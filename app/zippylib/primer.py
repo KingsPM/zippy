@@ -6,6 +6,7 @@ import pysam
 import subprocess
 from collections import defaultdict, OrderedDict
 
+
 '''just a wrapper for pysam'''
 class MultiFasta(object):
     def __init__(self,file):
@@ -17,11 +18,11 @@ class MultiFasta(object):
         if not os.path.exists(mapfile):
             proc = subprocess.check_call( \
                 [bowtie, '-f', '--end-to-end', \
-                '-k 1000', '-L 10', '-N 1', '-D 20', '-R 3', \
+                '-k 10', '-L 10', '-N 1', '-D 20', '-R 3', \
                 '-x', db, '-U', self.file, '>', mapfile ])
         # read SAM OUTPUT
         primers = {}
-        mappings = pysam.Samfile(self.file+'.sam','r')
+        mappings = pysam.Samfile(mapfile,'r')
         print self.file
         for aln in mappings:
             #print aln.rname, aln.qname, aln.pos, aln.seq
@@ -56,25 +57,15 @@ class Primer(object):
     def __str__(self):
         return '<Primer ('+self.name+'): '+self.seq+', Targets: '+str(len(self.loci))+' (other significant: '+str(self.sigmatch)+')>'
 
+    def __repr__(self):
+        return '<Primer ('+self.name+'): '+self.seq+', Targets: '+str(len(self.loci))+' (other significant: '+str(self.sigmatch)+')>'
+
+    def __len__(self):
+        return len(self.seq)
+
     # def __repr__(self):
     #     '''primer sequence with locations and annotations'''
     #     raise NotImplementedError
-
-    def snpCheck(self,database):
-        db = pysam.TabixFile(database)
-        self.snp = []  # reset existing snpCheck
-        for l in self.loci:
-            print 'locus', l
-            raise Exception('debug')
-            snpchk = []
-            # query database and translate to primer positions
-            for v in db.query(l[0],l[1],l[1]+len(self.seq)):
-                f = v.split()
-                primerStart = int(f[1])-l[1]
-                primerEnd = primerStart+len(f[3])
-                snpchk.append(Interval(f[0],primerStart,primerEnd,f[2]))
-            self.snp.append(snpchk)
-        return
 
     def snpFilter(self,position):
         # return list of boolean if spliced position has Variant
@@ -85,10 +76,12 @@ class Primer(object):
     def fasta(self,seqname=None):
         if not seqname:
             seqname = self.name
+        if 'POSITION' in self.meta.keys():
+            seqname += ' '+self.meta['POSITION'][0]+':'+"-".join(map(str,self.meta['POSITION'][1:]))
         return "\n".join([ ">"+seqname, self.seq ])
 
     def addTarget(self, chrom, pos, reverse):
-        self.loci.append([chrom,pos,reverse])
+        self.loci.append(Locus(chrom,pos,len(self),reverse))
         return
 
     def calcProperties(self):
@@ -99,14 +92,49 @@ class Primer(object):
         return
 
 
+'''Locus'''
+class Locus(object):
+    def __init__(self,chrom,offset,length,reverse):
+        self.chrom = chrom
+        self.offset = offset
+        self.length = length
+        self.reverse = reverse
+        self.snps = []
+
+    def __str__(self):
+        strand = '-' if self.reverse else '+'
+        return self.chrom+":"+str(self.offset)+":"+strand
+
+    def __lt__(self,other):
+        return (self.chrom, self.offset) < (other.chrom, other.offset)
+
+    def snpCheck(self,database):
+        db = pysam.TabixFile(database)
+        print '\tLOCUS', str(self), db
+        try:
+            snps = db.fetch(self.chrom,self.offset,self.offset+self.length)
+        except ValueError:
+            snps = []
+        except:
+            raise
+        # query database and translate to primer positions
+        for v in snps:
+            print "\t\tSNP", v 
+            f = v.split()
+            snpOffset = int(f[1])-self.offset
+            snpLength = max(len(f[3]),len(f[4]))
+            self.snps.append( (f[0],snpOffset,snpLength,f[2]) )
+        return
+
+
 class Primer3(object):
     def __init__(self,genome,target,flank=200):
         self.genome = genome
         self.target = target
         self.flank = flank
         fasta = pysam.FastaFile(self.genome)
-        flanked = ( self.target[0], self.target[1]-self.flank, self.target[2]+self.flank )
-        self.sequence = fasta.fetch(*flanked)
+        self.designregion = ( self.target[0], self.target[1]-self.flank, self.target[2]+self.flank )
+        self.sequence = fasta.fetch(*self.designregion)
         self.pairs = []
         self.explain = []
 
@@ -124,29 +152,35 @@ class Primer3(object):
         # design primers
         primers = primer3.bindings.designPrimers(seq,pars)
         # parse primer
-        designedPrimers, designedPairs = {}, {}
+        primerdata, explain = defaultdict(dict), []
         for k,v in primers.items():
-            m = re.match(r'PRIMER_(RIGHT|LEFT)_(\d+)_SEQUENCE',k)
+            m = re.match(r'PRIMER_(RIGHT|LEFT)_(\d+)(.*)',k)
             if m:
-                # create primer
-                if v not in designedPrimers.keys():
-                    designedPrimers[v] = Primer(name+"_"+str(m.group(2))+m.group(1),v)  # no name autosets
-                    designedPrimers[v].calcProperties()
-                # store pairs (reference primers)
-                if int(m.group(2)) not in designedPairs.keys():
-                    designedPairs[int(m.group(2))] = [None, None]
-                designedPairs[int(m.group(2))][0 if m.group(1).startswith('LEFT') else 1] = designedPrimers[v]
+                primername = name+"_"+str(m.group(2))+'_'+m.group(1)
+                if m.group(3):
+                    primerdata[primername][m.group(3)[1:]] = v
+                else:
+                    primerdata[primername]['POSITION'] = (self.designregion[0], self.designregion[1]+v[0], self.designregion[1]+v[0]+v[1])
             elif k.endswith('EXPLAIN'):
                 self.explain.append(v)
-        # add metadata
-        for k,v in primers.items():
-            m = re.match(r'PRIMER_(RIGHT|LEFT)_(\d+)',k)
-            if m:
-                metavar = '_'.join(k.split('_')[3:])
-                designedPairs[int(m.group(2))][0 if m.group(1).startswith('LEFT') else 1].meta[metavar] = v
+
+        designedPrimers, designedPairs = {}, {}
+        for k,v in sorted(primerdata.items()):
+            # k primername
+            # v dict of metadata 
+            if 'SEQUENCE' not in designedPrimers.keys():
+                designedPrimers[v['SEQUENCE']] = Primer(k,v['SEQUENCE'])  # no name autosets
+                designedPrimers[v['SEQUENCE']].calcProperties()
+
+                m = re.search(r'(\d+)_(LEFT|RIGHT)',k)
+                # store pairs (reference primers)
+                if int(m.group(1)) not in designedPairs.keys():
+                    designedPairs[int(m.group(1))] = [None, None]
+                designedPairs[int(m.group(1))][0 if m.group(2).startswith('LEFT') else 1] = designedPrimers[v['SEQUENCE']]
+                # all other datafields
+                designedPrimers[v['SEQUENCE']].meta = v
         # store
         self.pairs += OrderedDict(sorted(designedPairs.items())).values()
-
         # if design fails there will be 0 pairs, simple!
         # if not self.pairs:
         #     print self.explain

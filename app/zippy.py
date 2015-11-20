@@ -16,6 +16,7 @@ __email__ = "dbrawand@nhs.net"
 __status__ = "Development"
 
 import os
+import re
 import sys
 import json
 import tempfile
@@ -32,19 +33,25 @@ reads fasta fastafile
 searches genome for targets
 decides if valid pairs
 '''
+
+# m = re.match(r'(.+)([^_]+)$', string)
+
+# prefix = m.group(1)
+# suffix = m.group(2)
+
 def importPrimerPairs(fastafile):
     primerfile = MultiFasta(fastafile)
     primers = primerfile.createPrimers(config['targeting']['bowtieindex'])  # places in genome
     for primer in primers:
         primer.calcProperties()  # calc Tm and GC
     # find pairs
-    left_suffix, rite_suffix = ['F','f','L','l','5'],['R','r','3']
+    left_suffix, rite_suffix = ['F','f','L','l','5','left'],['R','r','3','right']
     pairs = []
     for i in range(len(primers)):
-        primerI = [ primers[i].name[:-1], primers[i].name[-1:] ]
+        primerI = [ '_'.join(primers[i].name.split('_')[:-1]), primers[i].name.split('_')[-1] ]
         for j in range(i,len(primers)):
             if i==j: continue  # skip same primer
-            primerJ = [ primers[j].name[:-1], primers[j].name[-1:] ]
+            primerJ = [ '_'.join(primers[j].name.split('_')[:-1]), primers[j].name.split('_')[-1] ]
             if primerI[0] == primerJ[0]:
                 if primerI[1] in left_suffix and primerJ[1] in rite_suffix:
                     pairs.append([primers[i], primers[j]])
@@ -130,6 +137,7 @@ if __name__=="__main__":
     with open(options.config) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
 
+
     # open database handler
     db = PrimerDB(config['database'])
 
@@ -168,7 +176,6 @@ if __name__=="__main__":
         # primer searching
         for iv in intervals:
             if options.database:  # check if inteval covered by primer pair
-                raise NotImplementedError
                 ivpairs[iv] = db.query(iv, config['primer3']['settings'])
                 if ivpairs[iv]:
                     print "Found %d pairs for iv %s" % (len(ivpairs[iv]), iv)
@@ -183,6 +190,7 @@ if __name__=="__main__":
             if options.design and iv not in ivpairs.keys():  # not in database
                 p3 = Primer3(config['primer3']['genome'],iv.locus(),300)  # genome and target
                 p3.design(iv.name,config['primer3']['settings'])
+                #print p3.pairs
                 if options.debug:
                     p3.show()  # show placed primers
                 if options.debug:
@@ -191,36 +199,64 @@ if __name__=="__main__":
                         print pair[0].name, pair[1].name
                 ivpairs[iv] = p3.pairs
 
+        
         # check new designs for mispriming and create valid primer pairs
         ## write to fasta (process batch at once
         print >> sys.stderr, "\rChecking genome wide mispriming"
-        fh = tempfile.NamedTemporaryFile(suffix='.fa',prefix="primers_",delete=False)
+        #fh = tempfile.NamedTemporaryFile(suffix='.fa',prefix="primers_",delete=False)
+        fh = open("/tmp/test.fa",'w')
         for k,v in ivpairs.items():
             print k
             for pairnumber, pair in enumerate(v):
                 print >> fh, pair[0].fasta('_'.join([ k.name, str(pairnumber), "left" ]))
                 print >> fh, pair[1].fasta('_'.join([ k.name, str(pairnumber), "right" ]))
         fh.close()
+
         ## create primers with mispriming added
         pairs = importPrimerPairs(fh.name)
         ## remove fasta file
         os.unlink(fh.name)
         ## add SNPinfo (SNPcheck)
         counter = Counter()
-        for p in pairs:
+        for pair in pairs[:100]:
+            print "Pair",pair
             counter['pairs'] += 1
-            if len(p[0].loci)==1 and len(p[1].loci)==1:
-                print p[0].loci[0]
-                print p[1].loci[0]
-                # is unique
-                counter['unique'] += 1
-                p[0].snpCheck(config['snpcheck']['common'])
-                p[1].snpCheck(config['snpcheck']['common'])
-                # no snp in the last third of the sequence (3 prime)
-                if len(p[0].snp)==0 and len(p[1].snp==0):
-                    counter['unique'] += 1
-                    # no snp at ALL
-                    print p[0],p[1]
+            for p in pair:
+                print "Primer"
+                for locus in p.loci:
+                    counter['loci'] += 1
+                    #print "locus is: ", locus
+                    locus.snpCheck(config['snpcheck']['common'])
+
+
+
+
+
+
+
+        # Only want to SNPcheck on the locus that we are interested in...where do we get this from?!?!
+
+
+        # Sort primer pairs on number of matches
+
+
+        # Sort primers pairs on number of SNPs
+
+
+
+
+        print >> sys.stderr, counter
+        # passedPairs = []
+        # for p in sorted(pairs, key=lambda x: sum())
+
+
+        #         # no snp in the last third of the sequence (3 prime)
+        #         if len(p[0].snp)==0 and len(p[1].snp==0):
+        #             counter['unique'] += 1
+        #             # no snp at ALL
+        #             print p[0],p[1]
+        #     else:
+        #         print len(p[0].loci), len(p[1].loci)
         ## print primer
 
 
