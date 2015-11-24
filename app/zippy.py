@@ -218,15 +218,43 @@ if __name__=="__main__":
         os.unlink(fh.name)
         ## add SNPinfo (SNPcheck)
         counter = Counter()
+        
+
         for pair in pairs[:100]:
             print "Pair",pair
             counter['pairs'] += 1
             for p in pair:
-                print "Primer"
-                for locus in p.loci:
-                    counter['loci'] += 1
-                    #print "locus is: ", locus
-                    locus.snpCheck(config['snpcheck']['common'])
+                print "Primer", p
+                reTargetposition = re.match(r'(\w+):(\d+)-(\d+)',p.targetposition)
+                print 'OK'
+                if reTargetposition:
+                    print 'YES'
+
+
+                    for locus in p.loci:
+                        print locus
+                        counter['loci'] += 1
+                        if locus.chrom == reTargetposition.group(1):
+                            print '\t\t\t\t - - CHROM MATCH - -',locus.chrom,'-',reTargetposition.group(1)
+                            if int(locus.offset) <= int(reTargetposition.group(2)) and int(locus.offset) >= int(reTargetposition.group(2)) - 25:
+                                print '\t\t\t\t - - - POSITION MATCH - - -',locus.offset,'-',reTargetposition.group(2),'-'
+                                print 'snpCheck-ing locus at'
+                            else:
+                                print '\t\t\t - - Not matching position',locus.offset,'-',reTargetposition.group(2)
+                        else:
+                            print '\t\t\t\t - - NO MATCH - -',locus.chrom,'-',reTargetposition.group(1),'-'
+                            continue
+
+                #raise NotImplementedError
+            #        
+            #        #print "locus is: ", locus
+            #        if locus.chrom == p.reTargetposition.group(0)
+            #        print locus.chrom
+            #        #and locus.offset >= #2nd part of targetposition
+            #        #and locus.offset <= #3rd part of targetposition
+            #        locus.snpCheck(config['snpcheck']['common'])
+
+
 
 
 

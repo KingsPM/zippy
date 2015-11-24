@@ -20,21 +20,27 @@ class MultiFasta(object):
                 [bowtie, '-f', '--end-to-end', \
                 '-k 10', '-L 10', '-N 1', '-D 20', '-R 3', \
                 '-x', db, '-U', self.file, '>', mapfile ])
-        # read SAM OUTPUT
+        # Read fasta file (Create Primer)
         primers = {}
+        fasta = pysam.FastaFile(self.file)
+        #print fasta.references
+        for s in fasta.references:
+            primername = s.split('|')[0]
+            targetposition = s.split('|')[1]
+            # modify constructor of primer to accept target position
+            primers[primername] = Primer(primername,fasta.fetch(s),targetposition)
+
+        # read SAM OUTPUT
         mappings = pysam.Samfile(mapfile,'r')
         print self.file
         for aln in mappings:
-            #print aln.rname, aln.qname, aln.pos, aln.seq
-            if aln.qname not in primers.keys():
-                # create primer
-                primers[aln.qname] = Primer(aln.qname,aln.seq)
+            primername = aln.qname.split('|')[0]
             # add full matching loci
             if not any(zip(*aln.cigar)[0]): # all matches (full length)
-                primers[aln.qname].addTarget(mappings.getrname(aln.reference_id), aln.pos, aln.is_reverse)
+                primers[primername].addTarget(mappings.getrname(aln.reference_id), aln.pos, aln.is_reverse)
             # add other significant matches (1 mismatch/gap)
             elif zip(*aln.cigar)[0].count(0) >= len(aln.seq)-1:
-                primers[aln.qname].sigmatch += 1
+                primers[primername].sigmatch += 1
 
         ## delete mapping FILE
         ####os.unlink(self.file+'.sam')
@@ -42,7 +48,7 @@ class MultiFasta(object):
 
 '''fasta/primer'''
 class Primer(object):
-    def __init__(self,name,seq,tm=None,gc=None,loci=[]):
+    def __init__(self,name,seq,targetposition=None,tm=None,gc=None,loci=[]):
         self.name = name if name else 'primer_'+md5(seq).hexdigest()[:8]
         self.seq = seq.upper()
         self.tm = tm
@@ -51,14 +57,15 @@ class Primer(object):
         self.snp = []  # same order as loci attribute
         self.meta = {}  # metadata
         self.sigmatch = 0  # significant other matches (just counted)
+        self.targetposition = targetposition
         if loci:
             pass
 
     def __str__(self):
-        return '<Primer ('+self.name+'): '+self.seq+', Targets: '+str(len(self.loci))+' (other significant: '+str(self.sigmatch)+')>'
+        return '<Primer ('+self.name+'): '+self.seq+', Targets: '+str(len(self.loci))+' (other significant: '+str(self.sigmatch)+'); Target position: '+str(self.targetposition)+'>'
 
     def __repr__(self):
-        return '<Primer ('+self.name+'): '+self.seq+', Targets: '+str(len(self.loci))+' (other significant: '+str(self.sigmatch)+')>'
+        return '<Primer ('+self.name+'): '+self.seq+', Targets: '+str(len(self.loci))+' (other significant: '+str(self.sigmatch)+'); Target position: '+str(self.targetposition)+'>'
 
     def __len__(self):
         return len(self.seq)
@@ -77,7 +84,7 @@ class Primer(object):
         if not seqname:
             seqname = self.name
         if 'POSITION' in self.meta.keys():
-            seqname += ' '+self.meta['POSITION'][0]+':'+"-".join(map(str,self.meta['POSITION'][1:]))
+            seqname += '|'+self.meta['POSITION'][0]+':'+"-".join(map(str,self.meta['POSITION'][1:]))
         return "\n".join([ ">"+seqname, self.seq ])
 
     def addTarget(self, chrom, pos, reverse):
