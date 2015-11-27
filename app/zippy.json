@@ -33,7 +33,7 @@
     },
     "snpcheck": {
         "COMMENT":"COMMON SNPs FOR PRIMER FILTERING (TABIX INDEXED)",
-        "common": "/home/vagrant/dev/zippy/zippy_resources/dbsnp_138.b37.G5A.vcf.gz"
+        "common": "/home/vagrant/dev/zippy/zippy_resources/dbsnp_138.b37.vcf.gz"
     },
     "filtering": {
         "mispriming": [1,10],

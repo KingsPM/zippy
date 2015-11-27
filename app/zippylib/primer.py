@@ -20,20 +20,36 @@ class MultiFasta(object):
                 [bowtie, '-f', '--end-to-end', \
                 '-k 10', '-L 10', '-N 1', '-D 20', '-R 3', \
                 '-x', db, '-U', self.file, '>', mapfile ])
+        
         # Read fasta file (Create Primer)
         primers = {}
         fasta = pysam.FastaFile(self.file)
         #print fasta.references
         for s in fasta.references:
             primername = s.split('|')[0]
-            targetposition = s.split('|')[1]
+            try:
+                targetposition = s.split('|')[1]
+                reTargetposition = re.match(r'(\w+):(\d+)-(\d+)',targetposition)
+            except:
+                raise Exception('fixme')
+
             # modify constructor of primer to accept target position
-            primers[primername] = Primer(primername,fasta.fetch(s),targetposition)
+            # chrom,offset,length,reverse
+
+            # MAKE TARGETPOSITION A LOCUS OBJECT VVVV
+            reverse = True if primername.split('_')[-1].startswith("r") else False
+            targetLocus = Locus(reTargetposition.group(1), int(reTargetposition.group(2)), int(reTargetposition.group(3))-int(reTargetposition.group(2)), reverse)
+
+            primers[primername] = Primer(primername,fasta.fetch(s),targetLocus)
+
 
         # read SAM OUTPUT
         mappings = pysam.Samfile(mapfile,'r')
-        print self.file
+        # print self.file
+
+        # print '\n'.join(sorted(primers.keys()))
         for aln in mappings:
+            # print aln.qname
             primername = aln.qname.split('|')[0]
             # add full matching loci
             if not any(zip(*aln.cigar)[0]): # all matches (full length)
@@ -98,6 +114,20 @@ class Primer(object):
         self.gc = (self.seq.count('G') + self.seq.count('C')) / float(len(self.seq))
         return
 
+    def snpCheckPrimer(self,vcf):
+        self.snp = self.targetposition.snpCheck(vcf)
+        return True if self.snp else False
+
+    def checkTarget(self):
+         # print 'OK'
+        if self.targetposition is not None:
+            for locus in self.loci:
+                if locus.chrom == self.targetposition.chrom:
+                    if int(locus.offset) == int(self.targetposition.offset):
+                        return True
+            return False
+        return True
+
 
 '''Locus'''
 class Locus(object):
@@ -106,7 +136,6 @@ class Locus(object):
         self.offset = offset
         self.length = length
         self.reverse = reverse
-        self.snps = []
 
     def __str__(self):
         strand = '-' if self.reverse else '+'
@@ -118,6 +147,8 @@ class Locus(object):
     def snpCheck(self,database):
         db = pysam.TabixFile(database)
         print '\tLOCUS', str(self), db
+        print '\t\t', self.chrom,self.offset,self.offset+self.length
+        print '\t\t\t', self.length
         try:
             snps = db.fetch(self.chrom,self.offset,self.offset+self.length)
         except ValueError:
@@ -125,13 +156,15 @@ class Locus(object):
         except:
             raise
         # query database and translate to primer positions
+        print snps
+        snp_positions = []
         for v in snps:
             print "\t\tSNP", v 
             f = v.split()
             snpOffset = int(f[1])-self.offset
             snpLength = max(len(f[3]),len(f[4]))
-            self.snps.append( (f[0],snpOffset,snpLength,f[2]) )
-        return
+            snp_positions.append( (f[0],snpOffset,snpLength,f[2]) )
+        return snp_positions
 
 
 class Primer3(object):
@@ -161,13 +194,17 @@ class Primer3(object):
         # parse primer
         primerdata, explain = defaultdict(dict), []
         for k,v in primers.items():
+            # print k, v
+            # print self. designregion
             m = re.match(r'PRIMER_(RIGHT|LEFT)_(\d+)(.*)',k)
             if m:
                 primername = name+"_"+str(m.group(2))+'_'+m.group(1)
                 if m.group(3):
                     primerdata[primername][m.group(3)[1:]] = v
                 else:
-                    primerdata[primername]['POSITION'] = (self.designregion[0], self.designregion[1]+v[0], self.designregion[1]+v[0]+v[1])
+                    absoluteStart = self.designregion[1]+v[0]-(v[1]-1) if m.group(1)=="RIGHT" else self.designregion[1]+v[0]
+                    absoluteEnd = self.designregion[1]+v[0] if  m.group(1)=="RIGHT" else self.designregion[1]+v[0]+v[1]                    
+                    primerdata[primername]['POSITION'] = (self.designregion[0], absoluteStart, absoluteEnd)
             elif k.endswith('EXPLAIN'):
                 self.explain.append(v)
 

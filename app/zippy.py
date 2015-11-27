@@ -206,7 +206,7 @@ if __name__=="__main__":
         #fh = tempfile.NamedTemporaryFile(suffix='.fa',prefix="primers_",delete=False)
         fh = open("/tmp/test.fa",'w')
         for k,v in ivpairs.items():
-            print k
+            # print k
             for pairnumber, pair in enumerate(v):
                 print >> fh, pair[0].fasta('_'.join([ k.name, str(pairnumber), "left" ]))
                 print >> fh, pair[1].fasta('_'.join([ k.name, str(pairnumber), "right" ]))
@@ -217,58 +217,79 @@ if __name__=="__main__":
         ## remove fasta file
         os.unlink(fh.name)
         ## add SNPinfo (SNPcheck)
-        counter = Counter()
+        ## snpCheck the loci of each primer (not alternative loci that primer matches in genome) in each pair
+        for pair in pairs:
+            # print "Pair",pair
+            for p in pair:
+                print "PRIMER", p
+                p.snpCheckPrimer(config['snpcheck']['common'])
+                print 'FOUND', len(p.snp), "SNPS", p.targetposition
+                # reTargetposition = re.match(r'(\w+):(\d+)-(\d+)',p.targetposition)
+
+            #     try:
+            #         assert p.checkTarget()
+            #     except AssertionError:
+            #         print "no target found"
+            #         raise
+            #     except:
+            #         raise
+            #     else:
+            #         p.snpCheck(p.targetLocus,config['snpcheck']['common'])
+
+
+            # def cnpCheck(self,vcf,target=None):
+            #     if not target:
+            #         target = self.targetLocusz
+
+
+
+
+
+        def sortvalues(p):
+            snpcount = len(p[0].snp)+len(p[1].snp)
+            mispriming = max(len(p[0].loci), len(p[1].loci))
+            primerRank = int(p[0].name.split('_')[-2])
+            return (snpcount, mispriming, primerRank)
+
+
+        found = set()
+        for i, p in enumerate(sorted(pairs,key=sortvalues)):
+            pname = '_'.join(p[0].name.split('_')[:-2])
+            if pname in found:
+                continue
+            print p, sortvalues(p)
+            #print "\t", p[0]
+            #print "\t", p[1]
+            found.add(pname)
+            if i >500:
+                break
+
+        sys.exit('dfahjsdhj')
+
         
 
-        for pair in pairs[:100]:
-            print "Pair",pair
-            counter['pairs'] += 1
-            for p in pair:
-                print "Primer", p
-                reTargetposition = re.match(r'(\w+):(\d+)-(\d+)',p.targetposition)
-                print 'OK'
-                if reTargetposition:
-                    print 'YES'
 
+        ## remove any primer pairs with known SNPs in primer taget
+        snpFilteredPairs = []
+        for elem in pairs:
+            if len(elem[0].snp) < 1 and len(elem[1].snp) < 1:
+                snpFilteredPairs.append(elem)
+            else:
+                continue
+        
+            print elem[0],'--',elem[0].snp
+            print elem[1],'--',elem[1].snp
 
-                    for locus in p.loci:
-                        print locus
-                        counter['loci'] += 1
-                        if locus.chrom == reTargetposition.group(1):
-                            print '\t\t\t\t - - CHROM MATCH - -',locus.chrom,'-',reTargetposition.group(1)
-                            if int(locus.offset) <= int(reTargetposition.group(2)) and int(locus.offset) >= int(reTargetposition.group(2)) - 25:
-                                print '\t\t\t\t - - - POSITION MATCH - - -',locus.offset,'-',reTargetposition.group(2),'-'
-                                print 'snpCheck-ing locus at'
-                            else:
-                                print '\t\t\t - - Not matching position',locus.offset,'-',reTargetposition.group(2)
-                        else:
-                            print '\t\t\t\t - - NO MATCH - -',locus.chrom,'-',reTargetposition.group(1),'-'
-                            continue
+        ## Order pairs by number of misprimes predicted
+        for elem in snpFilteredPairs:
+            elem.append(max(len(elem[0].loci), len(elem[1].loci)))
 
-                #raise NotImplementedError
-            #        
-            #        #print "locus is: ", locus
-            #        if locus.chrom == p.reTargetposition.group(0)
-            #        print locus.chrom
-            #        #and locus.offset >= #2nd part of targetposition
-            #        #and locus.offset <= #3rd part of targetposition
-            #        locus.snpCheck(config['snpcheck']['common'])
+        print "\n\n\n - - ORDERING PAIRS - -\n\n\n"
+        orderedPairs = sorted(snpFilteredPairs, key=lambda pair: pair[2])
 
+        for elem in orderedPairs:
+            print elem
 
-
-
-
-
-
-
-
-        # Only want to SNPcheck on the locus that we are interested in...where do we get this from?!?!
-
-
-        # Sort primer pairs on number of matches
-
-
-        # Sort primers pairs on number of SNPs
 
 
 
