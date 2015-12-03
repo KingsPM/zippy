@@ -221,6 +221,10 @@ if __name__=="__main__":
         for pair in pairs:
             # print "Pair",pair
             for p in pair:
+                p.checkTarget()
+
+
+                print p.targetCorrect
                 print "PRIMER", p
                 p.snpCheckPrimer(config['snpcheck']['common'])
                 print 'FOUND', len(p.snp), "SNPS", p.targetposition
@@ -244,16 +248,20 @@ if __name__=="__main__":
 
 
 
-
+        ## Returns count of SNPs at primer sites, count of misprimes, primer3 rank for primer pair true/False for correct mapping of to intended target
         def sortvalues(p):
             snpcount = len(p[0].snp)+len(p[1].snp)
             mispriming = max(len(p[0].loci), len(p[1].loci))
             primerRank = int(p[0].name.split('_')[-2])
-            return (snpcount, mispriming, primerRank)
+            targetMatch = all([p[0].targetCorrect,p[1].targetCorrect]) ## --- FALSE COMES FIRST - FIX ---
+            return (snpcount, mispriming, primerRank, targetMatch)
 
+        print >> sys.stderr, "\rOrdering candidate pairs for suitability\r"
 
         found = set()
         for i, p in enumerate(sorted(pairs,key=sortvalues)):
+            if False in sortvalues(p):
+                continue
             pname = '_'.join(p[0].name.split('_')[:-2])
             if pname in found:
                 continue
@@ -264,31 +272,13 @@ if __name__=="__main__":
             if i >500:
                 break
 
-        sys.exit('dfahjsdhj')
+        sys.exit('Finished!!!')
 
         
 
 
         ## remove any primer pairs with known SNPs in primer taget
-        snpFilteredPairs = []
-        for elem in pairs:
-            if len(elem[0].snp) < 1 and len(elem[1].snp) < 1:
-                snpFilteredPairs.append(elem)
-            else:
-                continue
-        
-            print elem[0],'--',elem[0].snp
-            print elem[1],'--',elem[1].snp
 
-        ## Order pairs by number of misprimes predicted
-        for elem in snpFilteredPairs:
-            elem.append(max(len(elem[0].loci), len(elem[1].loci)))
-
-        print "\n\n\n - - ORDERING PAIRS - -\n\n\n"
-        orderedPairs = sorted(snpFilteredPairs, key=lambda pair: pair[2])
-
-        for elem in orderedPairs:
-            print elem
 
 
 
