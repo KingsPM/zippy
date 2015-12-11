@@ -42,7 +42,7 @@ class MultiFasta(object):
 
             primers[primername] = Primer(primername,fasta.fetch(s),targetLocus)
 
-
+        
         # read SAM OUTPUT
         mappings = pysam.Samfile(mapfile,'r')
         # print self.file

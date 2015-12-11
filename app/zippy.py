@@ -230,6 +230,7 @@ if __name__=="__main__":
                 print 'FOUND', len(p.snp), "SNPS", p.targetposition
                 # reTargetposition = re.match(r'(\w+):(\d+)-(\d+)',p.targetposition)
 
+
             #     try:
             #         assert p.checkTarget()
             #     except AssertionError:
@@ -259,6 +260,7 @@ if __name__=="__main__":
         print >> sys.stderr, "\rOrdering candidate pairs for suitability\r"
 
         found = set()
+        resultList = []
         for i, p in enumerate(sorted(pairs,key=sortvalues)):
             if False in sortvalues(p):
                 continue
@@ -266,11 +268,26 @@ if __name__=="__main__":
             if pname in found:
                 continue
             print p, sortvalues(p)
+            resultList.append(p)
             #print "\t", p[0]
             #print "\t", p[1]
             found.add(pname)
             if i >500:
                 break
+
+        db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
+            # print repr(db)
+ 
+ 
+        fh2 = open("/tmp/designedPrimers.fa",'w')
+        for pair in resultList:
+            for p in pair:
+                p.strand = '-' if p.targetposition.reverse else '+'
+                print >> fh2, ">",p.name+"|"+p.targetposition.chrom+":"+str(p.targetposition.offset)+\
+                "-"+str(int(p.targetposition.offset)+int(p.targetposition.length))+"\n"+\
+                str(p.seq)
+        fh2.close()
+        print resultList
 
         sys.exit('Finished!!!')
 

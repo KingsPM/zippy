@@ -21,11 +21,10 @@ class PrimerDB(object):
         cursor = self.db.cursor()
         try:
             # TABLE
-            cursor.execute('CREATE TABLE IF NOT EXISTS primer(seq TEXT PRIMARY KEY, tm REAL, gc REAL)')
-            cursor.execute('CREATE TABLE IF NOT EXISTS design(seq TEXT, user TEXT, dateadded DATE, FOREIGN KEY(seq) REFERENCES primer(seq) ON UPDATE CASCADE)')
-            cursor.execute('CREATE TABLE IF NOT EXISTS target(seq TEXT, chrom TEXT, pos TEXT, reverse BOOLEAN, FOREIGN KEY(seq) REFERENCES primer(seq) ON UPDATE CASCADE)')
-            cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT PRIMARY KEY, left TEXT, right TEXT, FOREIGN KEY(left) REFERENCES primer(seq) ON UPDATE CASCADE, FOREIGN KEY(right) REFERENCES primer(seq) ON UPDATE CASCADE)')
-            cursor.execute('CREATE TABLE IF NOT EXISTS status(pairid TEXT, status INT, stock TEXT, FOREIGN KEY(pairid) REFERENCES pairs(pairid) ON UPDATE CASCADE)')
+            cursor.execute('CREATE TABLE IF NOT EXISTS primer(name TEXT PRIMARY KEY, seq TEXT, tm REAL, gc REAL, FOREIGN KEY(seq) REFERENCES target(seq));')
+            cursor.execute('CREATE TABLE IF NOT EXISTS target(seq TEXT PRIMARY KEY, chrom TEXT, position INT, reverse BOOLEAN);')
+            cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT PRIMARY KEY, left TEXT, right TEXT, chrom TEXT, start INT, end INT, FOREIGN KEY(left) REFERENCES primer(seq), FOREIGN KEY(right) REFERENCES primer(seq));')
+            cursor.execute('CREATE TABLE IF NOT EXISTS status(pairid TEXT PRIMARY KEY, status INT, dateadded TEXT, FOREIGN KEY(pairid) REFERENCES pairs(pairid));')
             self.db.commit()
         except:
             print >> sys.stderr, self.sqlite
@@ -46,7 +45,7 @@ class PrimerDB(object):
             raise
         else:
             cursor = self.db.cursor()
-            cursor.execute('SELECT pairs.*, p1.tm, p2.tm FROM pairs LEFT JOIN primer as p1 ON pairs.left = p1.seq LEFT JOIN primer as p2 ON pairs.right = p2.seq')
+            cursor.execute('SELECT pairs.*, p1.tm, p2.tm FROM pairs LEFT JOIN primer as p1 ON pairs.left = p1.seq LEFT JOIN primer as p2 ON pairs.right = p2.seq;')
             rows = cursor.fetchall()
         finally:
             self.db.close()
@@ -63,13 +62,11 @@ class PrimerDB(object):
         else:
             for p in primers:
                 cursor = self.db.cursor()
-                cursor.execute('''INSERT OR REPLACE INTO primer(seq,tm,gc) VALUES(?,?,?)''', \
-                    (p.seq, p.tm, p.gc))
+                cursor.execute('''INSERT OR REPLACE INTO primer(name,seq,tm,gc) VALUES(?,?,?,?)''', \
+                    (p.name, p.seq, p.tm, p.gc))
                 for l in p.loci:
-                    cursor.execute('''INSERT OR REPLACE INTO target(seq,chrom,pos,reverse) VALUES(?,?,?,?)''', \
-                        (p.seq, l[0], l[1], l[2]))
-                cursor.execute('''INSERT OR REPLACE INTO design(seq,user,dateadded) VALUES(?,?,?)''', \
-                    (p.seq, self.user, datetime.datetime.now()))
+                    cursor.execute('''INSERT OR REPLACE INTO target(seq,chrom,position,reverse) VALUES(?,?,?,?)''', \
+                        (p.seq, l.chrom, l.offset, l.reverse))
             self.db.commit()
         finally:
             self.db.close()
@@ -92,10 +89,15 @@ class PrimerDB(object):
                 left, right = p[0],p[1]
                 # find common substring in name for automatic naming
                 pairid = commonPrefix(left.name,right.name)
+                chrom = left.targetposition.chrom
+                start = left.targetposition.offset
+                end = right.targetposition.offset+right.targetposition.length
                 if not pairid:  # fallback
                     pairid = "X"+md5(left.seq+'_'+right.seq).hexdigest()
-                cursor.execute('''INSERT OR REPLACE INTO pairs(pairid,left,right) VALUES(?,?,?)''', \
-                    (pairid, left.seq, right.seq))
+                cursor.execute('''INSERT OR REPLACE INTO pairs(pairid,left,right,chrom,start,end) VALUES(?,?,?,?,?,?)''', \
+                    (pairid, left.seq, right.seq, chrom, start, end))
+                cursor.execute('''INSERT OR REPLACE INTO status(pairID,dateadded) VALUES(?,?)''', \
+                    (pairid, datetime.datetime.now()))
             self.db.commit()
         finally:
             self.db.close()
@@ -106,6 +108,7 @@ class PrimerDB(object):
         # return primer pairs that would match
 
     def dump(self,what,**kwargs):
+        raise NotImplementedError
         if what=='amplicons':
             # dump amplicons (all possible)
             try:
