@@ -176,7 +176,7 @@ if __name__=="__main__":
         # primer searching
         for iv in intervals:
             if options.database:  # check if inteval covered by primer pair
-                ivpairs[iv] = db.query(iv, config['primer3']['settings'])
+                ivpairs[iv] = db.query(iv, config['tiling']['flank'])
                 if ivpairs[iv]:
                     print "Found %d pairs for iv %s" % (len(ivpairs[iv]), iv)
                 elif options.deep:  ## check if a new combination of primers would work
@@ -278,7 +278,7 @@ if __name__=="__main__":
         db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
             # print repr(db)
  
- 
+
         fh2 = open("/tmp/designedPrimers.fa",'w')
         for pair in resultList:
             for p in pair:

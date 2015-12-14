@@ -53,6 +53,20 @@ class PrimerDB(object):
 
     def getPrimers(self, paired=True):
         raise NotImplementedError
+        # try:
+        #     self.db = sqlite3.connect(self.sqlite)
+        # except:
+        #     raise
+        # else:
+        #     cursor = self.db.cursor()
+        #     cursor.execute('''SELCECT FROM primer''')
+
+
+
+        #     self.db.commit()
+        # finally:
+        #     self.db.close()
+        # return
 
     def addPrimer(self, *primers):
         try:
@@ -103,8 +117,35 @@ class PrimerDB(object):
             self.db.close()
         return
 
-    def query(self, variant, cfg):
-        raise NotImplementedError
+    def query(self, variant, flank):
+        '''returns suitable primer pairs for the specified loci'''
+        try:
+            self.db = sqlite3.connect(self.sqlite)
+        except:
+            raise
+        else:
+            chrom = variant.chrom
+            chromStart = variant.chromStart
+            chromEnd = variant.chromEnd
+            print chrom
+            print chromStart
+            print chromEnd
+            print flank
+            cursor = self.db.cursor()
+            cursor.execute('''SELECT *
+                FROM pairs AS p
+                LEFT JOIN target AS t1 ON p.left = t1.seq
+                LEFT JOIN target AS t2 ON p.right = t2.seq
+                WHERE t1.chrom = t2.chrom
+                AND t1.chrom = ?
+                AND t1.position + length(t1.seq) + ? <= ?
+                AND t2.position - ? >= ?;''', (chrom, flank, chromStart, flank, chromEnd))
+
+            rows = cursor.fetchall()
+ 
+        finally:
+            self.db.close()
+        return rows
         # return primer pairs that would match
 
     def dump(self,what,**kwargs):
