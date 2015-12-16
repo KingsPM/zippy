@@ -143,14 +143,19 @@ class PrimerDB(object):
                 AND t2.position - ? >= ?;''', (chrom, flank, chromStart, flank, chromEnd))
 
             rows = cursor.fetchall()
-            # cursor.execute('''SELECT COUNT *
-                # FROM target AS t1, t2
+            cursor.execute('''SELECT COUNT *
+                FROM target 
+                WHERE seq = seq;''')
+
+
+                # AS t1, t2
                 # LEFT JOIN pairs AS p ON p.left = t1.seq
                 # LEFT JOIN pairs AS p ON p.right = t2.seq
                 # WHERE t1.chrom = t2.chrom
                 # AND t1.chrom = ?
                 # AND t1.position + length(t1.seq) + ? <= ?
                 # AND t2.position - ? >= ?                ;''', ())
+            leftLoci = cursor.fetchall()
             print rows
  
         finally:
