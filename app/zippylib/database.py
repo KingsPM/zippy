@@ -9,7 +9,7 @@ import fnmatch
 import copy
 from collections import defaultdict
 from zippylib import flatten, commonPrefix
-from zippylib.primer import Primer
+from zippylib.primer import Primer, Locus
 
 class PrimerDB(object):
     def __init__(self, database, user='unkown'):
@@ -22,9 +22,10 @@ class PrimerDB(object):
         try:
             # TABLE
             cursor.execute('CREATE TABLE IF NOT EXISTS primer(name TEXT PRIMARY KEY, seq TEXT, tm REAL, gc REAL, FOREIGN KEY(seq) REFERENCES target(seq));')
-            cursor.execute('CREATE TABLE IF NOT EXISTS target(seq TEXT PRIMARY KEY, chrom TEXT, position INT, reverse BOOLEAN);')
+            cursor.execute('CREATE TABLE IF NOT EXISTS target(seq TEXT, chrom TEXT, position INT, reverse BOOLEAN);')
             cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT PRIMARY KEY, left TEXT, right TEXT, chrom TEXT, start INT, end INT, FOREIGN KEY(left) REFERENCES primer(seq), FOREIGN KEY(right) REFERENCES primer(seq));')
             cursor.execute('CREATE TABLE IF NOT EXISTS status(pairid TEXT PRIMARY KEY, status INT, dateadded TEXT, FOREIGN KEY(pairid) REFERENCES pairs(pairid));')
+            cursor.execute('CREATE INDEX IF NOT EXISTS seq_index_in_target ON target(seq);')
             self.db.commit()
         except:
             print >> sys.stderr, self.sqlite
@@ -127,10 +128,10 @@ class PrimerDB(object):
             chrom = variant.chrom
             chromStart = variant.chromStart
             chromEnd = variant.chromEnd
-            print chrom
-            print chromStart
-            print chromEnd
-            print flank
+            # print chrom
+            # print chromStart
+            # print chromEnd
+            # print flank
             cursor = self.db.cursor()
             cursor.execute('''SELECT *
                 FROM pairs AS p
@@ -142,11 +143,39 @@ class PrimerDB(object):
                 AND t2.position - ? >= ?;''', (chrom, flank, chromStart, flank, chromEnd))
 
             rows = cursor.fetchall()
+            # cursor.execute('''SELECT COUNT *
+                # FROM target AS t1, t2
+                # LEFT JOIN pairs AS p ON p.left = t1.seq
+                # LEFT JOIN pairs AS p ON p.right = t2.seq
+                # WHERE t1.chrom = t2.chrom
+                # AND t1.chrom = ?
+                # AND t1.position + length(t1.seq) + ? <= ?
+                # AND t2.position - ? >= ?                ;''', ())
+            print rows
  
         finally:
             self.db.close()
-        return rows
         # return primer pairs that would match
+        primerPairs = []
+        for row in rows:
+            # print row,'\n'
+            name = row[0]
+            leftSeq = row[6]
+            rightSeq = row[10]
+            leftTargetposition = Locus(row[7], row[8], len(row[6]), True if row[9] else False) #(chrom,offset,length,reverse)
+            rightTargetposition = Locus(row[11], row[12], len(row[10]),True if row[13] else False)
+            # print name
+            # print leftSeq
+            # print leftTargetposition
+            # print rightSeq
+            # print rightTargetposition
+            leftPrimer = Primer(name+'_left', leftSeq, leftTargetposition) #(name,seq,targetposition(locus))
+            rightPrimer = Primer(name+'_right', rightSeq, rightTargetposition)
+            # print leftPrimer
+            # print rightPrimer
+            primerPairs.append([leftPrimer, rightPrimer])
+        return primerPairs
+
 
     def dump(self,what,**kwargs):
         raise NotImplementedError

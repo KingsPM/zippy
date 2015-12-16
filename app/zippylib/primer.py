@@ -74,7 +74,6 @@ class Primer(object):
         self.meta = {}  # metadata
         self.sigmatch = 0  # significant other matches (just counted)
         self.targetposition = targetposition
-        self.targetCorrect = False
         if loci:
             pass
 
@@ -125,8 +124,8 @@ class Primer(object):
             for locus in self.loci:
                 if locus.chrom == self.targetposition.chrom:
                     if int(locus.offset) == int(self.targetposition.offset):
-                        self.targetCorrect = True
-        return self.targetCorrect
+                        return True
+        return False
 
 
 '''Locus'''
