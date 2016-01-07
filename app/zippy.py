@@ -185,7 +185,7 @@ if __name__=="__main__":
         # designing
         if options.design:
             print >> sys.stderr, 'Designing primers'
-            designedPairs = []
+            designedPairs = {}
             for i,iv in enumerate(intervals):
                 print >> sys.stderr, '\r'+str(i)+'/'+str(len(intervals)),
                 if options.debug:
@@ -205,6 +205,7 @@ if __name__=="__main__":
             # check new designs for mispriming and create valid primer pairs
             ## write to fasta (process batch at once
             print >> sys.stderr, "\rChecking genome wide mispriming"
+            print designedPairs
             #fh = tempfile.NamedTemporaryFile(suffix='.fa',prefix="primers_",delete=False)
             fh = open("/tmp/test.fa",'w')
             for k,v in designedPairs.items():
@@ -216,6 +217,7 @@ if __name__=="__main__":
     
             ## create primers with mispriming added
             pairs = importPrimerPairs(fh.name)
+
             ## remove fasta file
             os.unlink(fh.name)
             ## add SNPinfo (SNPcheck)
@@ -230,13 +232,17 @@ if __name__=="__main__":
                     # reTargetposition = re.match(r'(\w+):(\d+)-(\d+)',p.targetposition)
     
     
-            intervalindex = { i.name: i for i in intervals }
+            for i,p in enumerate(pairs):
+                print i,p, p[0].snp, p[1].snp
+            sys.exit(1)
 
-            for pair in pairs:
-                a = pair[0].name.split('_')
-                intervalName = '-'.join(a[:-3])
-                if intervalName not in intervalindex.keys():
-                    ivpairs[key].append(pair)
+
+            # intervalindex = { i.name: i for i in intervals }
+            # for pair in pairs:
+            #     intervalName = '_'.join(pair[0].name.split('_')[:3])
+            #     if intervalName not in intervalindex.keys():
+            #         raise NotImplementedError
+            #         #ivpairs[key].append(pair)
 
 
         print 'Printing ivpairs:\t\t',ivpairs
