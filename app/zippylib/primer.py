@@ -160,7 +160,8 @@ class Locus(object):
         for v in snps:
             print "\t\tSNP", v 
             f = v.split()
-            snpOffset = int(f[1])-self.offset
+            snpOffset = int(f[1])-1-self.offset  # covert to 0-based
+            assert snpOffset >= 0
             snpLength = max(len(f[3]),len(f[4]))
             snp_positions.append( (f[0],snpOffset,snpLength,f[2]) )
         return snp_positions

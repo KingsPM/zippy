@@ -172,7 +172,7 @@ if __name__=="__main__":
 
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
         intervals = readTargets(options.targets)  # get intervals from file or commandline
-        ivpairs = {}  # found/designed primer pairs (from database or design)
+        ivpairs = defaultdict(list)  # found/designed primer pairs (from database or design)
         # primer searching
         for iv in intervals:
             if options.database:  # check if inteval covered by primer pair
@@ -231,46 +231,37 @@ if __name__=="__main__":
                     print 'FOUND', len(p.snp), "SNPS", p.checkTarget()
                     # reTargetposition = re.match(r'(\w+):(\d+)-(\d+)',p.targetposition)
     
-    
-            for i,p in enumerate(pairs):
-                print i,p, p[0].snp, p[1].snp
-            sys.exit(1)
-
-
-            # intervalindex = { i.name: i for i in intervals }
-            # for pair in pairs:
-            #     intervalName = '_'.join(pair[0].name.split('_')[:3])
-            #     if intervalName not in intervalindex.keys():
-            #         raise NotImplementedError
-            #         #ivpairs[key].append(pair)
-
+            # assign designed primer pairs to intervals
+            intervalindex = { i.name: i for i in intervals }
+            for pair in pairs:
+                intervalName = '_'.join(pair[0].name.split('_')[:-2])
+                print "INTERVALNAME", intervalName
+                if intervalName not in ivpairs.keys():
+                    ivpairs[intervalindex[intervalName]].append(pair)
 
         print 'Printing ivpairs:\t\t',ivpairs
 
 
-
-
-
         ## Returns count of SNPs at primer sites, count of misprimes, primer3 rank for primer pair true/False for correct mapping of to intended target
         def sortvalues(p):
+            criticalsnp = len([ s for s in p[0].snp if s[1] >= 2*len(p[0])/3 ]) + \
+                len([ s for s in p[1].snp if s[1] <= len(p[1])/3 ])
+            mispriming = max(len(p[0].loci), len(p[1].loci))-1
             snpcount = len(p[0].snp)+len(p[1].snp)
-            mispriming = max(len(p[0].loci), len(p[1].loci))
             primerRank = int(p[0].name.split('_')[-2])
             targetMatch = all([p[0].checkTarget(),p[1].checkTarget()]) ## --- FALSE COMES FIRST - FIX ---
-            return (snpcount, mispriming, primerRank, targetMatch)
+            return (criticalsnp, mispriming, snpcount, primerRank, targetMatch)
 
         print >> sys.stderr, "\rOrdering candidate pairs for suitability\r"
 
         found = set()
         resultList = []
-        for iv in ivpairs:
+        for iv in ivpairs.keys():
             for p in sorted(ivpairs[iv],key=sortvalues):
-                if False in sortvalues(p):
-                    continue
+                #if False in sortvalues(p): continue  ##DATABASE DOES NOT RETURN ATTRIBUTES YET
                 pname = '_'.join(p[0].name.split('_')[:-2])
-                if pname in found:
-                    continue
-                print p, sortvalues(p)
+                if pname in found: continue
+                print p, sortvalues(p), p[0].snp, p[1].snp
                 resultList.append(p)
                 #print "\t", p[0]
                 #print "\t", p[1]
