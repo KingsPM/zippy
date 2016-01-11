@@ -13,6 +13,7 @@ __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
 
 import sys
+import re
 from math import ceil
 from collections import Counter
 from hashlib import md5
@@ -164,6 +165,20 @@ class Data(object):
                     else:
                         fh.write('\t'.join(map(str,[d['chrom'], d['chromStart'], d['chromEnd'], '+', d['name']]))+'\n')
                 fh.close()
+
+''' read target intervals from VCF, BED or directly'''
+def readTargets(targets,tiling):
+    with open(targets) as fh:
+        if targets.endswith('vcf'):
+            intervals = VCF(fh,**tiling)
+        elif targets.endswith('bed'):
+            intervals = BED(fh,**tiling)
+        elif re.match('\w+:\d+-\d+',targets):
+            m = re.match('(\w+):(\d+)-(\d+)',targets)
+            intervals = [ Interval(*m.groups()) ]
+        else:
+            raise Exception('UnkownFile')
+    return intervals
 
 
 if __name__=="__main__":

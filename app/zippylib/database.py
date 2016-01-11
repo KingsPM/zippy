@@ -69,6 +69,7 @@ class PrimerDB(object):
         #     self.db.close()
         # return
 
+    '''adds list of primers to database'''
     def addPrimer(self, *primers):
         try:
             self.db = sqlite3.connect(self.sqlite)
@@ -90,7 +91,10 @@ class PrimerDB(object):
     def addPair(self, *pairs):
         '''adds primer pairs (and individual primers)'''
         # add primers
-        flat = list(set(list(flatten(pairs))))
+        flat = []
+        for p in pairs:
+            flat.append(p[0])
+            flat.append(p[1])
         self.addPrimer(*flat)
         # add pairs
         try:
@@ -144,7 +148,7 @@ class PrimerDB(object):
 
             rows = cursor.fetchall()
             cursor.execute('''SELECT COUNT *
-                FROM target 
+                FROM target
                 WHERE seq = seq;''')
 
 
@@ -157,7 +161,7 @@ class PrimerDB(object):
                 # AND t2.position - ? >= ?                ;''', ())
             leftLoci = cursor.fetchall()
             print rows
- 
+
         finally:
             self.db.close()
         # return primer pairs that would match

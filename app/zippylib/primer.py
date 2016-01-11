@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import sys, os, re
-from hashlib import md5
+from hashlib import md5, sha1
 import primer3
 import pysam
 import subprocess
@@ -20,36 +20,27 @@ class MultiFasta(object):
                 [bowtie, '-f', '--end-to-end', \
                 '-k 10', '-L 10', '-N 1', '-D 20', '-R 3', \
                 '-x', db, '-U', self.file, '>', mapfile ])
-        
+
         # Read fasta file (Create Primer)
         primers = {}
         fasta = pysam.FastaFile(self.file)
-        #print fasta.references
         for s in fasta.references:
-            primername = s.split('|')[0]
+            # parse target locus from fasta file
             try:
-                targetposition = s.split('|')[1]
+                primername, targetposition = s.split('|')
                 reTargetposition = re.match(r'(\w+):(\d+)-(\d+)',targetposition)
             except:
-                raise Exception('fixme')
-
-            # modify constructor of primer to accept target position
-            # chrom,offset,length,reverse
-
-            # MAKE TARGETPOSITION A LOCUS OBJECT VVVV
-            reverse = True if primername.split('_')[-1].startswith("r") else False
-            targetLocus = Locus(reTargetposition.group(1), int(reTargetposition.group(2)), int(reTargetposition.group(3))-int(reTargetposition.group(2)), reverse)
-
+                raise Exception('PrimerNameError')
+                targetLocus = None
+            else:
+                reverse = True if primername.split('_')[-1].startswith("r") else False
+                targetLocus = Locus(reTargetposition.group(1), int(reTargetposition.group(2)), int(reTargetposition.group(3))-int(reTargetposition.group(2)), reverse)
+            # create primer (with target locus)
             primers[primername] = Primer(primername,fasta.fetch(s),targetLocus)
 
-        
         # read SAM OUTPUT
         mappings = pysam.Samfile(mapfile,'r')
-        # print self.file
-
-        # print '\n'.join(sorted(primers.keys()))
         for aln in mappings:
-            # print aln.qname
             primername = aln.qname.split('|')[0]
             # add full matching loci
             if not any(zip(*aln.cigar)[0]): # all matches (full length)
@@ -59,13 +50,100 @@ class MultiFasta(object):
                 primers[primername].sigmatch += 1
 
         ## delete mapping FILE
-        ####os.unlink(self.file+'.sam')
+        ####################os.unlink(self.file+'.sam')
         return primers.values()
+
+'''Boundary exceeded exception (max list size)'''
+class BoundExceedError(Exception):
+    pass
+
+'''primer pair (list)'''
+class PrimerPair(list):
+    def __init__(self,*args,**kwargs):
+        list.__init__(self, *args, **kwargs)
+        self.length = kwargs.pop('length', 2)  # pair of rpimers by default
+
+    def _check_item_bound(self):
+        if self.length and len(self) >= self.length:
+            raise BoundExceedError()
+
+    def _check_list_bound(self, L):
+        if self.length and len(self) + len(L) > self.length:
+            raise BoundExceedError()
+
+    def append(self, x):
+        self._check_item_bound()
+        return super(BoundList, self).append(x)
+
+    def extend(self, L):
+        self._check_list_bound(L)
+        return super(BoundList, self).extend(L)
+
+    def insert(self, i, x):
+        self._check_item_bound()
+        return super(BoundList, self).insert(i, x)
+
+    def __add__(self, L):
+        self._check_list_bound(L)
+        return super(BoundList, self).__add__(L)
+
+    def __iadd__(self, L):
+        self._check_list_bound(L)
+        return super(BoundList, self).__iadd__(L)
+
+    def __setslice__(self, *args, **kwargs):
+        if len(args) > 2 and self.length:
+            left, right, L = args[0], args[1], args[2]
+            if right > self.length:
+                if left + len(L) > self.length:
+                    raise BoundExceedError()
+            else:
+                len_del = (right - left)
+                len_add = len(L)
+                if len(self) - len_del + len_add > self.length:
+                    raise BoundExceedError()
+        return super(BoundList, self).__setslice__(*args, **kwargs)
+
+    def __lt__(self,other):
+        return self.sortvalues() < other.sortvalues()
+
+    def __repr__(self):
+        return '{}\t{}\t{:.1f}\t{:.1f}\t{}\t{:.1f}\t{:.1f}\t{}\t{}\t{}'.format(self.name(), \
+            self[0].seq, self[0].tm, self[0].gc, \
+            self[1].seq, self[1].tm, self[1].gc, \
+            self[0].targetposition.chrom, self[0].targetposition.offset+self[0].targetposition.length, self[1].targetposition.offset)
+
+    def name(self):
+        l, r = '_'.join(self[0].name.split('_')[:-1]), '_'.join(self[1].name.split('_')[:-1])
+        assert len(set([l,r]))==1
+        return l
+
+    def sortvalues(self):
+        try:
+            assert len(self)==2
+        except AssertionError:
+            return (None, None, None, None, True) # put in front (primers from database)
+        except:
+            raise
+        criticalsnp = len([ s for s in self[0].snp if s[1] >= 2*len(self[0])/3 ]) + \
+            len([ s for s in self[1].snp if s[1] <= len(self[1])/3 ])
+        mispriming = max(len(self[0].loci), len(self[1].loci))-1
+        snpcount = len(self[0].snp)+len(self[1].snp)
+        primerRank = int(self[0].name.split('_')[-2])
+        targetMatch = all([self[0].checkTarget(),self[1].checkTarget()]) ## --- FALSE COMES FIRST - FIX ---
+        return (criticalsnp, mispriming, snpcount, primerRank, targetMatch)
+
+    def uniqueid(self):
+        return sha1(','.join([self[0].seq,self[1].seq])).hexdigest()
+
+    def __hash__(self):
+        return hash(self[0]) ^ hash(self[1])
+
 
 '''fasta/primer'''
 class Primer(object):
     def __init__(self,name,seq,targetposition=None,tm=None,gc=None,loci=[]):
-        self.name = name if name else 'primer_'+md5(seq).hexdigest()[:8]
+        self.name = name if name else 'primer_'+sha1(seq).hexdigest()[:8]
         self.seq = seq.upper()
         self.tm = tm
         self.gc = gc
@@ -81,7 +159,7 @@ class Primer(object):
         return '<Primer ('+self.name+'): '+self.seq+', Targets: '+str(len(self.loci))+' (other significant: '+str(self.sigmatch)+'); Target position: '+str(self.targetposition)+'>'
 
     def __repr__(self):
-        return '<Primer ('+self.name+'): '+self.seq+', Targets: '+str(len(self.loci))+' (other significant: '+str(self.sigmatch)+'); Target position: '+str(self.targetposition)+'>'
+        return '{:<20} {:<24} {:<}'.format(self.name,self.seq,str(self.targetposition))
 
     def __len__(self):
         return len(self.seq)
@@ -119,7 +197,6 @@ class Primer(object):
         return True if self.snp else False
 
     def checkTarget(self):
-         # print 'OK'
         if self.targetposition is not None:
             for locus in self.loci:
                 if locus.chrom == self.targetposition.chrom:
@@ -145,9 +222,6 @@ class Locus(object):
 
     def snpCheck(self,database):
         db = pysam.TabixFile(database)
-        print '\tLOCUS', str(self), db
-        print '\t\t', self.chrom,self.offset,self.offset+self.length
-        print '\t\t\t', self.length
         try:
             snps = db.fetch(self.chrom,self.offset,self.offset+self.length)
         except ValueError:
@@ -155,10 +229,8 @@ class Locus(object):
         except:
             raise
         # query database and translate to primer positions
-        print snps
         snp_positions = []
         for v in snps:
-            print "\t\tSNP", v 
             f = v.split()
             snpOffset = int(f[1])-1-self.offset  # covert to 0-based
             assert snpOffset >= 0
@@ -203,7 +275,7 @@ class Primer3(object):
                     primerdata[primername][m.group(3)[1:]] = v
                 else:
                     absoluteStart = self.designregion[1]+v[0]-(v[1]-1) if m.group(1)=="RIGHT" else self.designregion[1]+v[0]
-                    absoluteEnd = self.designregion[1]+v[0] if  m.group(1)=="RIGHT" else self.designregion[1]+v[0]+v[1]                    
+                    absoluteEnd = self.designregion[1]+v[0] if  m.group(1)=="RIGHT" else self.designregion[1]+v[0]+v[1]
                     primerdata[primername]['POSITION'] = (self.designregion[0], absoluteStart, absoluteEnd)
             elif k.endswith('EXPLAIN'):
                 self.explain.append(v)
@@ -211,7 +283,7 @@ class Primer3(object):
         designedPrimers, designedPairs = {}, {}
         for k,v in sorted(primerdata.items()):
             # k primername
-            # v dict of metadata 
+            # v dict of metadata
             if 'SEQUENCE' not in designedPrimers.keys():
                 designedPrimers[v['SEQUENCE']] = Primer(k,v['SEQUENCE'])  # no name autosets
                 designedPrimers[v['SEQUENCE']].calcProperties()
