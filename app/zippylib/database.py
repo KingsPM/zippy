@@ -137,15 +137,16 @@ class PrimerDB(object):
                 FROM pairs AS p
                 LEFT JOIN target AS t1 ON p.left = t1.seq
                 LEFT JOIN target AS t2 ON p.right = t2.seq
+                LEFT JOIN status AS s ON p.pairID = s.pairID 
                 WHERE t1.chrom = t2.chrom
                 AND t1.chrom = ?
                 AND t1.position + length(t1.seq) + ? <= ?
                 AND t2.position - ? >= ?;''', (chrom, flank, chromStart, flank, chromEnd))
 
             rows = cursor.fetchall()
-            cursor.execute('''SELECT COUNT *
-                FROM target 
-                WHERE seq = seq;''')
+            # cursor.execute('''SELECT COUNT *
+                # FROM target 
+                # WHERE seq = seq;''')
 
 
                 # AS t1, t2
@@ -156,7 +157,7 @@ class PrimerDB(object):
                 # AND t1.position + length(t1.seq) + ? <= ?
                 # AND t2.position - ? >= ?                ;''', ())
             leftLoci = cursor.fetchall()
-            print rows
+            # print rows
  
         finally:
             self.db.close()
@@ -174,11 +175,16 @@ class PrimerDB(object):
             # print leftTargetposition
             # print rightSeq
             # print rightTargetposition
-            leftPrimer = Primer(name+'_left', leftSeq, leftTargetposition) #(name,seq,targetposition(locus))
+            leftPrimer = Primer(name+'_left', leftSeq, leftTargetposition) #(name,seq,targetposition(locus),tm) {, calcProperties(leftSeq)}
             rightPrimer = Primer(name+'_right', rightSeq, rightTargetposition)
+            leftPrimer.calcProperties()
+            rightPrimer.calcProperties()
+            
+            status = row[15]
+            dateAdded = row[16]
             # print leftPrimer
             # print rightPrimer
-            primerPairs.append([leftPrimer, rightPrimer])
+            primerPairs.append([[leftPrimer, rightPrimer], status])
         return primerPairs
 
 

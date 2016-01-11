@@ -177,7 +177,7 @@ if __name__=="__main__":
         for iv in intervals:
             if options.database:  # check if inteval covered by primer pair
                 ivpairs[iv] = db.query(iv, config['tiling']['flank'])
-                print ivpairs[iv]
+                # print ivpairs[iv]
                 if ivpairs[iv]:
                     print "Found %d pairs for iv %s" % (len(ivpairs[iv]), iv)
                 elif options.deep:  ## check if a new combination of primers would work
@@ -235,7 +235,6 @@ if __name__=="__main__":
             intervalindex = { i.name: i for i in intervals }
             for pair in pairs:
                 intervalName = '_'.join(pair[0].name.split('_')[:-2])
-                print "INTERVALNAME", intervalName
                 if intervalName not in ivpairs.keys():
                     ivpairs[intervalindex[intervalName]].append(pair)
 
@@ -266,7 +265,7 @@ if __name__=="__main__":
                 #print "\t", p[0]
                 #print "\t", p[1]
                 found.add(pname)
-                if i >500:
+                if p >500:
                     break
 
         db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)

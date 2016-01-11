@@ -66,7 +66,7 @@ class MultiFasta(object):
 class Primer(object):
     def __init__(self,name,seq,targetposition=None,tm=None,gc=None,loci=[]):
         self.name = name if name else 'primer_'+md5(seq).hexdigest()[:8]
-        self.seq = seq.upper()
+        self.seq = str(seq.upper())
         self.tm = tm
         self.gc = gc
         self.loci = []  # genome matches
