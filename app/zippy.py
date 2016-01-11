@@ -157,7 +157,7 @@ if __name__=="__main__":
         for iv in intervals:
             if options.database:  # check if inteval covered by primer pair
                 ivpairs[iv] = db.query(iv, config['tiling']['flank'])
-                print ivpairs[iv]
+                # print ivpairs[iv]
                 if ivpairs[iv]:
                     print "Found %d pairs for iv %s" % (len(ivpairs[iv]), iv)
                 elif options.deep:  ## check if a new combination of primers would work
@@ -240,6 +240,7 @@ if __name__=="__main__":
                 #if False in sortvalues(p): continue  ##DATABASE DOES NOT RETURN ATTRIBUTES YET
                 resultList.append(p)
 
+        ## store primer pairs
         db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
         print repr(db)
         sys.exit('DEBUG STOP')
