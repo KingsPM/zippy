@@ -82,6 +82,8 @@ if __name__=="__main__":
         help="configuration file [zippy.json]")
     global_group.add_argument("--debug", dest="debug", default=False, action="store_true", \
         help="Debugging")
+    global_group.add_argument("--quiet", dest="quiet", default=False, action="store_true", \
+        help="Minimise screen output (dont print results)")
     global_group.add_argument("--outfile", dest="outfile", default='', type=str, \
         help="Output file name (bed,interval,fasta)")
 
@@ -98,8 +100,6 @@ if __name__=="__main__":
     parser_retrieve = subparsers.add_parser('get', help='Get/design primers')
     parser_retrieve.add_argument("targets", default=None, metavar="VCF/BED/Interval", \
         help="File with intervals of interest or chr:start-end")
-    parser_retrieve.add_argument("--deep", dest="deep", default=False, action="store_true", \
-        help="Allow new primer combinations")
     parser_retrieve.add_argument("--design", dest="design", default=False, action="store_true", \
         help="Design primers if not in database")
     parser_retrieve.set_defaults(which='get')
@@ -155,17 +155,17 @@ if __name__=="__main__":
         ivpairs = defaultdict(list)  # found/designed primer pairs (from database or design)
         blacklist = set()
         # primer searching in database by default
-        for iv in intervals:
+        progress = Progressbar(len(intervals),'Querying database')
+        for i, iv in enumerate(intervals):
+            sys.stderr.write('\r'+progress.show(i))
             primerpairs = db.query(iv, config['tiling']['flank'])
             for pair in primerpairs:
                 if pair.status is None or status != 0:
                     ivpairs[iv].append(pair)
                 else:
                     blacklist.add(hash(pair))
-            if ivpairs[iv]:
-                print "Found %d pairs for iv %s" % (len(ivpairs[iv]), iv)
-            elif options.deep:  ## check if a new combination of primers would work
-                raise NotImplementedError
+        sys.stderr.write('\r'+progress.show(len(intervals))+'\n')
+        print >> sys.stderr, 'Found primers for {:d} out of {:d} intervals in database'.format(len([ iv for iv in intervals if ivpairs[iv]]), len(intervals))
 
         # designing
         if options.design:
@@ -232,8 +232,15 @@ if __name__=="__main__":
                 ivpairs[iv] = []
 
         # print primer pair count and build database table
-        for iv,p in sorted(ivpairs.items(),key=lambda x:x[0].name):
-            print >> sys.stderr, '{:<20}: {:>3} primer pairs'.format(iv.name, len(p))
+        failure = len([ iv.name for iv,p in ivpairs.items() if config['report']['pairs']>len(p) ])
+        print >> sys.stderr, 'got primers for {:d} out of {:d} targets'.format(len(ivpairs)-failure, len(ivpairs))
+        if options.quiet:
+            print >> sys.stderr, "FAILED INTERVALS ({}): {}".format(len(failure), ','.join(failure))
+        else:
+            print >> sys.stderr, '{:<16} {:>3} {:<10}'.format('INTERVAL', 'AMP', 'STATUS')
+            print >> sys.stderr, '-'*31
+            for iv,p in sorted(ivpairs.items(),key=lambda x:x[0].name):
+                print >> sys.stderr, '{:<16} {:>3} {:<10}'.format(iv.name, len(p), "!!" if len(p)<config['report']['pairs'] else "")
 
         ## get best primer pairs
         resultList = []
@@ -267,8 +274,9 @@ if __name__=="__main__":
                 pass
 
         # WRITE RESULT PRIMERS
-        print >> sys.stderr, '==== RESULTS ===='
-        print >> sys.stderr, '\n'.join([ repr(r) for r in resultList])
+        if not options.quiet:
+            print >> sys.stderr, '==== RESULTS ===='
+            print >> sys.stderr, '\n'.join([ repr(r) for r in resultList])
 
     # change stock?
     # elif options.stock:

@@ -125,7 +125,7 @@ class PrimerPair(list):
         except:
             raise
         criticalsnp = len([ s for s in self[0].snp if s[1] >= 2*len(self[0])/3 ]) + \
-            len([ s for s in self[1].snp if s[1] <= len(self[1])/3 ])
+            len([ s for s in self[1].snp if s[1]+s[2] <= len(self[1])/3 ])   # chr,offset,len,name
         mispriming = max(len(self[0].loci), len(self[1].loci))-1
         snpcount = len(self[0].snp)+len(self[1].snp)
         primerRank = int(self[0].name.split('_')[-2])
@@ -231,9 +231,8 @@ class Locus(object):
         snp_positions = []
         for v in snps:
             f = v.split()
-            snpOffset = int(f[1])-1-self.offset  # covert to 0-based
-            assert snpOffset >= 0
-            snpLength = max(len(f[3]),len(f[4]))
+            snpOffset = (int(f[1])-1) - self.offset  # covert to 0-based
+            snpLength = max(map(len,[ f[3] ] + f[4].split(',')))
             snp_positions.append( (f[0],snpOffset,snpLength,f[2]) )
         return snp_positions
 
