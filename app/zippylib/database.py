@@ -9,7 +9,7 @@ import fnmatch
 import copy
 from collections import defaultdict
 from zippylib import flatten, commonPrefix
-from zippylib.primer import Primer, Locus
+from zippylib.primer import Primer, Locus, PrimerPair
 
 class PrimerDB(object):
     def __init__(self, database, user='unkown'):
@@ -50,24 +50,7 @@ class PrimerDB(object):
             rows = cursor.fetchall()
         finally:
             self.db.close()
-        return "\n".join([ '{:<10} {:<30} {:<30} {:.1f} {:.2f}'.format(*row) for row in rows ])
-
-    def getPrimers(self, paired=True):
-        raise NotImplementedError
-        # try:
-        #     self.db = sqlite3.connect(self.sqlite)
-        # except:
-        #     raise
-        # else:
-        #     cursor = self.db.cursor()
-        #     cursor.execute('''SELCECT FROM primer''')
-
-
-
-        #     self.db.commit()
-        # finally:
-        #     self.db.close()
-        # return
+        return "\n".join([ '{:<16} {:<25} {:<25} {:<8} {:>9d} {:>9d} {:.1f} {:.2f}'.format(*row) for row in rows ])
 
     '''adds list of primers to database'''
     def addPrimer(self, *primers):
@@ -129,15 +112,8 @@ class PrimerDB(object):
         except:
             raise
         else:
-            chrom = variant.chrom
-            chromStart = variant.chromStart
-            chromEnd = variant.chromEnd
-            # print chrom
-            # print chromStart
-            # print chromEnd
-            # print flank
             cursor = self.db.cursor()
-            cursor.execute('''SELECT *
+            cursor.execute('''SELECT p.pairid, t1.*, t2.*, s.status
                 FROM pairs AS p
                 LEFT JOIN target AS t1 ON p.left = t1.seq
                 LEFT JOIN target AS t2 ON p.right = t2.seq
@@ -145,52 +121,24 @@ class PrimerDB(object):
                 WHERE t1.chrom = t2.chrom
                 AND t1.chrom = ?
                 AND t1.position + length(t1.seq) + ? <= ?
-                AND t2.position - ? >= ?;''', (chrom, flank, chromStart, flank, chromEnd))
-
+                AND t2.position - ? >= ?;''', (variant.chrom, flank, variant.chromStart, flank, variant.chromEnd))
             rows = cursor.fetchall()
-            # cursor.execute('''SELECT COUNT *
-                # FROM target
-                # WHERE seq = seq;''')
-
-
-                # AS t1, t2
-                # LEFT JOIN pairs AS p ON p.left = t1.seq
-                # LEFT JOIN pairs AS p ON p.right = t2.seq
-                # WHERE t1.chrom = t2.chrom
-                # AND t1.chrom = ?
-                # AND t1.position + length(t1.seq) + ? <= ?
-                # AND t2.position - ? >= ?                ;''', ())
-            leftLoci = cursor.fetchall()
-            # print rows
-
         finally:
             self.db.close()
         # return primer pairs that would match
         primerPairs = []
         for row in rows:
-            # print row,'\n'
             name = row[0]
-            leftSeq = row[6]
-            rightSeq = row[10]
-            leftTargetposition = Locus(row[7], row[8], len(row[6]), True if row[9] else False) #(chrom,offset,length,reverse)
-            rightTargetposition = Locus(row[11], row[12], len(row[10]),True if row[13] else False)
-            # print name
-            # print leftSeq
-            # print leftTargetposition
-            # print rightSeq
-            # print rightTargetposition
-            leftPrimer = Primer(name+'_left', leftSeq, leftTargetposition) #(name,seq,targetposition(locus),tm) {, calcProperties(leftSeq)}
+            leftSeq = row[1]
+            rightSeq = row[5]
+            leftTargetposition = Locus(row[2], row[3], len(row[1]), True if row[4] else False)
+            rightTargetposition = Locus(row[6], row[7], len(row[5]),True if row[8] else False)
+            leftPrimer = Primer(name+'_left', leftSeq, leftTargetposition)
             rightPrimer = Primer(name+'_right', rightSeq, rightTargetposition)
             leftPrimer.calcProperties()
             rightPrimer.calcProperties()
-
-            status = row[15]
-            dateAdded = row[16]
-            # print leftPrimer
-            # print rightPrimer
-            primerPairs.append([[leftPrimer, rightPrimer], status])
+            primerPairs.append(PrimerPair([leftPrimer, rightPrimer], status=row[9]))
         return primerPairs
-
 
     def dump(self,what,**kwargs):
         raise NotImplementedError

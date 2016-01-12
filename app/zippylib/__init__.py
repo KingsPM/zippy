@@ -3,6 +3,14 @@
 from zippylib.primer import Primer, PrimerPair
 import time
 
+'''banner'''
+def banner(versionstring=''):
+    return '''
+    \033[1;37m    ZIPPY '''+versionstring+'''\033[0m
+    \033[1;37m    Primer design tool and database  \033[0m
+    \033[1;37m    (c) Viapath LLP                  \033[0m
+    '''
+
 '''recursive function to flatten arbitrarily nested containers (list,tuples)'''
 def flatten(container):
     # put in a list if it isn't

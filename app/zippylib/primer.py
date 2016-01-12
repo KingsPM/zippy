@@ -20,7 +20,6 @@ class MultiFasta(object):
                 [bowtie, '-f', '--end-to-end', \
                 '-k 10', '-L 10', '-N 1', '-D 20', '-R 3', \
                 '-x', db, '-U', self.file, '>', mapfile ])
-
         # Read fasta file (Create Primer)
         primers = {}
         fasta = pysam.FastaFile(self.file)
@@ -49,8 +48,7 @@ class MultiFasta(object):
             elif zip(*aln.cigar)[0].count(0) >= len(aln.seq)-1:
                 primers[primername].sigmatch += 1
 
-        ## delete mapping FILE
-        ####################os.unlink(self.file+'.sam')
+        os.unlink(self.file+'.sam') # delete mapping FILE
         return primers.values()
 
 '''Boundary exceeded exception (max list size)'''
@@ -59,9 +57,10 @@ class BoundExceedError(Exception):
 
 '''primer pair (list)'''
 class PrimerPair(list):
-    def __init__(self,*args,**kwargs):
-        list.__init__(self, *args, **kwargs)
-        self.length = kwargs.pop('length', 2)  # pair of rpimers by default
+    def __init__(self,elements,length=2,status=None):
+        list.__init__(self, elements)
+        self.length = length  # pair of rpimers by default
+        self.status = status  # status None by default
 
     def _check_item_bound(self):
         if self.length and len(self) >= self.length:
@@ -133,8 +132,8 @@ class PrimerPair(list):
         targetMatch = all([self[0].checkTarget(),self[1].checkTarget()]) ## --- FALSE COMES FIRST - FIX ---
         return (criticalsnp, mispriming, snpcount, primerRank, targetMatch)
 
-    def uniqueid(self):
-        return sha1(','.join([self[0].seq,self[1].seq])).hexdigest()
+    # def uniqueid(self):
+    #     return sha1(','.join([self[0].seq,self[1].seq])).hexdigest()
 
     def __hash__(self):
         return hash(self[0]) ^ hash(self[1])

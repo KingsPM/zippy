@@ -10,7 +10,7 @@ __doc__=="""
 __author__ = "David Brawand"
 __credits__ = ['David Brawand','Christopher Wall']
 __license__ = "MIT"
-__version__ = "0.1"
+__version__ = "0.9"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Development"
@@ -23,7 +23,7 @@ import tempfile
 from zippylib.files import VCF, BED, Interval, Data, readTargets
 from zippylib.primer import MultiFasta, Primer3, Primer, PrimerPair
 from zippylib.database import PrimerDB
-from zippylib import ConfigError, Progressbar
+from zippylib import ConfigError, Progressbar, banner
 
 from argparse import ArgumentParser
 from collections import defaultdict, Counter
@@ -68,16 +68,22 @@ def importPrimerPairs(fastafile):
 
 ''' main script '''
 if __name__=="__main__":
+
+    # print banner
+    print >> sys.stderr, banner(__version__)
+
     parser = ArgumentParser(prog="zippy.py", description= 'Zippy - Primer design and database')
     parser.add_argument('--version', action='version', version='%(prog)s '+__version__+'('+__status__+')',\
         help="Displays version")
 
     #   configuration files
-    config_group = parser.add_argument_group('Configuration options')
-    config_group.add_argument("-c", dest="config", default='zippy.json',metavar="JSON_FILE", \
+    global_group = parser.add_argument_group('Global options')
+    global_group.add_argument("-c", dest="config", default='zippy.json',metavar="JSON_FILE", \
         help="configuration file [zippy.json]")
-    config_group.add_argument("--debug", dest="debug", default=False, action="store_true", \
+    global_group.add_argument("--debug", dest="debug", default=False, action="store_true", \
         help="Debugging")
+    global_group.add_argument("--outfile", dest="outfile", default='', type=str, \
+        help="Output file name (bed,interval,fasta)")
 
     # run modes
     subparsers = parser.add_subparsers(help='help for subcommand')
@@ -92,8 +98,6 @@ if __name__=="__main__":
     parser_retrieve = subparsers.add_parser('get', help='Get/design primers')
     parser_retrieve.add_argument("targets", default=None, metavar="VCF/BED/Interval", \
         help="File with intervals of interest or chr:start-end")
-    parser_retrieve.add_argument("--database", dest="database", default=False, action="store_true", \
-        help="Query database")
     parser_retrieve.add_argument("--deep", dest="deep", default=False, action="store_true", \
         help="Allow new primer combinations")
     parser_retrieve.add_argument("--design", dest="design", default=False, action="store_true", \
@@ -104,8 +108,6 @@ if __name__=="__main__":
     parser_dump = subparsers.add_parser('dump', help='Data dump')
     parser_dump.add_argument("--amplicons", dest="amplicons", default='', type=str, \
         help="Retrieve possible amplicons of given size (eg. 100-800)")
-    parser_dump.add_argument("--outfile", dest="outfile", default='', type=str, \
-        help="Output file name (bed,interval,fasta)")
     parser_dump.set_defaults(which='dump')
 
     options = parser.parse_args()
@@ -116,7 +118,6 @@ if __name__=="__main__":
         return dict(map(ascii_encode, pair) for pair in data.items())
     with open(options.config) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
-
 
     # open database handler
     db = PrimerDB(config['database'])
@@ -149,26 +150,22 @@ if __name__=="__main__":
                 print '\t'.join(colnames)
                 for row in data:
                     print '\t'.join(map(str,row))
-
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
         intervals = readTargets(options.targets, config['tiling'])  # get intervals from file or commandline
         ivpairs = defaultdict(list)  # found/designed primer pairs (from database or design)
-        # primer searching
-        for iv in intervals:
-            if options.database:  # check if inteval covered by primer pair
-                ivpairs[iv] = db.query(iv, config['tiling']['flank'])
-                # print ivpairs[iv]
-                if ivpairs[iv]:
-                    print "Found %d pairs for iv %s" % (len(ivpairs[iv]), iv)
-                elif options.deep:  ## check if a new combination of primers would work
-                    raise NotImplementedError
-
-        # create blacklist (and remove blacklisted from ivpairs)
         blacklist = set()
-        for iv in ivpairs:
-            for p in iv.values():
-                # if blacklisted: blacklist.add(p.uniqueid())
-                pass
+        # primer searching in database by default
+        for iv in intervals:
+            primerpairs = db.query(iv, config['tiling']['flank'])
+            for pair in primerpairs:
+                if pair.status is None or status != 0:
+                    ivpairs[iv].append(pair)
+                else:
+                    blacklist.add(hash(pair))
+            if ivpairs[iv]:
+                print "Found %d pairs for iv %s" % (len(ivpairs[iv]), iv)
+            elif options.deep:  ## check if a new combination of primers would work
+                raise NotImplementedError
 
         # designing
         if options.design:
@@ -190,47 +187,53 @@ if __name__=="__main__":
                     designedPairs[iv] = p3.pairs
             sys.stderr.write('\r'+progress.show(len(intervals))+'\n')
 
-            ## write to fasta (process whole primer batch)
-            #fh = tempfile.NamedTemporaryFile(suffix='.fa',prefix="primers_",delete=False)
-            fh = open("/tmp/test.fa",'w')
-            for k,v in designedPairs.items():
-                for pairnumber, pair in enumerate(v):
-                    print >> fh, pair[0].fasta('_'.join([ k.name, str(pairnumber), "left" ]))
-                    print >> fh, pair[1].fasta('_'.join([ k.name, str(pairnumber), "right" ]))
-            fh.close()
-            ## create primers with mispriming added
-            pairs = importPrimerPairs(fh.name)
-            ## remove fasta file
-            os.unlink(fh.name)
-            ## Remove non-specific and blacklisted primer pairs
-            specificPrimers = []
-            for i, pair in enumerate(pairs):
-                if all([pair[0].checkTarget(), pair[1].checkTarget()]) and pair.uniqueid() not in blacklist:
-                    specificPrimers.append(pair)
-            sys.stderr.write('Removed '+str(len(pairs)-len(specificPrimers))+' non-specific primer pairs\n')
-            pairs = specificPrimers
-            ## add SNPinfo (SNPcheck) for main target
-            progress = Progressbar(len(pairs),'SNPcheck')
-            checkedPairs = []  # checked primer pairs (with correct target)
-            for i, pair in enumerate(pairs):
-                sys.stderr.write('\r'+progress.show(i))
-                for p in pair:
-                    p.snpCheckPrimer(config['snpcheck']['common'])
-            sys.stderr.write('\r'+progress.show(len(pairs))+'\n')
-            # assign designed primer pairs to intervals
-            intervalindex = { i.name: i for i in intervals }
-            for pair in pairs:
-                intervalName = '_'.join(pair[0].name.split('_')[:-2])
-                if intervalName not in ivpairs.keys():
-                    ivpairs[intervalindex[intervalName]].append(pair)
+            if designedPairs:
+                ## place primer pairs
+                with tempfile.NamedTemporaryFile(suffix='.fa',prefix="primers_",delete=False) as fh:
+                    for k,v in designedPairs.items():
+                        for pairnumber, pair in enumerate(v):
+                            print >> fh, pair[0].fasta('_'.join([ k.name, str(pairnumber), "left" ]))
+                            print >> fh, pair[1].fasta('_'.join([ k.name, str(pairnumber), "right" ]))
+                pairs = importPrimerPairs(fh.name)
+                os.unlink(fh.name)  # remove fasta file
+
+                ## Remove non-specific and blacklisted primer pairs
+                specificPrimers = []
+                blacklisted = 0
+                for i, pair in enumerate(pairs):
+                    if hash(pair) in blacklist:
+                        blacklisted += 1
+                    elif all([pair[0].checkTarget(), pair[1].checkTarget()]):
+                        specificPrimers.append(pair)
+                if blacklisted:
+                    sys.stderr.write('Removed '+str(blacklisted)+' blacklisted primer pairs\n')
+                if len(pairs) != len(specificPrimers):
+                    sys.stderr.write('Removed '+str(len(pairs)-len(specificPrimers))+' non-specific primer pairs\n')
+                pairs = specificPrimers
+
+                ## add SNPinfo (SNPcheck) for main target
+                progress = Progressbar(len(pairs),'SNPcheck')
+                checkedPairs = []  # checked primer pairs (with correct target)
+                for i, pair in enumerate(pairs):
+                    sys.stderr.write('\r'+progress.show(i))
+                    for p in pair:
+                        p.snpCheckPrimer(config['snpcheck']['common'])
+                sys.stderr.write('\r'+progress.show(len(pairs))+'\n')
+
+                # assign designed primer pairs to intervals
+                intervalindex = { i.name: i for i in intervals }
+                for pair in pairs:
+                    intervalName = '_'.join(pair[0].name.split('_')[:-2])
+                    if intervalName not in ivpairs.keys():
+                        ivpairs[intervalindex[intervalName]].append(pair)
+
+            ## add ivpairs with no primers
             for iv in set(intervals).difference(set(ivpairs.keys())):
                 ivpairs[iv] = []
 
         # print primer pair count and build database table
         for iv,p in sorted(ivpairs.items(),key=lambda x:x[0].name):
             print >> sys.stderr, '{:<20}: {:>3} primer pairs'.format(iv.name, len(p))
-        ## Returns count of SNPs at primer sites, count of misprimes, primer3 rank for primer pair true/False for correct mapping of to intended target
-        print >> sys.stderr, "\rOrdering candidate pairs for suitability\r"
 
         ## get best primer pairs
         resultList = []
@@ -242,24 +245,30 @@ if __name__=="__main__":
 
         ## store primer pairs
         db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
-        print repr(db)
-        sys.exit('DEBUG STOP')
 
-        ################
-        # PRINT RESULT
-        ################
-        fh2 = open("/tmp/designedPrimers.fa",'w')
-        for pair in resultList:
-            for p in pair:
-                p.strand = '-' if p.targetposition.reverse else '+'
-                print >> fh2, ">",p.name+"|"+p.targetposition.chrom+":"+str(p.targetposition.offset)+\
-                "-"+str(int(p.targetposition.offset)+int(p.targetposition.length))+"\n"+\
-                str(p.seq)
-        fh2.close()
-        print resultList
+        # dump database (debugging)
+        # print >> sys.stderr, '++++++++++++++++++'
+        # print >> sys.stderr, "DB DUMP:"
+        # print >> sys.stderr, repr(db)
+        # print >> sys.stderr, '++++++++++++++++++'
 
-        sys.exit('Finished!!!')
+        # WRITE RESULT PRIMERS
+        if options.outfile:
+            fh = open(options.outfile,'w') if options.outfile != '-' else sys.stdout
+            for pair in resultList:
+                for p in pair:
+                    p.strand = '-' if p.targetposition.reverse else '+'
+                    print >> fh, ">",p.name+"|"+p.targetposition.chrom+":"+str(p.targetposition.offset)+\
+                    "-"+str(int(p.targetposition.offset)+int(p.targetposition.length))+"\n"+\
+                    str(p.seq)
+            try:
+                fh.close()
+            except:
+                pass
 
+        # WRITE RESULT PRIMERS
+        print >> sys.stderr, '==== RESULTS ===='
+        print >> sys.stderr, '\n'.join([ repr(r) for r in resultList])
 
     # change stock?
     # elif options.stock:
