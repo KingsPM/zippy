@@ -24,14 +24,6 @@ def flatten(container):
             else:
                 yield i
 
-'''returns common prefix (substring)'''
-def commonPrefix(left,right,stripchars='-_ ',commonlength=3):
-    matchingPositions = [ i+1 for i,j in enumerate([ i for i, x in enumerate(zip(left,right)) if len(set(x)) == 1]) if i==j]
-    if matchingPositions and max(matchingPositions) >= commonlength:
-        return left[:max(matchingPositions)].rstrip(stripchars)
-    else:
-        return None
-
 '''exception class for configuration errors'''
 class ConfigError(Exception):
     def __init__(self, value):
