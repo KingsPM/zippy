@@ -181,9 +181,6 @@ if __name__=="__main__":
                     if options.debug:
                         print >> sys.stderr
                         p3.show()  # show placed primers
-                        print '\n'.join([ str(i)+':'+str(v) for i,v in enumerate(p3.pairs)])
-                        for pair in p3.pairs:
-                            print pair[0].name, pair[1].name
                     designedPairs[iv] = p3.pairs
             sys.stderr.write('\r'+progress.show(len(intervals))+'\n')
 
@@ -232,8 +229,8 @@ if __name__=="__main__":
                 ivpairs[iv] = []
 
         # print primer pair count and build database table
-        failure = len([ iv.name for iv,p in ivpairs.items() if config['report']['pairs']>len(p) ])
-        print >> sys.stderr, 'got primers for {:d} out of {:d} targets'.format(len(ivpairs)-failure, len(ivpairs))
+        failure = [ iv.name for iv,p in ivpairs.items() if config['report']['pairs']>len(p) ]
+        print >> sys.stderr, 'got primers for {:d} out of {:d} targets'.format(len(ivpairs)-len(failure), len(ivpairs))
         if options.quiet:
             print >> sys.stderr, "FAILED INTERVALS ({}): {}".format(len(failure), ','.join(failure))
         else:
@@ -242,22 +239,27 @@ if __name__=="__main__":
             for iv,p in sorted(ivpairs.items(),key=lambda x:x[0].name):
                 print >> sys.stderr, '{:<16} {:>3} {:<10}'.format(iv.name, len(p), "!!" if len(p)<config['report']['pairs'] else "")
 
+
+
         ## get best primer pairs
+        ##### PRIORITISE AND ALWAYS PRINT DATABASE PRIMERS (AS FILTERED/ASSEMBLED/SELECTED ON RETRIEVAL)
+        print >> sys.stderr, '========'
         resultList = []
-        for iv in ivpairs.keys():
+        for iv in sorted(ivpairs.keys()):
             for i, p in enumerate(sorted(ivpairs[iv])):
                 if i == config['report']['pairs']: break  # only report number of primer pairs requested
                 #if False in sortvalues(p): continue  ##DATABASE DOES NOT RETURN ATTRIBUTES YET
                 resultList.append(p)
+                if not options.quiet:
+                    print iv.name+'\t'+repr(p)
 
         ## store primer pairs
         db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
-
-        # dump database (debugging)
-        # print >> sys.stderr, '++++++++++++++++++'
-        # print >> sys.stderr, "DB DUMP:"
-        # print >> sys.stderr, repr(db)
-        # print >> sys.stderr, '++++++++++++++++++'
+        if options.debug:
+            print >> sys.stderr, '++++++++++++++++++'
+            print >> sys.stderr, "DB DUMP:"
+            print >> sys.stderr, repr(db)
+            print >> sys.stderr, '++++++++++++++++++'
 
         # WRITE RESULT PRIMERS
         if options.outfile:
@@ -272,11 +274,6 @@ if __name__=="__main__":
                 fh.close()
             except:
                 pass
-
-        # WRITE RESULT PRIMERS
-        if not options.quiet:
-            print >> sys.stderr, '==== RESULTS ===='
-            print >> sys.stderr, '\n'.join([ repr(r) for r in resultList])
 
     # change stock?
     # elif options.stock:

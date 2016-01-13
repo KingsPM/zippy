@@ -105,7 +105,7 @@ class PrimerDB(object):
             self.db.close()
         return
 
-    def query(self, variant, flank):
+    def query(self, variant, flank=0):
         '''returns suitable primer pairs for the specified loci'''
         try:
             self.db = sqlite3.connect(self.sqlite)
@@ -113,15 +113,39 @@ class PrimerDB(object):
             raise
         else:
             cursor = self.db.cursor()
-            cursor.execute('''SELECT p.pairid, t1.*, t2.*, s.status
-                FROM pairs AS p
-                LEFT JOIN target AS t1 ON p.left = t1.seq
-                LEFT JOIN target AS t2 ON p.right = t2.seq
-                LEFT JOIN status AS s ON p.pairID = s.pairID
-                WHERE t1.chrom = t2.chrom
-                AND t1.chrom = ?
-                AND t1.position + length(t1.seq) + ? <= ?
-                AND t2.position - ? >= ?;''', (variant.chrom, flank, variant.chromStart, flank, variant.chromEnd))
+            cursor.execute('''SELECT DISTINCT p.pairid, p.left, p.right, p.chrom, p.start, p.end, s.status
+                FROM pairs AS p, status AS s
+                WHERE p.pairID = s.pairID
+                AND p.chrom = ?
+                AND p.start + length(p.left) + ? <= ?
+                AND p.end - length(p.right) - ? >= ?;''', \
+                (variant.chrom, flank, variant.chromStart, flank, variant.chromEnd))
+            rows = cursor.fetchall()
+        finally:
+            self.db.close()
+        # return primer pairs that would match
+        primerPairs = []
+        for row in rows:
+            name = row[0]
+            leftSeq = row[1]
+            rightSeq = row[2]
+            leftTargetposition = Locus(row[3], row[4], len(row[1]), False)
+            rightTargetposition = Locus(row[3], row[5]-len(row[2]), len(row[2]), True)
+            leftPrimer = Primer(name+'_left', leftSeq, leftTargetposition)
+            rightPrimer = Primer(name+'_right', rightSeq, rightTargetposition)
+            leftPrimer.calcProperties()
+            rightPrimer.calcProperties()
+            primerPairs.append(PrimerPair([leftPrimer, rightPrimer], status=row[6]))
+        return primerPairs
+
+    def multiquery(self, variant, flank):
+        '''as above but graph based to handle tiled intervals/amplicons'''
+        try:
+            self.db = sqlite3.connect(self.sqlite)
+        except:
+            raise
+        else:
+            cursor = self.db.cursor()
             rows = cursor.fetchall()
         finally:
             self.db.close()
@@ -179,20 +203,8 @@ class PrimerDB(object):
             return rows, ('chrom','chromStart','chromEnd','name')  # rows and colnames
             # return [ '{}\t{}\t{}\t{}'.format(*row) for row in rows ]
 
-''' SQLite based file and checkpoint manager
-    def getTasks(self,status):
-        # returns a list of files in a bucket, ordered by timestamp
-        self.db = sqlite3.connect(self.sqlite)
-        cursor = self.db.cursor()
-        cursor.execute(SELECT task FROM taskregistry WHERE status = ?', (status,))
-        rows = cursor.fetchall()
-        self.db.close()
-        return [ x[0] for x in rows ]
-
-    ####################
-    ### FILE BUCKETS ###
-    ####################
-    def update(self,filename,bucket='default'):
+'''
+def update(self,filename,bucket='default'):
         # parse filenames
         if type(filename) is not list and type(filename) is not tuple:
             inserts = [ (filename, bucket, datetime.datetime.now()) ]
@@ -211,103 +223,5 @@ class PrimerDB(object):
             raise
         finally:
             self.db.close()
-        return
-
-
-    #####################
-    ### CHECKPOINTING ###
-    #####################
-    def getMetricgroup(self, fun):
-        # returns metric group from function or fun if not available
-        self.db = sqlite3.connect(self.sqlite)
-        cursor = self.db.cursor()
-        cursor.execute('SELECT DISTINCT metricgroup FROM checkpoints where task = ?', (fun,))
-        rows = cursor.fetchall()
-        self.db.close()
-        try:
-            assert len(rows)<2
-        except AssertionError:
-            print rows
-            raise Exception('MultipleMetricgroups')
-        return rows[0][0]  # return first field of first row
-
-    def failedCheckpoints(self, exclude=''):
-        # get passed = 0
-        self.db = sqlite3.connect(self.sqlite)
-        cursor = self.db.cursor()
-        cursor.execute('SELECT DISTINCT metric FROM checkpoints where passed = ? and metricgroup != ? and task != ?', (0,exclude,exclude,))
-        rows = cursor.fetchall()
-        self.db.close()
-        return [ x for x in rows ]
-
-    def checkpoints(self):
-        self.db = sqlite3.connect(self.sqlite)
-        cursor = self.db.cursor()
-        cursor.execute('SELECT DISTINCT assessed, token, passed, task, metric, comment FROM checkpoints WHERE token != "NULL" ORDER BY assessed')
-        rows = cursor.fetchall()
-        self.db.close()
-        return rows
-
-    def setCheckpoint(self,fun,met,state,comment='NULL',metgrp=None,token='NULL'):
-        if not metgrp:
-            metgrp = fun
-        self.db = sqlite3.connect(self.sqlite)
-        state = 1 if state else 0
-        try:
-            cursor = self.db.cursor()
-            cursor.execute('INSERT OR REPLACE INTO checkpoints(task,token,metricgroup,metric,passed,assessed,comment) VALUES(?,?,?,?,?,?,?)', \
-                (fun, token, metgrp, met, state, datetime.datetime.now(), comment))
-            self.db.commit()
-        except:
-            print >> sys.stderr, (fun, metgrp, state, datetime.datetime.now(), comment)
-            raise
-        finally:
-            self.db.close()
-        return
-
-    def resetCheckpoints(self):
-        self.db = sqlite3.connect(self.sqlite)
-        try:
-            cursor = self.db.cursor()
-            cursor.execute('DELETE FROM checkpoints')
-            self.db.commit()
-        except:
-            raise
-        finally:
-            self.db.close()
-        return
-
-    # get failed checkpoints
-    # gets output files and deletes/unlinks them
-    # resets checkpoints for task
-    def resetQCfail(self):
-        token = re.compile(r'\w{8}$')
-        self.db = sqlite3.connect(self.sqlite)
-        # get token of failed taks
-        cursor = self.db.cursor()
-        cursor.execute('SELECT DISTINCT token FROM checkpoints WHERE passed != 1')
-        rows = cursor.fetchall()
-        failedToken = [ x for x in snappylib.utils.flatten(rows) if token.match(x) ]
-        for t in failedToken:
-            # get args and delete
-            cursor = self.db.cursor()
-            cursor.execute('SELECT DISTINCT args FROM runtoken where token = ?', (t,))
-            rows = cursor.fetchall()
-            for argstring in snappylib.utils.flatten(rows):
-                args = ast.literal_eval(argstring)
-                for outfile in args[1]:
-                    try:
-                        os.unlink(outfile)
-                    except OSError:
-                        pass
-                    except:
-                        raise
-            # remove from registry, runtoken and checkpoints
-            cursor = self.db.cursor()
-            cursor.execute('DELETE FROM taskregistry WHERE token = ?', (t,))
-            cursor.execute('DELETE FROM runtoken WHERE token = ?', (t,))
-            cursor.execute('DELETE FROM checkpoints WHERE token = ?', (t,))
-            self.db.commit()
-        self.db.close()
         return
 '''

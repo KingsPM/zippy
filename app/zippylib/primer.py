@@ -11,6 +11,10 @@ from collections import defaultdict, OrderedDict
 class MultiFasta(object):
     def __init__(self,file):
         self.file = file
+        # check sequence uniqueness
+        with pysam.FastaFile(self.file) as fasta:
+            if len(set(fasta.references))!=len(fasta.references):
+                raise Exception('DuplicateSequenceNames')
 
     def createPrimers(self,db,bowtie='bowtie2'):
         # run bowtie (max 1000 alignments, allow for one gap/mismatch?)
@@ -132,8 +136,8 @@ class PrimerPair(list):
         targetMatch = all([self[0].checkTarget(),self[1].checkTarget()]) ## --- FALSE COMES FIRST - FIX ---
         return (criticalsnp, mispriming, snpcount, primerRank, targetMatch)
 
-    # def uniqueid(self):
-    #     return sha1(','.join([self[0].seq,self[1].seq])).hexdigest()
+    def uniqueid(self):
+        return sha1(','.join([self[0].seq,self[1].seq])).hexdigest()
 
     def __hash__(self):
         return hash(self[0]) ^ hash(self[1])
@@ -289,7 +293,7 @@ class Primer3(object):
                 m = re.search(r'(\d+)_(LEFT|RIGHT)',k)
                 # store pairs (reference primers)
                 if int(m.group(1)) not in designedPairs.keys():
-                    designedPairs[int(m.group(1))] = [None, None]
+                    designedPairs[int(m.group(1))] = PrimerPair([None, None])
                 designedPairs[int(m.group(1))][0 if m.group(2).startswith('LEFT') else 1] = designedPrimers[v['SEQUENCE']]
                 # all other datafields
                 designedPrimers[v['SEQUENCE']].meta = v

@@ -1,9 +1,9 @@
 {
     "database": "zippy.sqlite",
     "tiling": {
-        "interval": 300,
-        "overlap": 100,
-        "flank" : 35
+        "interval": 400,
+        "overlap": 35,
+        "flank" : 15
     },
     "primer3": {
         "COMMENT": "DESIGN GENOME AND PRIMER3 CONFIG",
@@ -27,14 +27,19 @@
         }
     },
     "targeting": {
-        "COMMENT":"INEX FOR ALTERNATIVE AMPLIFICATION TARGETS",
+        "COMMENT":"INDEX FOR ALTERNATIVE AMPLIFICATION TARGETS",
         "bowtieindex": "/home/vagrant/dev/zippy/zippy_resources/human_g1k_v37.bowtie"
     },
     "snpcheck": {
-        "COMMENT":"COMMON SNPs FOR PRIMER FILTERING (TABIX INDEXED)",
+        "COMMENT":"VCF FOR SNPcheck (TABIX INDEXED)",
         "common": "/home/vagrant/dev/zippy/zippy_resources/dbsnp_138.b37.vcf.gz"
     },
     "report": {
         "pairs": 1
+    },
+    "ordering": {
+        "COMMENT": "non-variant IDT order sheet columns",
+        "scale": "",
+        "purification": ""
     }
 }
