@@ -81,7 +81,7 @@ if __name__=="__main__":
     global_group.add_argument("-c", dest="config", default='zippy.json',metavar="JSON_FILE", \
         help="configuration file [zippy.json]")
     global_group.add_argument("--debug", dest="debug", default=False, action="store_true", \
-        help="Debugging")
+        help="Debugging (show database dump at end)")
     global_group.add_argument("--quiet", dest="quiet", default=False, action="store_true", \
         help="Minimise screen output (dont print results)")
     global_group.add_argument("--outfile", dest="outfile", default='', type=str, \
@@ -158,7 +158,9 @@ if __name__=="__main__":
         progress = Progressbar(len(intervals),'Querying database')
         for i, iv in enumerate(intervals):
             sys.stderr.write('\r'+progress.show(i))
-            primerpairs = db.query(iv, config['tiling']['flank'])
+            primerpairs = db.query(iv)
+            if options.debug and not len(primerpairs):
+                print >> sys.stderr, '\nno primer for', iv
             for pair in primerpairs:
                 if pair.status is None or status != 0:
                     ivpairs[iv].append(pair)
@@ -173,14 +175,9 @@ if __name__=="__main__":
             progress = Progressbar(len(intervals),'Designing primers')
             for i,iv in enumerate(intervals):
                 sys.stderr.write('\r'+progress.show(i))
-                if options.debug:
-                    print iv
                 if iv not in ivpairs.keys() or config['report']['pairs']>len(ivpairs[iv]):  # not in database or not enough primer pairs for interval
-                    p3 = Primer3(config['primer3']['genome'],iv.locus(),300)  # genome and target
-                    p3.design(iv.name,config['primer3']['settings'])
-                    if options.debug:
-                        print >> sys.stderr
-                        p3.show()  # show placed primers
+                    p3 = Primer3(config['primer3']['genome'], iv.locus(), 300)  # genome and target region (plusminus)
+                    p3.design(iv.name, config['primer3']['settings'])
                     designedPairs[iv] = p3.pairs
             sys.stderr.write('\r'+progress.show(len(intervals))+'\n')
 

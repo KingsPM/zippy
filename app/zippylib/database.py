@@ -46,7 +46,8 @@ class PrimerDB(object):
             raise
         else:
             cursor = self.db.cursor()
-            cursor.execute('SELECT pairs.*, p1.tm, p2.tm FROM pairs LEFT JOIN primer as p1 ON pairs.left = p1.seq LEFT JOIN primer as p2 ON pairs.right = p2.seq;')
+            cursor.execute('''SELECT DISTINCT p.*, p1.tm, p2.tm FROM pairs as p, primer as p1, primer as p2
+                WHERE p.left = p1.seq AND p.right = p2.seq;''')
             rows = cursor.fetchall()
         finally:
             self.db.close()
@@ -105,7 +106,7 @@ class PrimerDB(object):
             self.db.close()
         return
 
-    def query(self, variant, flank=0):
+    def query(self, variant):
         '''returns suitable primer pairs for the specified loci'''
         try:
             self.db = sqlite3.connect(self.sqlite)
@@ -117,9 +118,9 @@ class PrimerDB(object):
                 FROM pairs AS p, status AS s
                 WHERE p.pairID = s.pairID
                 AND p.chrom = ?
-                AND p.start + length(p.left) + ? <= ?
-                AND p.end - length(p.right) - ? >= ?;''', \
-                (variant.chrom, flank, variant.chromStart, flank, variant.chromEnd))
+                AND p.start + length(p.left) <= ?
+                AND p.end - length(p.right) >= ?;''', \
+                (variant.chrom, variant.chromStart, variant.chromEnd))
             rows = cursor.fetchall()
         finally:
             self.db.close()
@@ -136,32 +137,6 @@ class PrimerDB(object):
             leftPrimer.calcProperties()
             rightPrimer.calcProperties()
             primerPairs.append(PrimerPair([leftPrimer, rightPrimer], status=row[6]))
-        return primerPairs
-
-    def multiquery(self, variant, flank):
-        '''as above but graph based to handle tiled intervals/amplicons'''
-        try:
-            self.db = sqlite3.connect(self.sqlite)
-        except:
-            raise
-        else:
-            cursor = self.db.cursor()
-            rows = cursor.fetchall()
-        finally:
-            self.db.close()
-        # return primer pairs that would match
-        primerPairs = []
-        for row in rows:
-            name = row[0]
-            leftSeq = row[1]
-            rightSeq = row[5]
-            leftTargetposition = Locus(row[2], row[3], len(row[1]), True if row[4] else False)
-            rightTargetposition = Locus(row[6], row[7], len(row[5]),True if row[8] else False)
-            leftPrimer = Primer(name+'_left', leftSeq, leftTargetposition)
-            rightPrimer = Primer(name+'_right', rightSeq, rightTargetposition)
-            leftPrimer.calcProperties()
-            rightPrimer.calcProperties()
-            primerPairs.append(PrimerPair([leftPrimer, rightPrimer], status=row[9]))
         return primerPairs
 
     def dump(self,what,**kwargs):
