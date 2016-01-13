@@ -131,38 +131,23 @@ class PrimerPair(list):
                 self[0].seq, self[0].tm, self[0].gc, \
                 self[1].seq, self[1].tm, self[1].gc)
 
-    def name(self,prunerank=False):
-        pairname = commonPrefix(self[0].name, self[1].name)
-        if prunerank:  # removes rank number if matches ranks
-            try:
-                assert self[0].rank == self[1].rank
-                int(self[0].rank)
-            except AssertionError:
-                pass  # can't prune ranks as they differ or are default (0)
-            except:
-                raise
-            else:
-                ranksuffix = '_'+str(self[0].rank)
-                if pairname.endswith(ranksuffix):
-                    pairname = pairname[:-len(ranksuffix)]
-        return pairname
+    def name(self):
+        return commonPrefix(self[0].name, self[1].name)
 
     def pruneRanks(self):
-        pairname = commonPrefix(self[0].name, self[1].name)
+        # set and prune ranks from name
         try:
+            self[0].rank = int(self[0].name.split('_')[-2])  # if coming from primer3 (name_rank_lr)
+            self[1].rank = int(self[1].name.split('_')[-2])  # if coming from primer3 (name_rank_lr)
             assert self[0].rank == self[1].rank
-            int(self[0].rank)
         except:
-            raise Exception('NameError')
+            raise Exception('RankError')
         else:
+            pairname = self.name()
             ranksuffix = '_'+str(self[0].rank)
             try:
                 assert pairname.endswith(ranksuffix)
             except:
-                print self[0].name, pairname, ranksuffix
-                print self[0].name[:len(pairname)]
-                print self[0].name[len(pairname):len(pairname)+len(ranksuffix)]
-                print self[0].name[len(pairname)+len(ranksuffix):]
                 raise
             else:
                 self[0].name = pairname[:-len(ranksuffix)] + self[0].name[len(pairname):]
@@ -193,10 +178,7 @@ class PrimerPair(list):
 '''fasta/primer'''
 class Primer(object):
     def __init__(self,name,seq,targetposition=None,tm=None,gc=None,loci=[]):
-        try:
-            self.rank = int(name.split('_')[-2])  # if coming from primer3 (name_rank_lr)
-        except:
-            self.rank = 0
+        self.rank = 0
         self.name = name
         self.seq = str(seq.upper())
         self.tm = tm

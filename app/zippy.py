@@ -33,7 +33,7 @@ reads fasta fastafile
 searches genome for targets
 decides if valid pairs
 '''
-def importPrimerPairs(fastafile,guessTarget=False):
+def importPrimerPairs(fastafile,primer3=True):
     # read primers (fasta file)
     primerfile = MultiFasta(fastafile)
     print >> sys.stderr, "Placing primers on genome..."
@@ -61,39 +61,37 @@ def importPrimerPairs(fastafile,guessTarget=False):
             pairs[primername][1] = p
         else:
             raise Exception('PrimerNameError')
-    # remove unpaired
+
+    # check if any unpaired primers
     validPairs = [ p for p in pairs.values() if all(p) ]
+    assert len(validPairs) == len(pairs.values())
 
-    if not guessTarget:
-        return validPairs
-
-    # guess target if not set
-    acceptedPairs = []
-    print >> sys.stderr, 'Identifying correct amplicons for unplaced primer pairs...'
-    for p in validPairs:
-        if not p[0].targetposition or not p[1].targetposition:
-            amplicons = []
-            for m in p[0].loci:
-                for n in p[1].loci:
-                    if m.chrom == n.chrom:
-                        if (n.offset + n.length) - m.offset > config['import']['ampliconsize'][0]\
-                        and (n.offset + n.length) - m.offset < config['import']['ampliconsize'][1]:
-                            amplicons.append([m,n])
-            try:
-                assert len(amplicons)==1
-            except AssertionError:
-                print >> sys.stderr, 'WARNING: Primer %s does not produce a single, well-sized amplicon' % p.name()
-                continue
-            except:
-                raise
+    if primer3:  # prune ranks and read target
+        for p in validPairs:
+            p.pruneRanks()
+    else:  # guess target if not set
+        acceptedPairs = []
+        print >> sys.stderr, 'Identifying correct amplicons for unplaced primer pairs...'
+        for p in validPairs:
+            if not p[0].targetposition or not p[1].targetposition:
+                amplicons = []
+                for m in p[0].loci:
+                    for n in p[1].loci:
+                        if m.chrom == n.chrom:
+                            if (n.offset + n.length) - m.offset > config['import']['ampliconsize'][0]\
+                            and (n.offset + n.length) - m.offset < config['import']['ampliconsize'][1]:
+                                amplicons.append([m,n])
+                if len(amplicons)!=1:  # skip import
+                    print >> sys.stderr, 'WARNING: Primer %s does not produce a single, well-sized amplicon' % p.name()
+                    continue
+                else:  # add targetregion
+                    p[0].targetposition = amplicons[0][0]
+                    p[1].targetposition = amplicons[0][1]
+                    acceptedPairs.append(p)
             else:
-                # add targetregion
-                p[0].targetposition = amplicons[0][0]
-                p[1].targetposition = amplicons[0][1]
                 acceptedPairs.append(p)
-        else:
-            acceptedPairs.append(p)
-    return acceptedPairs  # return valid pairs
+        validPairs = acceptedPairs
+    return validPairs
 
 ''' main script '''
 if __name__=="__main__":
@@ -154,7 +152,7 @@ if __name__=="__main__":
     db = PrimerDB(config['database'])
 
     if options.which=='add':  # read primers and add to database
-        pairs = importPrimerPairs(options.primers, guessTarget=True)  # import (and locate) primer pairs
+        pairs = importPrimerPairs(options.primers, primer3=False)  # import and locate primer pairs
         db.addPair(*pairs)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
         sys.stderr.write('Added {} primer pairs to database\n'.format(len(pairs)))
         if options.debug: print repr(db)  # show database content (debugging only)
@@ -226,7 +224,7 @@ if __name__=="__main__":
                         for pairnumber, pair in enumerate(v):
                             print >> fh, pair[0].fasta('_'.join([ k.name, str(pairnumber), "left" ]))
                             print >> fh, pair[1].fasta('_'.join([ k.name, str(pairnumber), "right" ]))
-                pairs = importPrimerPairs(fh.name)
+                pairs = importPrimerPairs(fh.name,primer3=True)
                 os.unlink(fh.name)  # remove fasta file
 
                 ## Remove non-specific and blacklisted primer pairs
@@ -255,10 +253,7 @@ if __name__=="__main__":
                 # assign designed primer pairs to intervals (and remove ranks)
                 intervalindex = { i.name: i for i in intervals }
                 for pair in pairs:
-                    intervalName = pair.name(prunerank=True)
-                    pair.pruneRanks()  # remove ranks from primer names
-                    ivpairs[intervalindex[intervalName]].append(pair)
-
+                    ivpairs[intervalindex[pair.name()]].append(pair)
 
             ## add ivpairs with no primers
             for iv in set(intervals).difference(set(ivpairs.keys())):
