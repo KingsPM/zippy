@@ -243,8 +243,6 @@ if __name__=="__main__":
             for iv,p in sorted(ivpairs.items(),key=lambda x:x[0].name):
                 print >> sys.stderr, '{:<16} {:>3} {:<10}'.format(iv.name, len(p), "!!" if len(p)<config['report']['pairs'] else "")
 
-
-
         ## get best primer pairs
         ##### PRIORITISE AND ALWAYS PRINT DATABASE PRIMERS (AS FILTERED/ASSEMBLED/SELECTED ON RETRIEVAL)
         print >> sys.stderr, '========'
