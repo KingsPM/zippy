@@ -26,6 +26,9 @@
             "PRIMER_MISPRIMING_LIBRARY":"/home/vagrant/dev/zippy/zippy_resources/human_repeat_simple.fa"
         }
     },
+    "import": {
+        "ampliconsize": [100,1000]
+    },
     "targeting": {
         "COMMENT":"INEX FOR ALTERNATIVE AMPLIFICATION TARGETS",
         "bowtieindex": "/home/vagrant/dev/zippy/zippy_resources/human_g1k_v37.bowtie"

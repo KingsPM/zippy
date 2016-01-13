@@ -29,7 +29,8 @@ class MultiFasta(object):
                 primername, targetposition = s.split('|')
                 reTargetposition = re.match(r'(\w+):(\d+)-(\d+)',targetposition)
             except:
-                raise Exception('PrimerNameError')
+                #raise Exception('PrimerNameError')
+                primername = s
                 targetLocus = None
             else:
                 reverse = True if primername.split('_')[-1].startswith("r") else False
@@ -48,7 +49,7 @@ class MultiFasta(object):
             elif zip(*aln.cigar)[0].count(0) >= len(aln.seq)-1:
                 primers[primername].sigmatch += 1
 
-        os.unlink(self.file+'.sam') # delete mapping FILE
+        ##os.unlink(self.file+'.sam') # delete mapping FILE
         return primers.values()
 
 '''Boundary exceeded exception (max list size)'''

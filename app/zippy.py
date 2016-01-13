@@ -33,7 +33,7 @@ reads fasta fastafile
 searches genome for targets
 decides if valid pairs
 '''
-def importPrimerPairs(fastafile):
+def importPrimerPairs(fastafile,guessTarget=False):
     # read primers (fasta file)
     primerfile = MultiFasta(fastafile)
     print >> sys.stderr, "Placing primers on genome..."
@@ -64,7 +64,39 @@ def importPrimerPairs(fastafile):
     # remove unpaired
     validPairs = [ p for p in pairs.values() if all(p) ]
     print >> sys.stderr, "Got %s paired primers" % str(len(validPairs))
-    return validPairs  # return valid pairs
+
+
+    if not guessTarget:
+        return validPairs
+
+    # guess target if not set
+    acceptedPairs = []
+    print >> sys.stderr, 'Identifying correct amplicons for unplaced primer pairs...'
+    for p in validPairs:
+        if not p[0].targetposition or not p[1].targetposition:
+            amplicons = []
+            for m in p[0].loci:
+                for n in p[1].loci:
+                    if m.chrom == n.chrom:
+                        if (n.offset + n.length) - m.offset > config['import']['ampliconsize'][0]\
+                        and (n.offset + n.length) - m.offset < config['import']['ampliconsize'][1]:
+                            amplicons.append([m,n])
+            try:
+                assert len(amplicons)==1
+            except AssertionError:
+                #print warning
+                print >> sys.stderr, '***ERROR: Primer pairs amplify more/less than one amplicon of acceptable size***'
+                continue
+            except:
+                raise
+            else:
+                # add targetregion
+                p[0].targetposition = amplicons[0][0]
+                p[1].targetposition = amplicons[0][1]
+                acceptedPairs.append(p)
+        else:
+            acceptedPairs.append(p)
+    return acceptedPairs  # return valid pairs
 
 ''' main script '''
 if __name__=="__main__":
@@ -84,6 +116,8 @@ if __name__=="__main__":
         help="Debugging")
     global_group.add_argument("--outfile", dest="outfile", default='', type=str, \
         help="Output file name (bed,interval,fasta)")
+    global_group.add_argument("--nostore", dest="nostore", default=False, action='store_true', \
+        help="Do not store result in database")
 
     # run modes
     subparsers = parser.add_subparsers(help='help for subcommand')
@@ -123,7 +157,7 @@ if __name__=="__main__":
     db = PrimerDB(config['database'])
 
     if options.which=='add':  # read primers and add to database
-        pairs = importPrimerPairs(options.primers)  # import (and locate) primer pairs
+        pairs = importPrimerPairs(options.primers, guessTarget=True)  # import (and locate) primer pairs
         db.addPair(*pairs)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
         sys.stderr.write('Added {} primer pairs to database\n'.format(len(pairs)))
         if options.debug: print repr(db)  # show database content (debugging only)
@@ -244,7 +278,8 @@ if __name__=="__main__":
                 resultList.append(p)
 
         ## store primer pairs
-        db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
+        if not options.nostore:
+            db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
 
         # dump database (debugging)
         # print >> sys.stderr, '++++++++++++++++++'
@@ -258,7 +293,7 @@ if __name__=="__main__":
             for pair in resultList:
                 for p in pair:
                     p.strand = '-' if p.targetposition.reverse else '+'
-                    print >> fh, ">",p.name+"|"+p.targetposition.chrom+":"+str(p.targetposition.offset)+\
+                    print >> fh, ">"+p.name+"|"+p.targetposition.chrom+":"+str(p.targetposition.offset)+\
                     "-"+str(int(p.targetposition.offset)+int(p.targetposition.length))+"\n"+\
                     str(p.seq)
             try:
