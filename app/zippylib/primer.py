@@ -131,11 +131,43 @@ class PrimerPair(list):
                 self[0].seq, self[0].tm, self[0].gc, \
                 self[1].seq, self[1].tm, self[1].gc)
 
-    def name(self):
-        return commonPrefix(self[0].name, self[1].name)
-        # l, r = '_'.join(self[0].name.split('_')[:-1]), '_'.join(self[1].name.split('_')[:-1])
-        # assert len(set([l,r]))==1
-        # return l
+    def name(self,prunerank=False):
+        pairname = commonPrefix(self[0].name, self[1].name)
+        if prunerank:  # removes rank number if matches ranks
+            try:
+                assert self[0].rank == self[1].rank
+                int(self[0].rank)
+            except AssertionError:
+                pass  # can't prune ranks as they differ or are default (0)
+            except:
+                raise
+            else:
+                ranksuffix = '_'+str(self[0].rank)
+                if pairname.endswith(ranksuffix):
+                    pairname = pairname[:-len(ranksuffix)]
+        return pairname
+
+    def pruneRanks(self):
+        pairname = commonPrefix(self[0].name, self[1].name)
+        try:
+            assert self[0].rank == self[1].rank
+            int(self[0].rank)
+        except:
+            raise Exception('NameError')
+        else:
+            ranksuffix = '_'+str(self[0].rank)
+            try:
+                assert pairname.endswith(ranksuffix)
+            except:
+                print self[0].name, pairname, ranksuffix
+                print self[0].name[:len(pairname)]
+                print self[0].name[len(pairname):len(pairname)+len(ranksuffix)]
+                print self[0].name[len(pairname)+len(ranksuffix):]
+                raise
+            else:
+                self[0].name = pairname[:-len(ranksuffix)] + self[0].name[len(pairname):]
+                self[1].name = pairname[:-len(ranksuffix)] + self[1].name[len(pairname):]
+        return
 
     def sortvalues(self):
         try:
@@ -146,11 +178,10 @@ class PrimerPair(list):
             raise
         criticalsnp = len([ s for s in self[0].snp if s[1] >= 2*len(self[0])/3 ]) + \
             len([ s for s in self[1].snp if s[1]+s[2] <= len(self[1])/3 ])   # chr,offset,len,name
-        mispriming = max(len(self[0].loci), len(self[1].loci))-1
+        mispriming = max(max(len(self[0].loci), len(self[1].loci))-1,0)
         snpcount = len(self[0].snp)+len(self[1].snp)
-        primerRank = int(self[0].rank)  # int(self[0].name.split('_')[-2])
-        targetMatch = all([self[0].checkTarget(),self[1].checkTarget()]) ## --- FALSE COMES FIRST - FIX ---
-        return (criticalsnp, mispriming, snpcount, primerRank, targetMatch)
+        primerRank = int(self[0].rank)
+        return (criticalsnp, mispriming, snpcount, primerRank)
 
     def uniqueid(self):
         return sha1(','.join([self[0].seq,self[1].seq])).hexdigest()
@@ -163,7 +194,7 @@ class PrimerPair(list):
 class Primer(object):
     def __init__(self,name,seq,targetposition=None,tm=None,gc=None,loci=[]):
         try:
-            self.rank = int(self[0].name.split('_')[-2])  # if coming from primer3 (name_rank_lr)
+            self.rank = int(name.split('_')[-2])  # if coming from primer3 (name_rank_lr)
         except:
             self.rank = 0
         self.name = name
@@ -187,15 +218,10 @@ class Primer(object):
     def __len__(self):
         return len(self.seq)
 
-    # def __repr__(self):
-    #     '''primer sequence with locations and annotations'''
-    #     raise NotImplementedError
-
     def snpFilter(self,position):
         # return list of boolean if spliced position has Variant
         for l in self.loci:
             raise NotImplementedError
-
 
     def fasta(self,seqname=None):
         if not seqname:

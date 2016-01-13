@@ -129,7 +129,7 @@ class PrimerDB(object):
         return
 
     def query(self, variant):
-        '''returns suitable primer pairs for the specified loci'''
+        '''returns suitable primer pairs for the specified interval'''
         try:
             self.db = sqlite3.connect(self.sqlite)
         except:

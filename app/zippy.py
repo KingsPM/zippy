@@ -63,8 +63,6 @@ def importPrimerPairs(fastafile,guessTarget=False):
             raise Exception('PrimerNameError')
     # remove unpaired
     validPairs = [ p for p in pairs.values() if all(p) ]
-    print >> sys.stderr, "Got %s paired primers" % str(len(validPairs))
-
 
     if not guessTarget:
         return validPairs
@@ -84,8 +82,7 @@ def importPrimerPairs(fastafile,guessTarget=False):
             try:
                 assert len(amplicons)==1
             except AssertionError:
-                #print warning
-                print >> sys.stderr, '***ERROR: Primer pairs amplify more/less than one amplicon of acceptable size***'
+                print >> sys.stderr, 'WARNING: Primer %s does not produce a single, well-sized amplicon' % p.name()
                 continue
             except:
                 raise
@@ -233,18 +230,18 @@ if __name__=="__main__":
                 os.unlink(fh.name)  # remove fasta file
 
                 ## Remove non-specific and blacklisted primer pairs
-                specificPrimers = []
+                specificPrimerPairs = []
                 blacklisted = 0
                 for i, pair in enumerate(pairs):
                     if pair.uniqueid() in blacklist:
                         blacklisted += 1
                     elif all([pair[0].checkTarget(), pair[1].checkTarget()]):
-                        specificPrimers.append(pair)
+                        specificPrimerPairs.append(pair)
                 if blacklisted:
                     sys.stderr.write('Removed '+str(blacklisted)+' blacklisted primer pairs\n')
-                if len(pairs) != len(specificPrimers):
-                    sys.stderr.write('Removed '+str(len(pairs)-len(specificPrimers))+' non-specific primer pairs\n')
-                pairs = specificPrimers
+                if len(pairs) != len(specificPrimerPairs):
+                    sys.stderr.write('Removed '+str(len(pairs)-len(specificPrimerPairs))+' non-specific primer pairs\n')
+                pairs = specificPrimerPairs
 
                 ## add SNPinfo (SNPcheck) for main target
                 progress = Progressbar(len(pairs),'SNPcheck')
@@ -255,12 +252,13 @@ if __name__=="__main__":
                         p.snpCheckPrimer(config['snpcheck']['common'])
                 sys.stderr.write('\r'+progress.show(len(pairs))+'\n')
 
-                # assign designed primer pairs to intervals
+                # assign designed primer pairs to intervals (and remove ranks)
                 intervalindex = { i.name: i for i in intervals }
                 for pair in pairs:
-                    intervalName = '_'.join(pair[0].name.split('_')[:-2])
-                    if intervalName not in ivpairs.keys():
-                        ivpairs[intervalindex[intervalName]].append(pair)
+                    intervalName = pair.name(prunerank=True)
+                    pair.pruneRanks()  # remove ranks from primer names
+                    ivpairs[intervalindex[intervalName]].append(pair)
+
 
             ## add ivpairs with no primers
             for iv in set(intervals).difference(set(ivpairs.keys())):
@@ -278,16 +276,24 @@ if __name__=="__main__":
                 print >> sys.stderr, '{:<16} {:>3} {:<10}'.format(iv.name, len(p), "!!" if len(p)<config['report']['pairs'] else "")
 
         ## get best primer pairs
-        ##### PRIORITISE AND ALWAYS PRINT DATABASE PRIMERS (AS FILTERED/ASSEMBLED/SELECTED ON RETRIEVAL)
+        ##### PRIORITISE AND ALWAYS PRINT DATABASE PRIMERS
         print >> sys.stderr, '========'
         resultList = []
         for iv in sorted(ivpairs.keys()):
             for i, p in enumerate(sorted(ivpairs[iv])):
                 if i == config['report']['pairs']: break  # only report number of primer pairs requested
                 #if False in sortvalues(p): continue  ##DATABASE DOES NOT RETURN ATTRIBUTES YET
+
                 resultList.append(p)
                 if not options.quiet:
                     print iv.name+'\t'+repr(p)
+
+
+
+        for p in resultList:
+            print p.sortvalues()
+
+
 
         ## store primer pairs
         if not options.nostore:
