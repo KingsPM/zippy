@@ -6,6 +6,13 @@ import pysam
 import subprocess
 from collections import defaultdict, OrderedDict
 
+'''returns common prefix (substring)'''
+def commonPrefix(left,right,stripchars='-_ ',commonlength=3):
+    matchingPositions = [ i+1 for i,j in enumerate([ i for i, x in enumerate(zip(left,right)) if len(set(x)) == 1]) if i==j]
+    if matchingPositions and max(matchingPositions) >= commonlength:
+        return left[:max(matchingPositions)].rstrip(stripchars)
+    else:
+        return None
 
 '''just a wrapper for pysam'''
 class MultiFasta(object):
@@ -55,9 +62,11 @@ class MultiFasta(object):
         os.unlink(self.file+'.sam') # delete mapping FILE
         return primers.values()
 
+
 '''Boundary exceeded exception (max list size)'''
 class BoundExceedError(Exception):
     pass
+
 
 '''primer pair (list)'''
 class PrimerPair(list):
@@ -111,15 +120,21 @@ class PrimerPair(list):
         return self.sortvalues() < other.sortvalues()
 
     def __repr__(self):
-        return '{}\t{}\t{:.1f}\t{:.1f}\t{}\t{:.1f}\t{:.1f}\t{}\t{}\t{}'.format(self.name(), \
-            self[0].seq, self[0].tm, self[0].gc, \
-            self[1].seq, self[1].tm, self[1].gc, \
-            self[0].targetposition.chrom, self[0].targetposition.offset+self[0].targetposition.length, self[1].targetposition.offset)
+        if self[0].targetposition and self[1].targetposition:
+            return '{}\t{}\t{:.1f}\t{:.1f}\t{}\t{:.1f}\t{:.1f}\t{}\t{}\t{}'.format(self.name(), \
+                self[0].seq, self[0].tm, self[0].gc, \
+                self[1].seq, self[1].tm, self[1].gc, \
+                self[0].targetposition.chrom, self[0].targetposition.offset+self[0].targetposition.length, self[1].targetposition.offset)
+        else:
+            return '{}\t{}\t{:.1f}\t{:.1f}\t{}\t{:.1f}\t{:.1f}\tNA\tNA\tNA'.format(self.name(), \
+                self[0].seq, self[0].tm, self[0].gc, \
+                self[1].seq, self[1].tm, self[1].gc)
 
     def name(self):
-        l, r = '_'.join(self[0].name.split('_')[:-1]), '_'.join(self[1].name.split('_')[:-1])
-        assert len(set([l,r]))==1
-        return l
+        return commonPrefix(self[0].name, self[1].name)
+        # l, r = '_'.join(self[0].name.split('_')[:-1]), '_'.join(self[1].name.split('_')[:-1])
+        # assert len(set([l,r]))==1
+        # return l
 
     def sortvalues(self):
         try:
@@ -132,7 +147,7 @@ class PrimerPair(list):
             len([ s for s in self[1].snp if s[1]+s[2] <= len(self[1])/3 ])   # chr,offset,len,name
         mispriming = max(len(self[0].loci), len(self[1].loci))-1
         snpcount = len(self[0].snp)+len(self[1].snp)
-        primerRank = int(self[0].name.split('_')[-2])
+        primerRank = int(self[0].rank)  # int(self[0].name.split('_')[-2])
         targetMatch = all([self[0].checkTarget(),self[1].checkTarget()]) ## --- FALSE COMES FIRST - FIX ---
         return (criticalsnp, mispriming, snpcount, primerRank, targetMatch)
 
@@ -146,7 +161,11 @@ class PrimerPair(list):
 '''fasta/primer'''
 class Primer(object):
     def __init__(self,name,seq,targetposition=None,tm=None,gc=None,loci=[]):
-        self.name = name if name else 'primer_'+sha1(seq).hexdigest()[:8]
+        try:
+            self.rank = int(self[0].name.split('_')[-2])  # if coming from primer3 (name_rank_lr)
+        except:
+            self.rank = 0
+        self.name = name
         self.seq = str(seq.upper())
         self.tm = tm
         self.gc = gc
@@ -241,6 +260,7 @@ class Locus(object):
         return snp_positions
 
 
+'''primer3 wrapper class'''
 class Primer3(object):
     def __init__(self,genome,target,flank=200):
         self.genome = genome
@@ -284,10 +304,9 @@ class Primer3(object):
 
         designedPrimers, designedPairs = {}, {}
         for k,v in sorted(primerdata.items()):
-            # k primername
-            # v dict of metadata
+            # k primername # v dict of metadata
             if 'SEQUENCE' not in designedPrimers.keys():
-                designedPrimers[v['SEQUENCE']] = Primer(k,v['SEQUENCE'])  # no name autosets
+                designedPrimers[v['SEQUENCE']] = Primer(k,v['SEQUENCE'])
                 designedPrimers[v['SEQUENCE']].calcProperties()
 
                 m = re.search(r'(\d+)_(LEFT|RIGHT)',k)
@@ -298,42 +317,9 @@ class Primer3(object):
                 # all other datafields
                 designedPrimers[v['SEQUENCE']].meta = v
         # store
-        self.pairs += OrderedDict(sorted(designedPairs.items())).values()
-        # if design fails there will be 0 pairs, simple!
-        # if not self.pairs:
-        #     print self.explain
-        #     print self.sequence
-        #     #raise Exception('DesignFail')
+        self.pairs = OrderedDict(sorted(designedPairs.items())).values()
         return len(self.pairs)
 
-    def show(self,width=100):
-        # get features
-        for p in self.pairs:
-            f = { self.flank:'[', len(self.sequence)-self.flank:']' }
-            f[int(p[0].meta[''][0] + p[0].meta[''][1])]= '>'
-            f[int(p[1].meta[''][0])] = '<'
-            # get fstring positions
-            fpos = defaultdict(list)
-            for k in sorted(f.keys()):
-                p = int(k*width/float(2*self.flank+(self.target[2]-self.target[1])))
-                fpos[p].append(f[k])
-            # create featurestring
-            fstring = ''
-            for p in sorted(fpos.keys()):
-                # spacer
-                if len(fstring) < p:
-                    fstring += ' ' * (p-len(fstring))
-                # char
-                if len(fpos[p]) > 1:
-                    fstring += "*"
-                else:
-                    fstring += fpos[p][0]
-            # fill end
-            if len(fstring) < width:
-                fstring += ' ' * (width-len(fstring))
-            # print
-            print self.target[0], self.target[1],'|', fstring,'|', self.target[2]
-        return
 
 if __name__=="__main__":
     mf = MultiFasta(sys.argv[1])

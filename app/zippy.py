@@ -162,13 +162,20 @@ if __name__=="__main__":
             if options.debug and not len(primerpairs):
                 print >> sys.stderr, '\nno primer for', iv
             for pair in primerpairs:
-                if pair.status is None or status != 0:
+                if pair.status is None or pair.status != 0:
                     ivpairs[iv].append(pair)
                 else:
                     blacklist.add(pair.uniqueid())
-        sys.stderr.write('\r'+progress.show(len(intervals))+'\n')
-        print >> sys.stderr, 'Found primers for {:d} out of {:d} intervals in database'.format(len([ iv for iv in intervals if ivpairs[iv]]), len(intervals))
 
+        sys.stderr.write('\r'+progress.show(len(intervals))+'\n')
+
+        # show blacklist
+        if options.debug:
+            print >> sys.stderr, '\n++BLACKLIST+++++++++++++++++++++++++++'
+            print db.blacklist()
+            print >> sys.stderr, '++++++++++++++++++++++++++++++++++++++\n'
+
+        print >> sys.stderr, 'Found primers for {:d} out of {:d} intervals in database'.format(len([ iv for iv in intervals if ivpairs[iv]]), len(intervals))
         # designing
         if options.design:
             designedPairs = {}
@@ -252,11 +259,12 @@ if __name__=="__main__":
 
         ## store primer pairs
         db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
+
+        ## print database content
         if options.debug:
-            print >> sys.stderr, '++++++++++++++++++'
-            print >> sys.stderr, "DB DUMP:"
+            print >> sys.stderr, '\n++DATABASE++++++++++++++++++++++++++++'
             print >> sys.stderr, repr(db)
-            print >> sys.stderr, '++++++++++++++++++'
+            print >> sys.stderr, '++++++++++++++++++++++++++++++++++++++\n'
 
         # WRITE RESULT PRIMERS
         if options.outfile:

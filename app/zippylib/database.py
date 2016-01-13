@@ -8,7 +8,7 @@ import sqlite3
 import fnmatch
 import copy
 from collections import defaultdict
-from zippylib import flatten, commonPrefix
+from zippylib import flatten
 from zippylib.primer import Primer, Locus, PrimerPair
 
 class PrimerDB(object):
@@ -23,8 +23,8 @@ class PrimerDB(object):
             # TABLE
             cursor.execute('CREATE TABLE IF NOT EXISTS primer(name TEXT PRIMARY KEY, seq TEXT, tm REAL, gc REAL, FOREIGN KEY(seq) REFERENCES target(seq));')
             cursor.execute('CREATE TABLE IF NOT EXISTS target(seq TEXT, chrom TEXT, position INT, reverse BOOLEAN);')
-            cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT PRIMARY KEY, left TEXT, right TEXT, chrom TEXT, start INT, end INT, FOREIGN KEY(left) REFERENCES primer(seq), FOREIGN KEY(right) REFERENCES primer(seq));')
-            cursor.execute('CREATE TABLE IF NOT EXISTS status(pairid TEXT PRIMARY KEY, status INT, dateadded TEXT, FOREIGN KEY(pairid) REFERENCES pairs(pairid));')
+            cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT PRIMARY KEY, uniqueid TEXT, left TEXT, right TEXT, chrom TEXT, start INT, end INT, FOREIGN KEY(left) REFERENCES primer(seq), FOREIGN KEY(right) REFERENCES primer(seq));')
+            cursor.execute('CREATE TABLE IF NOT EXISTS status(pairid TEXT PRIMARY KEY, uniqueid TEXT, status INT, dateadded TEXT, FOREIGN KEY(pairid) REFERENCES pairs(pairid), UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);')
             cursor.execute('CREATE INDEX IF NOT EXISTS seq_index_in_target ON target(seq);')
             self.db.commit()
         except:
@@ -46,12 +46,37 @@ class PrimerDB(object):
             raise
         else:
             cursor = self.db.cursor()
-            cursor.execute('''SELECT DISTINCT p.*, p1.tm, p2.tm FROM pairs as p, primer as p1, primer as p2
-                WHERE p.left = p1.seq AND p.right = p2.seq;''')
+            cursor.execute('''SELECT DISTINCT
+                p.pairid, p.uniqueid, p.left, p.right, p.chrom, p.start, p.end, p1.tm, p2.tm, s.status, s.dateadded
+                FROM pairs as p, primer as p1, primer as p2, status as s
+                WHERE p.left = p1.seq AND p.right = p2.seq AND p.pairid = s.pairid AND p.uniqueid = s.uniqueid;''')
             rows = cursor.fetchall()
         finally:
             self.db.close()
-        return "\n".join([ '{:<16} {:<25} {:<25} {:<8} {:>9d} {:>9d} {:.1f} {:.2f}'.format(*row) for row in rows ])
+        return "\n".join([ '{:<16} {:40} {:<25} {:<25} {:<8} {:>9d} {:>9d} {:.2f} {:.2f} {:1} {}'.format(*row) for row in rows ])
+
+    '''show/update blacklist'''
+    def blacklist(self,add=None):
+        try:
+            self.db = sqlite3.connect(self.sqlite)
+        except:
+            raise
+        else:
+            if add:
+                cursor.execute('''UPDATE OR ABORT status as s SET s.status = 0 WHERE pairid = ?)''', (add))
+                self.db.commit()
+                return  # does this close the connection?
+            else:
+                cursor = self.db.cursor()
+                cursor.execute('''SELECT DISTINCT
+                    p.pairid, p.uniqueid, p.left, p.right, p.chrom, p.start, p.end, s.status, s.dateadded
+                    FROM pairs as p, status as s
+                    WHERE p.pairid = s.pairid AND p.uniqueid = s.uniqueid
+                    AND s.status = 0;''')
+                rows = cursor.fetchall()
+                return "\n".join([ '{:<16} {:40} {:<25} {:<25} {:<8} {:>9d} {:>9d} {:1} {}'.format(*row) for row in rows ])
+        finally:
+            self.db.close()
 
     '''adds list of primers to database'''
     def addPrimer(self, *primers):
@@ -91,16 +116,13 @@ class PrimerDB(object):
             for p in pairs:
                 left, right = p[0],p[1]
                 # find common substring in name for automatic naming
-                pairid = commonPrefix(left.name,right.name)
                 chrom = left.targetposition.chrom
                 start = left.targetposition.offset
                 end = right.targetposition.offset+right.targetposition.length
-                if not pairid:  # fallback
-                    pairid = "X"+md5(left.seq+'_'+right.seq).hexdigest()
-                cursor.execute('''INSERT OR REPLACE INTO pairs(pairid,left,right,chrom,start,end) VALUES(?,?,?,?,?,?)''', \
-                    (pairid, left.seq, right.seq, chrom, start, end))
-                cursor.execute('''INSERT OR REPLACE INTO status(pairID,dateadded) VALUES(?,?)''', \
-                    (pairid, datetime.datetime.now()))
+                cursor.execute('''INSERT OR REPLACE INTO pairs(pairid,uniqueid,left,right,chrom,start,end) VALUES(?,?,?,?,?,?,?)''', \
+                    (p.name(), p.uniqueid(), left.seq, right.seq, chrom, start, end))
+                cursor.execute('''INSERT OR REPLACE INTO status(pairID,uniqueid,dateadded) VALUES(?,?,?)''', \
+                    (p.name(), p.uniqueid(), datetime.datetime.now()))
             self.db.commit()
         finally:
             self.db.close()
@@ -116,7 +138,7 @@ class PrimerDB(object):
             cursor = self.db.cursor()
             cursor.execute('''SELECT DISTINCT p.pairid, p.left, p.right, p.chrom, p.start, p.end, s.status
                 FROM pairs AS p, status AS s
-                WHERE p.pairID = s.pairID
+                WHERE p.pairid = s.pairid AND p.uniqueid = s.uniqueid
                 AND p.chrom = ?
                 AND p.start + length(p.left) <= ?
                 AND p.end - length(p.right) >= ?;''', \
