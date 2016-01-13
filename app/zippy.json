@@ -2,7 +2,7 @@
     "database": "zippy.sqlite",
     "tiling": {
         "interval": 400,
-        "overlap": 35,
+        "overlap": 10,
         "flank" : 15
     },
     "primer3": {

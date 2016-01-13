@@ -165,7 +165,7 @@ if __name__=="__main__":
                 if pair.status is None or status != 0:
                     ivpairs[iv].append(pair)
                 else:
-                    blacklist.add(hash(pair))
+                    blacklist.add(pair.uniqueid())
         sys.stderr.write('\r'+progress.show(len(intervals))+'\n')
         print >> sys.stderr, 'Found primers for {:d} out of {:d} intervals in database'.format(len([ iv for iv in intervals if ivpairs[iv]]), len(intervals))
 
@@ -195,7 +195,7 @@ if __name__=="__main__":
                 specificPrimers = []
                 blacklisted = 0
                 for i, pair in enumerate(pairs):
-                    if hash(pair) in blacklist:
+                    if pair.uniqueid() in blacklist:
                         blacklisted += 1
                     elif all([pair[0].checkTarget(), pair[1].checkTarget()]):
                         specificPrimers.append(pair)

@@ -14,6 +14,7 @@ __status__ = "Production"
 
 import sys
 import re
+import os
 from math import ceil
 from collections import Counter
 from hashlib import sha1
@@ -48,9 +49,9 @@ class Interval(object):
         return "<Interval ("+self.name+") "+self.chrom+":"+str(self.chromStart)+'-'+str(self.chromEnd)+ \
             " ["+str(self.strand)+"] len:"+str(len(self))+">"
 
-    def tile(self,i,o,suffix=True):  # numbers tiles with suffix
-        splitintervals = int(ceil((len(self)+o) / float(i)))  #integer division
-        optimalsize = int(ceil( (len(self) + splitintervals*o) / float(1 + splitintervals)))
+    def tile(self,i,o,suffix=True):  # interval, overlap
+        splitintervals = int(ceil( (len(self)-o) / float(i-o) ))  # interval number
+        optimalsize = int(ceil( (len(self) + splitintervals*o - o) / float(splitintervals) ))  # optimal interval size
         tiles = []
         for n,tilestart in enumerate(range(self.chromStart, self.chromEnd, optimalsize-o)):
             tileend = min(tilestart+optimalsize, self.chromEnd)
@@ -97,20 +98,9 @@ class BED(IntervalList):
                     raise
                 # tile interval
                 if interval and overlap and interval < len(iv):
-                    self += iv.tile(interval,overlap, len(f) > 2)  # name with suffix if named interval
+                    self += iv.tile(interval,overlap,len(f)>3)  # name with suffix if named interval
                 else:
                     self += [ iv ]
-        # count opposite strand
-        for t in self:
-            if t.strand < 0:
-                counter[t.name] += 1
-            else:
-                counter[t.name] = 1
-        # append number to interval names
-        for t in self:
-            name = t.name
-            t.name += '_'+str(counter[name])
-            counter[name] += t.strand
         # add flanks
         for e in self:
             e.extend(flank)
@@ -162,16 +152,19 @@ class Data(object):
 
 ''' read target intervals from VCF, BED or directly'''
 def readTargets(targets,tiling):
-    with open(targets) as fh:
-        if targets.endswith('vcf'):  # VCF files
-            intervals = VCF(fh,**tiling)
-        elif targets.endswith('bed'):  # BED files (BED3 with automatic names)
-            intervals = BED(fh,**tiling)
-        elif re.match('\w+:\d+-\d+',targets):  # single interval
-            m = re.match('(\w+):(\d+)-(\d+)',targets)
-            intervals = [ Interval(*m.groups()) ]
-        else:
-            raise Exception('UnkownFile')
+    if os.path.isfile(targets):
+        with open(targets) as fh:
+            if targets.endswith('vcf'):  # VCF files
+                intervals = VCF(fh,**tiling)
+            elif targets.endswith('bed'):  # BED files (BED3 with automatic names)
+                intervals = BED(fh,**tiling)
+            else:
+                raise Exception('UnknownFileExtension')
+    elif re.match('\w+:\d+-\d+',targets):  # single interval
+        m = re.match('(\w+):(\d+)-(\d+)',targets)
+        intervals = [ Interval(*m.groups()) ]
+    else:
+        Exception('FileNotFound')
     return intervals
 
 
