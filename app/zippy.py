@@ -133,6 +133,12 @@ if __name__=="__main__":
         help="Design primers if not in database")
     parser_retrieve.set_defaults(which='get')
 
+    ## update
+    parser_update = subparsers.add_parser('update', help='Update status and location of primers')
+    parser_update.add_argument("--location", dest="location", nargs='+', type=str, \
+        help="Update storage location of primer pair (pairid|vessel|well)")
+    parser_retrieve.set_defaults(which='update')
+
     ## dump specific datasets from database
     parser_dump = subparsers.add_parser('dump', help='Data dump')
     parser_dump.add_argument("--amplicons", dest="amplicons", default='', type=str, \
@@ -179,6 +185,10 @@ if __name__=="__main__":
                 print '\t'.join(colnames)
                 for row in data:
                     print '\t'.join(map(str,row))
+    elif options.which=='update':  #update location primer pairs are stored
+        print options.location
+        sys.exit('Passed command line argument')
+
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
         intervals = readTargets(options.targets, config['tiling'])  # get intervals from file or commandline
         ivpairs = defaultdict(list)  # found/designed primer pairs (from database or design)
