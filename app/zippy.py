@@ -288,7 +288,7 @@ if __name__=="__main__":
                 if not options.quiet:
                     print iv.name+'\t'+repr(p)
 
-        ## print store primer pairs
+        ## print and store primer pairs
         if not options.nostore:
             db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
 
