@@ -22,9 +22,9 @@ class PrimerDB(object):
         try:
             # TABLE
             cursor.execute('CREATE TABLE IF NOT EXISTS primer(name TEXT PRIMARY KEY, seq TEXT, tm REAL, gc REAL, FOREIGN KEY(seq) REFERENCES target(seq));')
-            cursor.execute('CREATE TABLE IF NOT EXISTS target(seq TEXT, chrom TEXT, position INT, reverse BOOLEAN);')
-            cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT PRIMARY KEY, uniqueid TEXT, left TEXT, right TEXT, chrom TEXT, start INT, end INT, FOREIGN KEY(left) REFERENCES primer(seq), FOREIGN KEY(right) REFERENCES primer(seq));')
-            cursor.execute('CREATE TABLE IF NOT EXISTS status(pairid TEXT PRIMARY KEY, uniqueid TEXT, status INT, dateadded TEXT, FOREIGN KEY(pairid) REFERENCES pairs(pairid), UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);')
+            cursor.execute('CREATE TABLE IF NOT EXISTS target(seq TEXT, chrom TEXT, position INT, reverse BOOLEAN, FOREIGN KEY(seq) REFERENCES primer(seq));')
+            cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT, uniqueid TEXT, left TEXT, right TEXT, chrom TEXT, start INT, end INT, FOREIGN KEY(left) REFERENCES primer(seq), FOREIGN KEY(right) REFERENCES primer(seq), UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);')
+            cursor.execute('CREATE TABLE IF NOT EXISTS status(pairid TEXT NOT NULL REFERENCES pairs(pairid), uniqueid TEXT NOT NULL REFERENCES pairs(uniqueid), status INT, dateadded TEXT, UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);')
             cursor.execute('CREATE INDEX IF NOT EXISTS seq_index_in_target ON target(seq);')
             self.db.commit()
         except:
@@ -47,13 +47,13 @@ class PrimerDB(object):
         else:
             cursor = self.db.cursor()
             cursor.execute('''SELECT DISTINCT
-                p.pairid, p.uniqueid, p.left, p.right, p.chrom, p.start, p.end, p1.tm, p2.tm, s.status, s.dateadded
-                FROM pairs as p, primer as p1, primer as p2, status as s
-                WHERE p.left = p1.seq AND p.right = p2.seq AND p.pairid = s.pairid AND p.uniqueid = s.uniqueid;''')
+                p.pairid, p.uniqueid, p.left, p.right, p.chrom, p.start, p.end, s.status, s.dateadded
+                FROM pairs as p, status as s
+                WHERE p.pairid = s.pairid AND p.uniqueid = s.uniqueid;''')
             rows = cursor.fetchall()
         finally:
             self.db.close()
-        return "\n".join([ '{:<16} {:40} {:<25} {:<25} {:<8} {:>9d} {:>9d} {:.2f} {:.2f} {:1} {}'.format(*row) for row in rows ])
+        return "\n".join([ '{:<20} {:40} {:<25} {:<25} {:<8} {:>9d} {:>9d} {:1} {}'.format(*row) for row in rows ])
 
     '''show/update blacklist'''
     def blacklist(self,add=None):
@@ -136,13 +136,15 @@ class PrimerDB(object):
             raise
         else:
             cursor = self.db.cursor()
-            cursor.execute('''SELECT DISTINCT p.pairid, p.left, p.right, p.chrom, p.start, p.end, s.status
+            cursor.execute('''SELECT DISTINCT p.pairid, p.left, p.right, p.chrom, p.start, p.end, s.status,
+                abs(p.start+((p.end-p.start)/2) - ?) as midpointdistance
                 FROM pairs AS p, status AS s
                 WHERE p.pairid = s.pairid AND p.uniqueid = s.uniqueid
                 AND p.chrom = ?
                 AND p.start + length(p.left) <= ?
-                AND p.end - length(p.right) >= ?;''', \
-                (variant.chrom, variant.chromStart, variant.chromEnd))
+                AND p.end - length(p.right) >= ?
+                ORDER BY midpointdistance;''', \
+                (variant.chromStart+int(variant.chromEnd-variant.chromStart)/2.0, variant.chrom, variant.chromStart, variant.chromEnd))
             rows = cursor.fetchall()
         finally:
             self.db.close()
@@ -159,7 +161,7 @@ class PrimerDB(object):
             leftPrimer.calcProperties()
             rightPrimer.calcProperties()
             primerPairs.append(PrimerPair([leftPrimer, rightPrimer], status=row[6]))
-        return primerPairs
+        return primerPairs  # ordered by midpoint distance
 
     def dump(self,what,**kwargs):
         raise NotImplementedError
