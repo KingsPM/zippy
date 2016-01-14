@@ -113,8 +113,6 @@ if __name__=="__main__":
         help="Minimise screen output (dont print results)")
     global_group.add_argument("--outfile", dest="outfile", default='', type=str, \
         help="Output file name (bed,interval,fasta)")
-    global_group.add_argument("--nostore", dest="nostore", default=False, action='store_true', \
-        help="Do not store result in database")
 
     # run modes
     subparsers = parser.add_subparsers(help='help for subcommand')
@@ -131,6 +129,8 @@ if __name__=="__main__":
         help="File with intervals of interest or chr:start-end")
     parser_retrieve.add_argument("--design", dest="design", default=False, action="store_true", \
         help="Design primers if not in database")
+    parser_retrieve.add_argument("--nostore", dest="nostore", default=False, action='store_true', \
+        help="Do not store result in database")
     parser_retrieve.set_defaults(which='get')
 
     ## dump specific datasets from database
@@ -187,24 +187,32 @@ if __name__=="__main__":
         progress = Progressbar(len(intervals),'Querying database')
         for i, iv in enumerate(intervals):
             sys.stderr.write('\r'+progress.show(i))
+            ivpairs[iv] = []
             primerpairs = db.query(iv)
-            if options.debug and not len(primerpairs):
-                print >> sys.stderr, '\nno primer for', iv
-            for pair in primerpairs:
-                if pair.status is None or pair.status != 0:
-                    ivpairs[iv].append(pair)
-                else:
-                    blacklist.add(pair.uniqueid())
-
+            if primerpairs:
+                for pair in primerpairs:
+                    if pair.status is None or pair.status != 0:
+                        ivpairs[iv].append(pair)
+                    else:
+                        blacklist.add(pair.uniqueid())
+                # remove excess primers (ordered by midpointdistance)
+                ivpairs[iv] = ivpairs[iv][:config['report']['pairs']]
         sys.stderr.write('\r'+progress.show(len(intervals))+'\n')
+
+        # print query count
+        if options.debug:
+            for iv,pp in ivpairs.items():
+                if not pp:
+                    print >> sys.stderr, 'no primer for', iv
+        print >> sys.stderr, 'Found primers for {:d} out of {:d} intervals in database'.format(len([ iv for iv in intervals if ivpairs[iv]]), len(intervals))
 
         # show blacklist
         if options.debug:
+            bl = db.blacklist()
             print >> sys.stderr, '\n++BLACKLIST+++++++++++++++++++++++++++'
-            print db.blacklist()
+            print >> sys.stderr, bl if bl else 'empty'
             print >> sys.stderr, '++++++++++++++++++++++++++++++++++++++\n'
 
-        print >> sys.stderr, 'Found primers for {:d} out of {:d} intervals in database'.format(len([ iv for iv in intervals if ivpairs[iv]]), len(intervals))
         # designing
         if options.design:
             designedPairs = {}
@@ -251,13 +259,12 @@ if __name__=="__main__":
                 sys.stderr.write('\r'+progress.show(len(pairs))+'\n')
 
                 # assign designed primer pairs to intervals (and remove ranks)
-                intervalindex = { i.name: i for i in intervals }
+                intervalindex = { iv.name: iv for iv in intervals }
+                intervalprimers = { iv.name: set([ p.uniqueid() for p in ivpairs[iv] ]) for iv in intervals }
                 for pair in pairs:
-                    ivpairs[intervalindex[pair.name()]].append(pair)
-
-            ## add ivpairs with no primers
-            for iv in set(intervals).difference(set(ivpairs.keys())):
-                ivpairs[iv] = []
+                    if pair.uniqueid() not in intervalprimers[pair.name()]:
+                        ivpairs[intervalindex[pair.name()]].append(pair)
+                        intervalprimers[pair.name()].add(pair.uniqueid())
 
         # print primer pair count and build database table
         failure = [ iv.name for iv,p in ivpairs.items() if config['report']['pairs']>len(p) ]
@@ -265,10 +272,10 @@ if __name__=="__main__":
         if options.quiet:
             print >> sys.stderr, "FAILED INTERVALS ({}): {}".format(len(failure), ','.join(failure))
         else:
-            print >> sys.stderr, '{:<16} {:>3} {:<10}'.format('INTERVAL', 'AMP', 'STATUS')
-            print >> sys.stderr, '-'*31
+            print >> sys.stderr, '{:<20} {:9} {:<10}'.format('INTERVAL', 'AMPLICONS', 'STATUS')
+            print >> sys.stderr, '-'*41
             for iv,p in sorted(ivpairs.items(),key=lambda x:x[0].name):
-                print >> sys.stderr, '{:<16} {:>3} {:<10}'.format(iv.name, len(p), "!!" if len(p)<config['report']['pairs'] else "")
+                print >> sys.stderr, '{:<20} {:9} {:<10}'.format(iv.name, len(p), "!!" if len(p)<config['report']['pairs'] else "")
 
         ## get best primer pairs
         ##### PRIORITISE AND ALWAYS PRINT DATABASE PRIMERS
@@ -277,20 +284,11 @@ if __name__=="__main__":
         for iv in sorted(ivpairs.keys()):
             for i, p in enumerate(sorted(ivpairs[iv])):
                 if i == config['report']['pairs']: break  # only report number of primer pairs requested
-                #if False in sortvalues(p): continue  ##DATABASE DOES NOT RETURN ATTRIBUTES YET
-
                 resultList.append(p)
                 if not options.quiet:
                     print iv.name+'\t'+repr(p)
 
-
-
-        for p in resultList:
-            print p.sortvalues()
-
-
-
-        ## store primer pairs
+        ## print store primer pairs
         if not options.nostore:
             db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
 
