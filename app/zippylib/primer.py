@@ -173,6 +173,13 @@ class PrimerPair(list):
         assert self[0].rank == self[1].rank
         return int(self[0].rank)
 
+    def check(self, limits):
+        for k,v in limits.items():
+            x = getattr(self,k)()
+            if x > v:
+                return False
+        return True
+
     def uniqueid(self):
         return sha1(','.join([self[0].seq,self[1].seq])).hexdigest()
 

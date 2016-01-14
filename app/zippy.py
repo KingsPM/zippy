@@ -262,8 +262,9 @@ if __name__=="__main__":
                 intervalprimers = { iv.name: set([ p.uniqueid() for p in ivpairs[iv] ]) for iv in intervals }
                 for pair in pairs:
                     if pair.uniqueid() not in intervalprimers[pair.name()]:
-                        ivpairs[intervalindex[pair.name()]].append(pair)
-                        intervalprimers[pair.name()].add(pair.uniqueid())
+                        if pair.check(config['designlimits']):
+                            ivpairs[intervalindex[pair.name()]].append(pair)
+                            intervalprimers[pair.name()].add(pair.uniqueid())
 
         # print primer pair count and build database table
         failure = [ iv.name for iv,p in ivpairs.items() if config['report']['pairs']>len(p) ]
