@@ -40,9 +40,14 @@
     "report": {
         "pairs": 1
     },
-    "ordering": {
-        "COMMENT": "non-variant IDT order sheet columns",
-        "scale": "",
-        "purification": ""
+    "ordersheet": {
+        "extracolumns": {
+            "scale": "50nm",
+            "purification": "desalt"
+        },
+        "sequencetags": {
+            "left": "GATTACA",
+            "right": "ACATTAG"
+        }
     }
 }

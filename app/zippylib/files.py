@@ -149,6 +149,13 @@ class Data(object):
                     else:
                         fh.write('\t'.join(map(str,[d['chrom'], d['chromStart'], d['chromEnd'], '+', d['name']]))+'\n')
                 fh.close()
+        else: # write as is
+            fh = sys.stdout if fi == '-' else open(fi,'w')
+            print >> fi, self.header
+            for d in self.data:
+                print >> fi, '\t'.join(map(str,[ d[f] for f in self.header]))
+            if fi != '-':
+                fh.close()
 
 ''' read target intervals from VCF, BED or directly'''
 def readTargets(targets,tiling):

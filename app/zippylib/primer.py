@@ -155,18 +155,22 @@ class PrimerPair(list):
         return
 
     def sortvalues(self):
-        try:
-            assert len(self)==2
-        except AssertionError:
-            return (None, None, None, None, True) # put in front (primers from database)
-        except:
-            raise
-        criticalsnp = len([ s for s in self[0].snp if s[1] >= 2*len(self[0])/3 ]) + \
-            len([ s for s in self[1].snp if s[1]+s[2] <= len(self[1])/3 ])   # chr,offset,len,name
-        mispriming = max(max(len(self[0].loci), len(self[1].loci))-1,0)
-        snpcount = len(self[0].snp)+len(self[1].snp)
-        primerRank = int(self[0].rank)
-        return (criticalsnp, mispriming, snpcount, primerRank)
+        assert len(self)==2
+        return (self.criticalsnp(), self.mispriming(), self.snpcount(), self.designrank())
+
+    def snpcount(self):
+        return len(self[0].snp)+len(self[1].snp)
+
+    def mispriming(self):
+        return max(max(len(self[0].loci), len(self[1].loci))-1,0)
+
+    def criticalsnp(self):
+        return len([ s for s in self[0].snp if s[1] >= 2*len(self[0])/3 ]) + \
+            len([ s for s in self[1].snp if s[1]+s[2] <= len(self[1])/3 ])
+
+    def designrank(self):
+        assert self[0].rank == self[1].rank
+        return int(self[0].rank)
 
     def uniqueid(self):
         return sha1(','.join([self[0].seq,self[1].seq])).hexdigest()

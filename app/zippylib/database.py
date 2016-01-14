@@ -164,7 +164,6 @@ class PrimerDB(object):
         return primerPairs  # ordered by midpoint distance
 
     def dump(self,what,**kwargs):
-        raise NotImplementedError
         if what=='amplicons':
             # dump amplicons (all possible)
             try:
@@ -174,33 +173,50 @@ class PrimerDB(object):
             else:
                 cursor = self.db.cursor()
                 # FWD strand
-                cursor.execute('''SELECT DISTINCT t1.chrom, t1.pos, t2.pos+length(t2.seq), p.pairid
+                cursor.execute('''SELECT DISTINCT p.chrom, p.start, p.end, p.pairid
                     FROM pairs AS p
-                    LEFT JOIN target AS t1 ON p.left = t1.seq
-                    LEFT JOIN target AS t2 ON p.right = t2.seq
-                    WHERE t1.chrom = t2.chrom
-                    AND t2.pos+length(t2.seq)-t1.pos >= ?
-                    AND t2.pos+length(t2.seq)-t1.pos <= ?
-                    AND t1.reverse = 0
-                    AND t2.reverse = 1
-                    ORDER BY t1.chrom, t1.pos;''', (kwargs['size'][0],kwargs['size'][1]))
+                    ORDER BY p.chrom, p.start;''')
                 rows = cursor.fetchall()
-                # REV strand
-                cursor.execute('''SELECT DISTINCT t1.chrom, t1.pos, t2.pos+length(t2.seq), p.pairid
-                    FROM pairs AS p
-                    LEFT JOIN target AS t1 ON p.right = t1.seq
-                    LEFT JOIN target AS t2 ON p.left = t2.seq
-                    WHERE t1.chrom = t2.chrom
-                    AND t2.pos+length(t2.seq)-t1.pos >= ?
-                    AND t2.pos+length(t2.seq)-t1.pos <= ?
-                    AND t1.reverse = 0
-                    AND t2.reverse = 1
-                    ORDER BY t1.chrom, t1.pos;''', (kwargs['size'][0],kwargs['size'][1]))
-                rows += cursor.fetchall()
             finally:
                 self.db.close()
             return rows, ('chrom','chromStart','chromEnd','name')  # rows and colnames
             # return [ '{}\t{}\t{}\t{}'.format(*row) for row in rows ]
+        elif what=='ordersheet':
+            # dump amplicons (all possible)
+            try:
+                self.db = sqlite3.connect(self.sqlite)
+            except:
+                raise
+            else:
+                cursor = self.db.cursor()
+                # PAIRS
+                cursor.execute('''SELECT DISTINCT p.pairid, p.left, p.right
+                    FROM pairs AS p, status AS s
+                    WHERE p.pairid = s.pairid AND p.uniqueid = s.uniqueid
+                    AND s.status IS NULL ORDER BY s.dateadded, p.pairid;''')
+                rows = cursor.fetchall()
+            finally:
+                self.db.close()
+            # define columns
+            columns = ['name','forward','reverse']
+            # add tags and extra columns
+            if "extracolumns" in kwargs.keys():
+                extracolumns = kwargs['extracolumns'].keys()
+                columns += extracolumns
+                for i in range(len(rows)):
+                    rows[i] = list(rows[i]) + [ kwargs['extracolumns'][c] for c in extracolumns ]
+            # add sequence tag
+            if "sequencetags" in kwargs.keys():
+                for row in rows:
+                    row[1] = kwargs['sequencetags']['left'] + row[1]
+                    row[2] += kwargs['sequencetags']['right']
+            # expand fwd reverse
+            expandedrows = []
+            columns = tuple(columns[:1] + [ 'sequence' ] + columns[3:])
+            for row in rows:
+                expandedrows.append([row[0]+'_fwd', row[1]] + row[3:])
+                expandedrows.append([row[0]+'_rev', row[2]] + row[3:])
+            return expandedrows, columns
 
 '''
 def update(self,filename,bucket='default'):

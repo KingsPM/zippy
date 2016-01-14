@@ -10,10 +10,10 @@ __doc__=="""
 __author__ = "David Brawand"
 __credits__ = ['David Brawand','Christopher Wall']
 __license__ = "MIT"
-__version__ = "0.9"
+__version__ = "1.0"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
-__status__ = "Development"
+__status__ = "Production"
 
 import os
 import re
@@ -28,11 +28,7 @@ from zippylib import ConfigError, Progressbar, banner
 from argparse import ArgumentParser
 from collections import defaultdict, Counter
 
-'''
-reads fasta fastafile
-searches genome for targets
-decides if valid pairs
-'''
+'''reads fasta fastafile, searches genome for targets, decides if valid pairs'''
 def importPrimerPairs(fastafile,primer3=True):
     # read primers (fasta file)
     primerfile = MultiFasta(fastafile)
@@ -109,10 +105,6 @@ if __name__=="__main__":
         help="configuration file [zippy.json]")
     global_group.add_argument("--debug", dest="debug", default=False, action="store_true", \
         help="Debugging (show database dump at end)")
-    global_group.add_argument("--quiet", dest="quiet", default=False, action="store_true", \
-        help="Minimise screen output (dont print results)")
-    global_group.add_argument("--outfile", dest="outfile", default='', type=str, \
-        help="Output file name (bed,interval,fasta)")
 
     # run modes
     subparsers = parser.add_subparsers(help='help for subcommand')
@@ -131,12 +123,18 @@ if __name__=="__main__":
         help="Design primers if not in database")
     parser_retrieve.add_argument("--nostore", dest="nostore", default=False, action='store_true', \
         help="Do not store result in database")
+    parser_retrieve.add_argument("--outfile", dest="outfile", default='', type=str, \
+        help="Output file name (fasta)")
     parser_retrieve.set_defaults(which='get')
 
     ## dump specific datasets from database
     parser_dump = subparsers.add_parser('dump', help='Data dump')
-    parser_dump.add_argument("--amplicons", dest="amplicons", default='', type=str, \
-        help="Retrieve possible amplicons of given size (eg. 100-800)")
+    parser_dump.add_argument("--amplicons", dest="amplicons", default='10-1000', type=str, \
+        help="Retrieve amplicons of given size [10-1000]")
+    parser_dump.add_argument("--ordersheet", dest="ordersheet", default=False, action="store_true", \
+        help="IDT order sheet (primer pairs with no status marker)")
+    parser_dump.add_argument("--outfile", dest="outfile", default='', type=str, \
+        help="Output file name")
     parser_dump.set_defaults(which='dump')
 
     options = parser.parse_args()
@@ -157,28 +155,29 @@ if __name__=="__main__":
         sys.stderr.write('Added {} primer pairs to database\n'.format(len(pairs)))
         if options.debug: print repr(db)  # show database content (debugging only)
     elif options.which=='dump':  # data dump fucntions (`for bulk downloads`)
-        if options.amplicons:
-            # dump amplicons fo given size to stdout
-            try:
-                l = options.amplicons.split('-')
-                assert len(l)==2
-                amplen = map(int,l)
-            except (AssertionError, ValueError):
-                raise ConfigError('must give amplicon size to retrieve')
-            except:
-                raise
+        # dump amplicons fo given size to stdout
+        try:
+            l = options.amplicons.split('-')
+            assert len(l)==2
+            amplen = map(int,l)
+        except (AssertionError, ValueError):
+            raise ConfigError('must give amplicon size to retrieve')
+        except:
+            raise
+        else:
+            # get amplicons amplen
+            if options.ordersheet:
+                data,colnames = db.dump('ordersheet',size=amplen, **config['ordersheet'])
             else:
-                # get amplicons amplen
                 data,colnames = db.dump('amplicons',size=amplen)
-
-            # format data output
-            if options.outfile:
-                dump = Data(data,colnames)
-                dump.writefile(options.outfile)  # sets format by file extension
-            else:
-                print '\t'.join(colnames)
-                for row in data:
-                    print '\t'.join(map(str,row))
+        # format data output
+        if options.outfile:
+            dump = Data(data,colnames)
+            dump.writefile(options.outfile)  # sets format by file extension
+        else:
+            print '\t'.join(colnames)
+            for row in data:
+                print '\t'.join(map(str,row))
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
         intervals = readTargets(options.targets, config['tiling'])  # get intervals from file or commandline
         ivpairs = defaultdict(list)  # found/designed primer pairs (from database or design)
@@ -269,13 +268,10 @@ if __name__=="__main__":
         # print primer pair count and build database table
         failure = [ iv.name for iv,p in ivpairs.items() if config['report']['pairs']>len(p) ]
         print >> sys.stderr, 'got primers for {:d} out of {:d} targets'.format(len(ivpairs)-len(failure), len(ivpairs))
-        if options.quiet:
-            print >> sys.stderr, "FAILED INTERVALS ({}): {}".format(len(failure), ','.join(failure))
-        else:
-            print >> sys.stderr, '{:<20} {:9} {:<10}'.format('INTERVAL', 'AMPLICONS', 'STATUS')
-            print >> sys.stderr, '-'*41
-            for iv,p in sorted(ivpairs.items(),key=lambda x:x[0].name):
-                print >> sys.stderr, '{:<20} {:9} {:<10}'.format(iv.name, len(p), "!!" if len(p)<config['report']['pairs'] else "")
+        print >> sys.stderr, '{:<20} {:9} {:<10}'.format('INTERVAL', 'AMPLICONS', 'STATUS')
+        print >> sys.stderr, '-'*41
+        for iv,p in sorted(ivpairs.items(),key=lambda x:x[0].name):
+            print >> sys.stderr, '{:<20} {:9} {:<10}'.format(iv.name, len(p), "!!" if len(p)<config['report']['pairs'] else "")
 
         ## get best primer pairs
         ##### PRIORITISE AND ALWAYS PRINT DATABASE PRIMERS
@@ -285,8 +281,7 @@ if __name__=="__main__":
             for i, p in enumerate(sorted(ivpairs[iv])):
                 if i == config['report']['pairs']: break  # only report number of primer pairs requested
                 resultList.append(p)
-                if not options.quiet:
-                    print iv.name+'\t'+repr(p)
+                print iv.name+'\t'+repr(p)
 
         ## print and store primer pairs
         if not options.nostore:
