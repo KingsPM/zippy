@@ -16,7 +16,7 @@ import sys
 import re
 import os
 from math import ceil
-from collections import Counter
+from collections import Counter, defaultdict
 from hashlib import sha1
 from zippylib import ConfigError
 
@@ -80,6 +80,7 @@ class BED(IntervalList):
     def __init__(self,fh,interval=None,overlap=None,flank=0):
         IntervalList.__init__(self, [], source='BED')
         counter = Counter()
+        intervalindex = defaultdict(list)
         for line in fh:
             if line.startswith("#"):
                 continue
@@ -96,7 +97,15 @@ class BED(IntervalList):
                 except:
                     print >> sys.stderr, f
                     raise
-                # tile interval
+                intervalindex[iv.name].append(iv)
+        # suffix interval names if necessary
+        for ivs in intervalindex.values():
+            if len(ivs)>1:
+                for i,iv in enumerate(ivs):
+                    iv.name += '-{:02d}'.format(i+1)
+        # split interval if necessary
+        for ivs in intervalindex.values():
+            for iv in ivs:
                 if interval and overlap and interval < len(iv):
                     self += iv.tile(interval,overlap,len(f)>3)  # name with suffix if named interval
                 else:

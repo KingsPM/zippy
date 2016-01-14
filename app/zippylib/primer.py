@@ -21,6 +21,7 @@ class MultiFasta(object):
         # check sequence uniqueness
         with pysam.FastaFile(self.file) as fasta:
             if len(set(fasta.references))!=len(fasta.references):
+                print >> sys.stderr, self.file
                 raise Exception('DuplicateSequenceNames')
 
     def createPrimers(self,db,bowtie='bowtie2'):
