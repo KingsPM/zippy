@@ -24,9 +24,8 @@ class PrimerDB(object):
             cursor.execute('CREATE TABLE IF NOT EXISTS primer(name TEXT PRIMARY KEY, seq TEXT, tm REAL, gc REAL, FOREIGN KEY(seq) REFERENCES target(seq));')
             cursor.execute('CREATE TABLE IF NOT EXISTS target(seq TEXT, chrom TEXT, position INT, reverse BOOLEAN, FOREIGN KEY(seq) REFERENCES primer(seq));')
             cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT, uniqueid TEXT, left TEXT, right TEXT, chrom TEXT, start INT, end INT, FOREIGN KEY(left) REFERENCES primer(seq), FOREIGN KEY(right) REFERENCES primer(seq), UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);')
-            cursor.execute('CREATE TABLE IF NOT EXISTS status(pairid TEXT NOT NULL REFERENCES pairs(pairid), uniqueid TEXT NOT NULL REFERENCES pairs(uniqueid), status INT, dateadded TEXT, vessel INT, well TEXT, UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);') # add storage location of primers
+            cursor.execute('CREATE TABLE IF NOT EXISTS status(pairid TEXT NOT NULL REFERENCES pairs(pairid), uniqueid TEXT NOT NULL REFERENCES pairs(uniqueid), status INT, dateadded TEXT, vessel INT, well TEXT, UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE, UNIQUE (vessel, well));') # add storage location of primers
             cursor.execute('CREATE INDEX IF NOT EXISTS seq_index_in_target ON target(seq);')
-            cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS seq_index_in_target ON status(location);')
             self.db.commit()
         except:
             print >> sys.stderr, self.sqlite
@@ -165,33 +164,33 @@ class PrimerDB(object):
         return primerPairs  # ordered by midpoint distance
 
     def updateStatus(self,pairid):
-        '''updates the status of primer pairs'''
+        '''updates the status of primer pairs to 1 - i.e. successful'''
         try:
             self.db = sqlite3.connect(self.sqlite)
         except:
             raise
         else:
             cursor = self.db.cursor()
-            cursor.execute('''UPDATE status(status)
-                VALUES 1
-                WHERE status(pairdid) = ?;''', ( pairid))   #INSERT COMMANDS TO UPDATE LOCATION FOR SPECIFIED PRIMER PAIR IN STATUS TABLE
+            cursor.execute('''UPDATE status SET status = 1
+                WHERE pairid = ?''', ( pairid,))
             self.db.commit()
         finally:
             self.db.close()
         return
 
 
-    def storePrimer(self,freezerLoc,pairid):
+    def storePrimer(self,pairid,vessel,well):
         '''updates the location in which primer pairs are stored in the status table'''
+        self.updateStatus(pairid)
+
         try:
             self.db = sqlite3.connect(self.sqlite)
         except:
             raise
         else:
             cursor = self.db.cursor()
-            cursor.execute('''UPDATE status(location)
-                VALUES (?)
-                WHERE status(pairdid) = ?;''', (freezerLoc, pairid))   #INSERT COMMANDS TO UPDATE LOCATION FOR SPECIFIED PRIMER PAIR IN STATUS TABLE
+            cursor.execute('''UPDATE status SET vessel = ?, well = ?
+                WHERE pairid = ?''', (vessel, well, pairid))
             self.db.commit()
         finally:
             self.db.close()

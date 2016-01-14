@@ -135,9 +135,9 @@ if __name__=="__main__":
 
     ## update
     parser_update = subparsers.add_parser('update', help='Update status and location of primers')
-    parser_update.add_argument("--location", dest="location", nargs='+', type=str, \
-        help="Update storage location of primer pair (pairid|vessel|well)")
-    parser_retrieve.set_defaults(which='update')
+    parser_update.add_argument("location", nargs=3, \
+        help="Update storage location of primer pair (pairid vessel well)")
+    parser_update.set_defaults(which='update')
 
     ## dump specific datasets from database
     parser_dump = subparsers.add_parser('dump', help='Data dump')
@@ -186,8 +186,11 @@ if __name__=="__main__":
                 for row in data:
                     print '\t'.join(map(str,row))
     elif options.which=='update':  #update location primer pairs are stored
-        print options.location
-        sys.exit('Passed command line argument')
+        pairid = options.location[0]
+        vessel = options.location[1]
+        well = options.location[2]
+        db.storePrimer(pairid,vessel,well)
+        print >> sys.stderr, 'Primer pair location updated'
 
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
         intervals = readTargets(options.targets, config['tiling'])  # get intervals from file or commandline
