@@ -135,8 +135,10 @@ if __name__=="__main__":
 
     ## update
     parser_update = subparsers.add_parser('update', help='Update status and location of primers')
-    parser_update.add_argument("location", nargs=3, \
+    parser_update.add_argument('-l', dest="location", nargs=3, \
         help="Update storage location of primer pair (pairid vessel well)")
+    parser_update.add_argument('-b', dest="blacklist", type=str, \
+        help="Blacklist primer")
     parser_update.set_defaults(which='update')
 
     ## dump specific datasets from database
@@ -186,16 +188,20 @@ if __name__=="__main__":
                 for row in data:
                     print '\t'.join(map(str,row))
     elif options.which=='update':  #update location primer pairs are stored
-        pairid = options.location[0]
-        vessel = options.location[1]
-        well = options.location[2]
-        db.storePrimer(pairid,vessel,well)
-        print >> sys.stderr, 'Primer pair location updated'
-
+        if options.location:
+            pairid = options.location[0]
+            vessel = options.location[1]
+            well = options.location[2]
+            if not db.storePrimer(pairid,vessel,well):
+                print >> sys.stderr, 'Location already occupied' # Try and include statement of primer pair stored at location
+            else:
+                print >> sys.stderr, 'Primer pair location updated'
+        if options.blacklist:
+            db.blacklist(options.blacklist)
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
         intervals = readTargets(options.targets, config['tiling'])  # get intervals from file or commandline
         ivpairs = defaultdict(list)  # found/designed primer pairs (from database or design)
-        blacklist = set()
+        blacklist = db.blacklist()
         # primer searching in database by default
         progress = Progressbar(len(intervals),'Querying database')
         for i, iv in enumerate(intervals):
@@ -204,10 +210,7 @@ if __name__=="__main__":
             primerpairs = db.query(iv)
             if primerpairs:
                 for pair in primerpairs:
-                    if pair.status is None or pair.status != 0:
-                        ivpairs[iv].append(pair)
-                    else:
-                        blacklist.add(pair.uniqueid())
+                    ivpairs[iv].append(pair)
                 # remove excess primers (ordered by midpointdistance)
                 ivpairs[iv] = ivpairs[iv][:config['report']['pairs']]
         sys.stderr.write('\r'+progress.show(len(intervals))+'\n')
@@ -223,7 +226,7 @@ if __name__=="__main__":
         if options.debug:
             bl = db.blacklist()
             print >> sys.stderr, '\n++BLACKLIST+++++++++++++++++++++++++++'
-            print >> sys.stderr, bl if bl else 'empty'
+            print >> sys.stderr, '\n'.join(bl) if bl else 'empty'
             print >> sys.stderr, '++++++++++++++++++++++++++++++++++++++\n'
 
         # designing
