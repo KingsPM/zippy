@@ -10,7 +10,7 @@ install:
 	pip install networkx
 
 bowtie:
-	wget http://netix.dl.sourceforge.net/project/bowtie-bio/bowtie2/2.2.6/bowtie2-2.2.6-linux-x86_64.zip && \
+	wget -c http://netix.dl.sourceforge.net/project/bowtie-bio/bowtie2/2.2.6/bowtie2-2.2.6-linux-x86_64.zip && \
 	unzip bowtie2-2.2.6-linux-x86_64.zip && \
 	cd bowtie2-2.2.6 && \
 	mv bowtie2* /usr/local/bin
