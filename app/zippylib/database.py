@@ -21,11 +21,13 @@ class PrimerDB(object):
         cursor = self.db.cursor()
         try:
             # TABLE
+            cursor.execute('PRAGMA foreign_keys = ON')
             cursor.execute('CREATE TABLE IF NOT EXISTS primer(name TEXT PRIMARY KEY, seq TEXT, tm REAL, gc REAL, FOREIGN KEY(seq) REFERENCES target(seq));')
             cursor.execute('CREATE TABLE IF NOT EXISTS target(seq TEXT, chrom TEXT, position INT, reverse BOOLEAN, FOREIGN KEY(seq) REFERENCES primer(seq));')
-            cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT, uniqueid TEXT, left TEXT, right TEXT, chrom TEXT, start INT, end INT, FOREIGN KEY(left) REFERENCES primer(seq), FOREIGN KEY(right) REFERENCES primer(seq), UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);')
-            cursor.execute('CREATE TABLE IF NOT EXISTS status(pairid TEXT NOT NULL REFERENCES pairs(pairid), uniqueid TEXT NOT NULL REFERENCES pairs(uniqueid), status INT, dateadded TEXT, UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);')
+            cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT, uniqueid TEXT, left TEXT, right TEXT, chrom TEXT, start INT, end INT, FOREIGN KEY(left) REFERENCES primer(seq), FOREIGN KEY(right) REFERENCES primer(seq), FOREIGN KEY(pairid, uniqueid) REFERENCES status(pairid, uniqueid) ON DELETE CASCADE, UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);')
+            cursor.execute('CREATE TABLE IF NOT EXISTS status(pairid TEXT NOT NULL, uniqueid TEXT NOT NULL, dateadded TEXT, vessel INT, well TEXT, UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE, UNIQUE (vessel, well));')
             cursor.execute('CREATE INDEX IF NOT EXISTS seq_index_in_target ON target(seq);')
+            cursor.execute('CREATE TABLE IF NOT EXISTS blacklist(uniqueid TEXT PRIMARY KEY, blacklistdate TEXT );')
             self.db.commit()
         except:
             print >> sys.stderr, self.sqlite
@@ -47,13 +49,13 @@ class PrimerDB(object):
         else:
             cursor = self.db.cursor()
             cursor.execute('''SELECT DISTINCT
-                p.pairid, p.uniqueid, p.left, p.right, p.chrom, p.start, p.end, s.status, s.dateadded
+                p.pairid, p.uniqueid, p.left, p.right, p.chrom, p.start, p.end, s.dateadded
                 FROM pairs as p, status as s
                 WHERE p.pairid = s.pairid AND p.uniqueid = s.uniqueid;''')
             rows = cursor.fetchall()
         finally:
             self.db.close()
-        return "\n".join([ '{:<20} {:40} {:<25} {:<25} {:<8} {:>9d} {:>9d} {:1} {}'.format(*row) for row in rows ])
+        return "\n".join([ '{:<20} {:40} {:<25} {:<25} {:<8} {:>9d} {:>9d} {}'.format(*row) for row in rows ])
 
     '''show/update blacklist'''
     def blacklist(self,add=None):
@@ -62,19 +64,39 @@ class PrimerDB(object):
         except:
             raise
         else:
-            if add:
-                cursor.execute('''UPDATE OR ABORT status as s SET s.status = 0 WHERE pairid = ?)''', (add))
-                self.db.commit()
-                return  # does this close the connection?
-            else:
+            if add: 
+                # get uniqueid from status table for pairid
+                # get list of pairs from pairs table with uniqueid
+                # add uniqueid to blacklist
+                # delete all those pairs from status table
+                blacklisttime = datetime.datetime.now()
                 cursor = self.db.cursor()
-                cursor.execute('''SELECT DISTINCT
-                    p.pairid, p.uniqueid, p.left, p.right, p.chrom, p.start, p.end, s.status, s.dateadded
-                    FROM pairs as p, status as s
-                    WHERE p.pairid = s.pairid AND p.uniqueid = s.uniqueid
-                    AND s.status = 0;''')
+                cursor.execute('''SELECT DISTINCT s.uniqueid
+                    FROM status AS s
+                    WHERE s.pairid = ?;''', (add,))
+                bl_uniqueid = [ row[0] for row in cursor.fetchall() ]
+
+                second_cursor = self.db.cursor()
+                for uid in bl_uniqueid:
+                    second_cursor.execute('''INSERT INTO blacklist(uniqueid, blacklistdate) VALUES(?,?);''', \
+                        (uid, blacklisttime))
+
+                second_cursor.execute('''SELECT DISTINCT p.pairid
+                    FROM pairs AS p
+                    WHERE p.uniqueid = ?;''', (bl_uniqueid))
+                pairlist = second_cursor.fetchall()
+
+                second_cursor.execute('''DELETE FROM status
+                    WHERE uniqueid = ?;''', (bl_uniqueid))
+
+                self.db.commit()
+                return pairlist
+
+            else: #return list of uniqueids from blacklist
+                cursor = self.db.cursor()
+                cursor.execute('''SELECT DISTINCT uniqueid FROM blacklist;''')
                 rows = cursor.fetchall()
-                return "\n".join([ '{:<16} {:40} {:<25} {:<25} {:<8} {:>9d} {:>9d} {:1} {}'.format(*row) for row in rows ])
+                return [ row[0] for row in rows ]
         finally:
             self.db.close()
 
@@ -111,6 +133,7 @@ class PrimerDB(object):
         except:
             raise
         else:
+            current_time = datetime.datetime.now()
             cursor = self.db.cursor()
             # add pairs
             for p in pairs:
@@ -121,8 +144,8 @@ class PrimerDB(object):
                 end = right.targetposition.offset+right.targetposition.length
                 cursor.execute('''INSERT OR REPLACE INTO pairs(pairid,uniqueid,left,right,chrom,start,end) VALUES(?,?,?,?,?,?,?)''', \
                     (p.name(), p.uniqueid(), left.seq, right.seq, chrom, start, end))
-                cursor.execute('''INSERT OR REPLACE INTO status(pairID,uniqueid,dateadded) VALUES(?,?,?)''', \
-                    (p.name(), p.uniqueid(), datetime.datetime.now()))
+                cursor.execute('''INSERT OR REPLACE INTO status(pairid,uniqueid,dateadded) VALUES(?,?,?)''', \
+                    (p.name(), p.uniqueid(), current_time))
             self.db.commit()
         finally:
             self.db.close()
@@ -136,7 +159,7 @@ class PrimerDB(object):
             raise
         else:
             cursor = self.db.cursor()
-            cursor.execute('''SELECT DISTINCT p.pairid, p.left, p.right, p.chrom, p.start, p.end, s.status,
+            cursor.execute('''SELECT DISTINCT p.pairid, p.left, p.right, p.chrom, p.start, p.end, s.vessel, s.well,
                 abs(p.start+((p.end-p.start)/2) - ?) as midpointdistance
                 FROM pairs AS p, status AS s
                 WHERE p.pairid = s.pairid AND p.uniqueid = s.uniqueid
@@ -144,7 +167,7 @@ class PrimerDB(object):
                 AND p.start + length(p.left) <= ?
                 AND p.end - length(p.right) >= ?
                 ORDER BY midpointdistance;''', \
-                (variant.chromStart+int(variant.chromEnd-variant.chromStart)/2.0, variant.chrom, variant.chromStart, variant.chromEnd))
+                (int(variant.chromStart+int(variant.chromEnd-variant.chromStart)/2.0), variant.chrom, variant.chromStart, variant.chromEnd))
             rows = cursor.fetchall()
         finally:
             self.db.close()
@@ -158,10 +181,33 @@ class PrimerDB(object):
             rightTargetposition = Locus(row[3], row[5]-len(row[2]), len(row[2]), True)
             leftPrimer = Primer(name+'_left', leftSeq, leftTargetposition)
             rightPrimer = Primer(name+'_right', rightSeq, rightTargetposition)
+            location = row[6:8]
             leftPrimer.calcProperties()
             rightPrimer.calcProperties()
-            primerPairs.append(PrimerPair([leftPrimer, rightPrimer], status=row[6]))
+            primerPairs.append(PrimerPair([leftPrimer, rightPrimer], location))
         return primerPairs  # ordered by midpoint distance
+
+
+    def storePrimer(self,pairid,vessel,well):
+        '''updates the location in which primer pairs are stored in the status table'''
+
+        try:
+            self.db = sqlite3.connect(self.sqlite)
+        except:
+            raise
+        else:
+            try:
+                cursor = self.db.cursor()
+                cursor.execute('''UPDATE status SET vessel = ?, well = ?
+                    WHERE pairid = ?''', (vessel, well, pairid))
+                self.db.commit()
+            except sqlite3.IntegrityError:
+                return False
+        finally:
+            self.db.close()
+        return True
+
+
 
     def dump(self,what,**kwargs):
         if what=='amplicons':

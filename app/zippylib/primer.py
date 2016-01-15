@@ -72,10 +72,9 @@ class BoundExceedError(Exception):
 
 '''primer pair (list)'''
 class PrimerPair(list):
-    def __init__(self,elements,length=2,status=None):
+    def __init__(self,elements,length=2, location=[]):
         list.__init__(self, elements)
-        self.length = length  # pair of rpimers by default
-        self.status = status  # status None by default
+        self.length = length  # pair of primers by default
 
     def _check_item_bound(self):
         if self.length and len(self) >= self.length:
