@@ -22,10 +22,10 @@ class PrimerDB(object):
         try:
             # TABLE
             cursor.execute('PRAGMA foreign_keys = ON')
-            cursor.execute('CREATE TABLE IF NOT EXISTS primer(name TEXT PRIMARY KEY, seq TEXT, tm REAL, gc REAL, FOREIGN KEY(seq) REFERENCES target(seq));')
+            cursor.execute('CREATE TABLE IF NOT EXISTS primer(seq TEXT PRIMARY KEY, tm REAL, gc REAL, FOREIGN KEY(seq) REFERENCES target(seq));')
             cursor.execute('CREATE TABLE IF NOT EXISTS target(seq TEXT, chrom TEXT, position INT, reverse BOOLEAN, FOREIGN KEY(seq) REFERENCES primer(seq));')
             cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT, uniqueid TEXT, left TEXT, right TEXT, chrom TEXT, start INT, end INT, FOREIGN KEY(left) REFERENCES primer(seq), FOREIGN KEY(right) REFERENCES primer(seq), FOREIGN KEY(pairid, uniqueid) REFERENCES status(pairid, uniqueid) ON DELETE CASCADE, UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);')
-            cursor.execute('CREATE TABLE IF NOT EXISTS status(pairid TEXT NOT NULL, uniqueid TEXT NOT NULL, dateadded TEXT, vessel INT, well TEXT, UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE, UNIQUE (vessel, well));')
+            cursor.execute('CREATE TABLE IF NOT EXISTS status(pairid TEXT NOT NULL, uniqueid TEXT NOT NULL, dateadded TEXT, vessel INT, well TEXT, PRIMARY KEY (pairid, uniqueid) ON CONFLICT REPLACE, UNIQUE (vessel, well));')
             cursor.execute('CREATE INDEX IF NOT EXISTS seq_index_in_target ON target(seq);')
             cursor.execute('CREATE TABLE IF NOT EXISTS blacklist(uniqueid TEXT PRIMARY KEY, blacklistdate TEXT );')
             self.db.commit()
@@ -71,12 +71,14 @@ class PrimerDB(object):
                 # delete all those pairs from status table
                 blacklisttime = datetime.datetime.now()
                 cursor = self.db.cursor()
+                cursor.execute('PRAGMA foreign_keys = ON')
                 cursor.execute('''SELECT DISTINCT s.uniqueid
                     FROM status AS s
                     WHERE s.pairid = ?;''', (add,))
                 bl_uniqueid = [ row[0] for row in cursor.fetchall() ]
 
                 second_cursor = self.db.cursor()
+                second_cursor.execute('PRAGMA foreign_keys = ON')
                 for uid in bl_uniqueid:
                     second_cursor.execute('''INSERT INTO blacklist(uniqueid, blacklistdate) VALUES(?,?);''', \
                         (uid, blacklisttime))
@@ -109,8 +111,8 @@ class PrimerDB(object):
         else:
             for p in primers:
                 cursor = self.db.cursor()
-                cursor.execute('''INSERT OR REPLACE INTO primer(name,seq,tm,gc) VALUES(?,?,?,?)''', \
-                    (p.name, p.seq, p.tm, p.gc))
+                cursor.execute('''INSERT OR REPLACE INTO primer(seq,tm,gc) VALUES(?,?,?)''', \
+                    (p.seq, p.tm, p.gc))
                 for l in p.loci:
                     cursor.execute('''INSERT OR REPLACE INTO target(seq,chrom,position,reverse) VALUES(?,?,?,?)''', \
                         (p.seq, l.chrom, l.offset, l.reverse))
