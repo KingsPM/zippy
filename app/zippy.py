@@ -129,7 +129,10 @@ def getPrimers(intervals, options):
             if iv not in ivpairs.keys() or config['report']['pairs']>len(ivpairs[iv]):  # not in database or not enough primer pairs for interval
                 p3 = Primer3(config['primer3']['genome'], iv.locus(), 300)  # genome and target region (plusminus)
                 p3.design(iv.name, config['primer3']['settings'])
-                designedPairs[iv] = p3.pairs
+                if p3.pairs:
+                    designedPairs[iv] = p3.pairs
+                else:
+                    print >> sys.stderr, '\n' +'\n'.join(p3.explain)
         sys.stderr.write('\r'+progress.show(len(intervals))+'\n')
 
         if designedPairs:
@@ -192,6 +195,10 @@ def getPrimers(intervals, options):
         for i, p in enumerate(sorted(ivpairs[iv])):
             if i == config['report']['pairs']: break  # only report number of primer pairs requested
             resultList.append(p)
+            # log newly designed primer
+            if p.designrank() >= 0:
+                p.log(config['logfile'])
+
             resultline = iv.name+'\t'+repr(p)
             primerTable.append(resultline.split())
 

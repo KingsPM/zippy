@@ -1,5 +1,6 @@
 {
     "database": "zippy.sqlite",
+    "logfile": "zippy.log",
     "tiling": {
         "interval": 400,
         "overlap": 10,

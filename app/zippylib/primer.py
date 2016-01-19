@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import sys, os, re
+import sys, os, re, datetime
 from hashlib import md5, sha1
 import primer3
 import pysam
@@ -131,6 +131,40 @@ class PrimerPair(list):
                 self[0].seq, self[0].tm, self[0].gc, \
                 self[1].seq, self[1].tm, self[1].gc)
 
+    def log(self,logfile):
+        with open(logfile, 'a') as fh:
+            print >> fh, "PRIMER PAIR:", self.name()
+            # date, primer name, FWD/REV,
+            # sequence, 
+            # snpcount, mispriming, criticalsnp, designrank
+            if self[0].targetposition.reverse:
+                leftReverse = 'REV'
+            else:
+                leftReverse = 'FWD'
+
+            if self[1].targetposition.reverse:
+                rightReverse = 'REV'
+            else:
+                rightReverse = 'FWD'
+
+            print >> fh, '\n\t', "Design time:", datetime.datetime.now(), " |  Primer name:", self[0].name, \
+            " |  Fwd/Rev:", leftReverse
+            print >> fh, '\n\t', "Sequence:", self[0].seq
+
+
+            print >> fh, '\n\n\t', "Design time:", datetime.datetime.now(), " |  Primer name:", self[1].name, \
+            " |  Fwd/Rev:", rightReverse
+            print >> fh, '\n\t', "Sequence:", self[1].seq
+
+            print >> fh, '\n\t', "SNPcount:", self.snpcount(), " |  Misprimes:", self.mispriming(), \
+            " |  Critical SNPs:", self.criticalsnp(), " |  Primer3 design rank:", self.designrank(), '\n'
+           
+            print >> fh, '-'*41
+
+
+        return
+
+
     def name(self):
         return commonPrefix(self[0].name, self[1].name)
 
@@ -189,7 +223,7 @@ class PrimerPair(list):
 '''fasta/primer'''
 class Primer(object):
     def __init__(self,name,seq,targetposition=None,tm=None,gc=None,loci=[]):
-        self.rank = 0
+        self.rank = -1
         self.name = name
         self.seq = str(seq.upper())
         self.tm = tm
@@ -274,7 +308,7 @@ class Locus(object):
         snp_positions = []
         for v in snps:
             f = v.split()
-            snpOffset = (int(f[1])-1) - self.offset  # covert to 0-based
+            snpOffset = (int(f[1])-1) - self.offset  # convert to 0-based
             snpLength = max(map(len,[ f[3] ] + f[4].split(',')))
             snp_positions.append( (f[0],snpOffset,snpLength,f[2]) )
         return snp_positions
