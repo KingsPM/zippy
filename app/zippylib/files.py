@@ -21,12 +21,13 @@ from hashlib import sha1
 from zippylib import ConfigError
 
 class Interval(object):
-    def __init__(self,chrom,chromStart,chromEnd,name=None,reverse=False):
+    def __init__(self,chrom,chromStart,chromEnd,name=None,reverse=False,sample=None):
         self.chrom = chrom
         self.chromStart = int(chromStart)
         self.chromEnd = int(chromEnd)
         self.name = name if name else chrom+':'+str(chromStart)+'-'+str(chromEnd)
         self.strand = -1 if reverse else 1
+        self.sample = sample
         return
 
     def locus(self):
@@ -135,6 +136,30 @@ class VCF(IntervalList):  # no interval tiling as a variant has to be sequenced 
             e.extend(flank)
         return
 
+'''SNPpy result reader'''
+class SNPpy(IntervalList):
+    def __init__(self,fh,flank=0,delim='\t'):
+        IntervalList.__init__(self, [], source='VCF')
+        self.header = []
+        self.samples = []
+        for i, line in enumerate(fh):
+            if i == 0:
+                self.header = line.split(delim)
+            else:
+                f = line.split()
+                row = dict(zip(self.header,f))
+                chrom = row['chromosome'][3:] if row['chromosome'].startswith('chr') else row['chromosome']
+                chromStart = int(row['position'])
+                chromEnd = chromStart+hgvsLength(row['HGVS_c'])
+                variantName = ':'.join([row['geneID'],row['transcriptID'],row['HGVS_c'],row['GT/CONSENSUS']]).replace('>','to')
+                iv = Interval(chrom,chromStart,chromEnd,name=variantName,sample=row['sampleID'])
+                self.append(iv)
+        # add flanks and name
+        for e in self:
+            e.extend(flank)
+        return
+
+
 '''generic data class with formatted output'''
 class Data(object):
     def __init__(self,data,header):
@@ -166,6 +191,7 @@ class Data(object):
             if fi != '-':
                 fh.close()
 
+
 ''' read target intervals from VCF, BED or directly'''
 def readTargets(targets,tiling):
     if os.path.isfile(targets):
@@ -182,6 +208,42 @@ def readTargets(targets,tiling):
     else:
         Exception('FileNotFound')
     return intervals
+
+
+'''readBatch: read file from SNPpy result output'''
+def readBatch(fi,tiling):
+    try:
+        assert os.path.isfile(fi)
+    except AssertionError:
+        print >> sys.stderr, "ERROR: Not a readable file (%s)" % fi
+        raise
+    with open(fi) as fh:
+        intervals = SNPpy(fh,flank=tiling['flank'])
+    sampleVariants = {}
+    for iv in intervals:
+        try:
+            sampleVariants[iv.sample].append(iv)
+        except KeyError:
+            sampleVariants[iv.sample] = IntervalList([iv],source='SNPpy')
+        except:
+            raise
+    return sampleVariants
+
+
+'''return length of variant from hgvs.c notation'''
+def hgvsLength(hgvs,default=10):
+    try:
+        assert hgvs.startswith('c.')
+    except:
+        raise
+    try:
+        m = re.match('c.\d+(\D+)(>|ins|del|dup)(\w+)$',hgvs)
+        assert m
+    except:
+        print >> sys.stderr, "WARNING: could not find length of variant, assuming %s" % str(default)
+        return default
+    else:
+        return len(m.group(3))
 
 
 if __name__=="__main__":

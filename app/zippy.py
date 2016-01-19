@@ -20,7 +20,7 @@ import re
 import sys
 import json
 import tempfile
-from zippylib.files import VCF, BED, Interval, Data, readTargets
+from zippylib.files import VCF, BED, Interval, Data, readTargets, readBatch
 from zippylib.primer import MultiFasta, Primer3, Primer, PrimerPair
 from zippylib.database import PrimerDB
 from zippylib import ConfigError, Progressbar, banner
@@ -89,6 +89,115 @@ def importPrimerPairs(fastafile,primer3=True):
         validPairs = acceptedPairs
     return validPairs
 
+'''get primers from intervals'''
+def getPrimers(intervals, options):
+    ivpairs = defaultdict(list)  # found/designed primer pairs (from database or design)
+    blacklist = db.blacklist()
+    # primer searching in database by default
+    progress = Progressbar(len(intervals),'Querying database')
+    for i, iv in enumerate(intervals):
+        sys.stderr.write('\r'+progress.show(i))
+        ivpairs[iv] = []
+        primerpairs = db.query(iv)
+        if primerpairs:
+            for pair in primerpairs:
+                ivpairs[iv].append(pair)
+            # remove excess primers (ordered by midpointdistance)
+            ivpairs[iv] = ivpairs[iv][:config['report']['pairs']]
+    sys.stderr.write('\r'+progress.show(len(intervals))+'\n')
+
+    # print query count
+    if options.debug:
+        for iv,pp in ivpairs.items():
+            if not pp:
+                print >> sys.stderr, 'no primer for', iv
+    print >> sys.stderr, 'Found primers for {:d} out of {:d} intervals in database'.format(len([ iv for iv in intervals if ivpairs[iv]]), len(intervals))
+
+    # show blacklist
+    if options.debug:
+        bl = db.blacklist()
+        print >> sys.stderr, '\n++BLACKLIST+++++++++++++++++++++++++++'
+        print >> sys.stderr, '\n'.join(bl) if bl else 'empty'
+        print >> sys.stderr, '++++++++++++++++++++++++++++++++++++++\n'
+
+    # designing
+    if options.design:
+        designedPairs = {}
+        progress = Progressbar(len(intervals),'Designing primers')
+        for i,iv in enumerate(intervals):
+            sys.stderr.write('\r'+progress.show(i))
+            if iv not in ivpairs.keys() or config['report']['pairs']>len(ivpairs[iv]):  # not in database or not enough primer pairs for interval
+                p3 = Primer3(config['primer3']['genome'], iv.locus(), 300)  # genome and target region (plusminus)
+                p3.design(iv.name, config['primer3']['settings'])
+                designedPairs[iv] = p3.pairs
+        sys.stderr.write('\r'+progress.show(len(intervals))+'\n')
+
+        if designedPairs:
+            ## place primer pairs
+            with tempfile.NamedTemporaryFile(suffix='.fa',prefix="primers_",delete=False) as fh:
+                for k,v in designedPairs.items():
+                    for pairnumber, pair in enumerate(v):
+                        print >> fh, pair[0].fasta('_'.join([ k.name, str(pairnumber), "left" ]))
+                        print >> fh, pair[1].fasta('_'.join([ k.name, str(pairnumber), "right" ]))
+            pairs = importPrimerPairs(fh.name,primer3=True)
+            os.unlink(fh.name)  # remove fasta file
+
+            ## Remove non-specific and blacklisted primer pairs
+            specificPrimerPairs = []
+            blacklisted = 0
+            for i, pair in enumerate(pairs):
+                if pair.uniqueid() in blacklist:
+                    blacklisted += 1
+                elif all([pair[0].checkTarget(), pair[1].checkTarget()]):
+                    specificPrimerPairs.append(pair)
+            if blacklisted:
+                sys.stderr.write('Removed '+str(blacklisted)+' blacklisted primer pairs\n')
+            if len(pairs) != len(specificPrimerPairs):
+                sys.stderr.write('Removed '+str(len(pairs)-len(specificPrimerPairs))+' non-specific primer pairs\n')
+            pairs = specificPrimerPairs
+
+            ## add SNPinfo (SNPcheck) for main target
+            progress = Progressbar(len(pairs),'SNPcheck')
+            checkedPairs = []  # checked primer pairs (with correct target)
+            for i, pair in enumerate(pairs):
+                sys.stderr.write('\r'+progress.show(i))
+                for p in pair:
+                    p.snpCheckPrimer(config['snpcheck']['common'])
+            sys.stderr.write('\r'+progress.show(len(pairs))+'\n')
+
+            # assign designed primer pairs to intervals (and remove ranks)
+            intervalindex = { iv.name: iv for iv in intervals }
+            intervalprimers = { iv.name: set([ p.uniqueid() for p in ivpairs[iv] ]) for iv in intervals }
+            for pair in pairs:
+                if pair.uniqueid() not in intervalprimers[pair.name()]:
+                    if pair.check(config['designlimits']):
+                        ivpairs[intervalindex[pair.name()]].append(pair)
+                        intervalprimers[pair.name()].add(pair.uniqueid())
+
+    # print primer pair count and build database table
+    failure = [ iv.name for iv,p in ivpairs.items() if config['report']['pairs']>len(p) ]
+    print >> sys.stderr, 'got primers for {:d} out of {:d} targets'.format(len(ivpairs)-len(failure), len(ivpairs))
+    print >> sys.stderr, '{:<20} {:9} {:<10}'.format('INTERVAL', 'AMPLICONS', 'STATUS')
+    print >> sys.stderr, '-'*41
+    for iv,p in sorted(ivpairs.items(),key=lambda x:x[0].name):
+        print >> sys.stderr, '{:<20} {:9} {:<10}'.format(iv.name, len(p), "!!" if len(p)<config['report']['pairs'] else "")
+
+    ## get best primer pairs
+    ##### PRIORITISE AND ALWAYS PRINT DATABASE PRIMERS
+    print >> sys.stderr, '========'
+    primerTable, resultList, missedIntervals = [], [], []
+    for iv in sorted(ivpairs.keys()):
+        if not ivpairs[iv]:
+            missedIntervals.append(iv)
+        for i, p in enumerate(sorted(ivpairs[iv])):
+            if i == config['report']['pairs']: break  # only report number of primer pairs requested
+            resultList.append(p)
+            resultline = iv.name+'\t'+repr(p)
+            primerTable.append(resultline.split())
+
+    return primerTable, resultList, missedIntervals
+
+
 ''' main script '''
 if __name__=="__main__":
 
@@ -123,9 +232,17 @@ if __name__=="__main__":
         help="Design primers if not in database")
     parser_retrieve.add_argument("--nostore", dest="nostore", default=False, action='store_true', \
         help="Do not store result in database")
-    parser_retrieve.add_argument("--outfile", dest="outfile", default='', type=str, \
-        help="Output file name (fasta)")
     parser_retrieve.set_defaults(which='get')
+
+    ## batch
+    parser_batch = subparsers.add_parser('batch', help='Batch design primers for sample list')
+    parser_batch.add_argument("targets", default=None, metavar="SNPpy result table", \
+        help="SNPpy result table")
+    parser_batch.add_argument("--design", dest="design", default=True, action="store_true", \
+        help="Design primers if not in database [TRUE]")
+    parser_batch.add_argument("--outfile", dest="outfile", default='', type=str, \
+        help="Output base name (order, worksheet, unavailable)")
+    parser_batch.set_defaults(which='batch')
 
     ## update
     parser_update = subparsers.add_parser('update', help='Update status and location of primers')
@@ -199,106 +316,12 @@ if __name__=="__main__":
             db.blacklist(options.blacklist)
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
         intervals = readTargets(options.targets, config['tiling'])  # get intervals from file or commandline
-        ivpairs = defaultdict(list)  # found/designed primer pairs (from database or design)
-        blacklist = db.blacklist()
-        # primer searching in database by default
-        progress = Progressbar(len(intervals),'Querying database')
-        for i, iv in enumerate(intervals):
-            sys.stderr.write('\r'+progress.show(i))
-            ivpairs[iv] = []
-            primerpairs = db.query(iv)
-            if primerpairs:
-                for pair in primerpairs:
-                    ivpairs[iv].append(pair)
-                # remove excess primers (ordered by midpointdistance)
-                ivpairs[iv] = ivpairs[iv][:config['report']['pairs']]
-        sys.stderr.write('\r'+progress.show(len(intervals))+'\n')
 
-        # print query count
-        if options.debug:
-            for iv,pp in ivpairs.items():
-                if not pp:
-                    print >> sys.stderr, 'no primer for', iv
-        print >> sys.stderr, 'Found primers for {:d} out of {:d} intervals in database'.format(len([ iv for iv in intervals if ivpairs[iv]]), len(intervals))
+        # get/design primer pairs
+        primerTable, resultList, missedIntervals = getPrimers(intervals,options)
 
-        # show blacklist
-        if options.debug:
-            bl = db.blacklist()
-            print >> sys.stderr, '\n++BLACKLIST+++++++++++++++++++++++++++'
-            print >> sys.stderr, '\n'.join(bl) if bl else 'empty'
-            print >> sys.stderr, '++++++++++++++++++++++++++++++++++++++\n'
-
-        # designing
-        if options.design:
-            designedPairs = {}
-            progress = Progressbar(len(intervals),'Designing primers')
-            for i,iv in enumerate(intervals):
-                sys.stderr.write('\r'+progress.show(i))
-                if iv not in ivpairs.keys() or config['report']['pairs']>len(ivpairs[iv]):  # not in database or not enough primer pairs for interval
-                    p3 = Primer3(config['primer3']['genome'], iv.locus(), 300)  # genome and target region (plusminus)
-                    p3.design(iv.name, config['primer3']['settings'])
-                    designedPairs[iv] = p3.pairs
-            sys.stderr.write('\r'+progress.show(len(intervals))+'\n')
-
-            if designedPairs:
-                ## place primer pairs
-                with tempfile.NamedTemporaryFile(suffix='.fa',prefix="primers_",delete=False) as fh:
-                    for k,v in designedPairs.items():
-                        for pairnumber, pair in enumerate(v):
-                            print >> fh, pair[0].fasta('_'.join([ k.name, str(pairnumber), "left" ]))
-                            print >> fh, pair[1].fasta('_'.join([ k.name, str(pairnumber), "right" ]))
-                pairs = importPrimerPairs(fh.name,primer3=True)
-                os.unlink(fh.name)  # remove fasta file
-
-                ## Remove non-specific and blacklisted primer pairs
-                specificPrimerPairs = []
-                blacklisted = 0
-                for i, pair in enumerate(pairs):
-                    if pair.uniqueid() in blacklist:
-                        blacklisted += 1
-                    elif all([pair[0].checkTarget(), pair[1].checkTarget()]):
-                        specificPrimerPairs.append(pair)
-                if blacklisted:
-                    sys.stderr.write('Removed '+str(blacklisted)+' blacklisted primer pairs\n')
-                if len(pairs) != len(specificPrimerPairs):
-                    sys.stderr.write('Removed '+str(len(pairs)-len(specificPrimerPairs))+' non-specific primer pairs\n')
-                pairs = specificPrimerPairs
-
-                ## add SNPinfo (SNPcheck) for main target
-                progress = Progressbar(len(pairs),'SNPcheck')
-                checkedPairs = []  # checked primer pairs (with correct target)
-                for i, pair in enumerate(pairs):
-                    sys.stderr.write('\r'+progress.show(i))
-                    for p in pair:
-                        p.snpCheckPrimer(config['snpcheck']['common'])
-                sys.stderr.write('\r'+progress.show(len(pairs))+'\n')
-
-                # assign designed primer pairs to intervals (and remove ranks)
-                intervalindex = { iv.name: iv for iv in intervals }
-                intervalprimers = { iv.name: set([ p.uniqueid() for p in ivpairs[iv] ]) for iv in intervals }
-                for pair in pairs:
-                    if pair.uniqueid() not in intervalprimers[pair.name()]:
-                        if pair.check(config['designlimits']):
-                            ivpairs[intervalindex[pair.name()]].append(pair)
-                            intervalprimers[pair.name()].add(pair.uniqueid())
-
-        # print primer pair count and build database table
-        failure = [ iv.name for iv,p in ivpairs.items() if config['report']['pairs']>len(p) ]
-        print >> sys.stderr, 'got primers for {:d} out of {:d} targets'.format(len(ivpairs)-len(failure), len(ivpairs))
-        print >> sys.stderr, '{:<20} {:9} {:<10}'.format('INTERVAL', 'AMPLICONS', 'STATUS')
-        print >> sys.stderr, '-'*41
-        for iv,p in sorted(ivpairs.items(),key=lambda x:x[0].name):
-            print >> sys.stderr, '{:<20} {:9} {:<10}'.format(iv.name, len(p), "!!" if len(p)<config['report']['pairs'] else "")
-
-        ## get best primer pairs
-        ##### PRIORITISE AND ALWAYS PRINT DATABASE PRIMERS
-        print >> sys.stderr, '========'
-        resultList = []
-        for iv in sorted(ivpairs.keys()):
-            for i, p in enumerate(sorted(ivpairs[iv])):
-                if i == config['report']['pairs']: break  # only report number of primer pairs requested
-                resultList.append(p)
-                print iv.name+'\t'+repr(p)
+        ## print primerTable
+        print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTable ])
 
         ## print and store primer pairs
         if not options.nostore:
@@ -310,21 +333,29 @@ if __name__=="__main__":
             print >> sys.stderr, repr(db)
             print >> sys.stderr, '++++++++++++++++++++++++++++++++++++++\n'
 
-        # WRITE RESULT PRIMERS
-        if options.outfile:
-            fh = open(options.outfile,'w') if options.outfile != '-' else sys.stdout
-            for pair in resultList:
-                for p in pair:
-                    p.strand = '-' if p.targetposition.reverse else '+'
-                    print >> fh, ">"+p.name+"|"+p.targetposition.chrom+":"+str(p.targetposition.offset)+\
-                    "-"+str(int(p.targetposition.offset)+int(p.targetposition.length))+"\n"+\
-                    str(p.seq)
-            try:
-                fh.close()
-            except:
-                pass
+    elif options.which=='batch':
+        sampleVariants = readBatch(options.targets, config['tiling'])
+        print >> sys.stderr, '\n'.join([ '{:<20} {:>2d}'.format(sample,len(variants)) \
+            for sample,variants in sorted(sampleVariants.items(),key=lambda x: x[0]) ])
+        # for each sample design
+        primerTableConcat = []
+        for sample, intervals in sorted(sampleVariants.items(),key=lambda x: x[0]):
+            print >> sys.stderr, "Getting primers for {} variants in sample {}".format(len(intervals),sample)
+            # get/design primers
+            primerTable, resultList, missedIntervals = getPrimers(intervals,options)
 
-    # change stock?
-    # elif options.stock:
-    #     pass
-    #     # change stock
+            # store result list
+            primerTableConcat += [ [sample]+l for l in primerTable ]
+
+            # store primers
+            db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
+
+        ## print primerTable
+        print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTableConcat ])
+
+        ## reports
+        # primer ordering
+
+        # fill plate sheet
+
+        # print ordersheet
