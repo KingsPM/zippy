@@ -27,7 +27,7 @@
         }
     },
     "import": {
-        "ampliconsize": [100,1000]
+        "ampliconsize": [100,2000]
     },
     "targeting": {
         "COMMENT":"INDEX FOR ALTERNATIVE AMPLIFICATION TARGETS",
