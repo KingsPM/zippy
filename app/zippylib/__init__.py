@@ -44,6 +44,6 @@ class Progressbar(object):
     def show(self,i):
         if i == 0:
             self.start = time.time()  # set new start time
-        eta = str(int((self.total-i)*float(time.time()-self.start)/float(i))) if i and i/float(self.total)>0.05 else '?'
+        eta = str(int((self.total-i)*float(time.time()-self.start)/float(i))) if i and i/float(self.total)>0.02 else '?'
         return ("{name:} [{progress:<"+str(self.maxlen)+"}] {done:} (ETA {eta:>2}s)").format(\
             name=self.name, progress=self.char*( int(self.maxlen*i/float(self.total)) if self.total != 0 else self.maxlen), done=str(i)+'/'+str(self.total), eta=eta)

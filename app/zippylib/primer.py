@@ -169,7 +169,6 @@ class PrimerPair(list):
                         amplicons.append(Interval(m.chrom,m.offset,n.offset + n.length,self.name()))
         return amplicons
 
-
     def snpcount(self):
         return len(self[0].snp)+len(self[1].snp)
 
@@ -187,6 +186,12 @@ class PrimerPair(list):
     def check(self, limits):
         for k,v in limits.items():
             x = getattr(self,k)()
+            try:
+                x = int(x)
+            except TypeError:
+                x = len(x)
+            except:
+                raise
             if x > v:
                 return False
         return True
