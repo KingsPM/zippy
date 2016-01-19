@@ -159,7 +159,7 @@ class PrimerPair(list):
         assert len(self)==2
         return (len(self.amplicons([0,10000]))-1, self.criticalsnp(), self.mispriming(), self.snpcount(), self.designrank())
 
-    def amplicons(self,sizeRange=None):  # counts possible amplicons to a certain size
+    def amplicons(self,sizeRange=[0,1000]):  # counts possible amplicons to a certain size
         amplicons = []
         for m in self[0].loci:
             for n in self[1].loci:
