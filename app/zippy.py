@@ -70,14 +70,18 @@ def importPrimerPairs(fastafile,primer3=True):
         print >> sys.stderr, 'Identifying correct amplicons for unplaced primer pairs...'
         for p in validPairs:
             if not p[0].targetposition or not p[1].targetposition:
-                amplicons = p.amplicons(config['import']['ampliconsize'])
-                if len(amplicons)!=1:  # skip import
-                    print >> sys.stderr, 'WARNING: Primer %s does not produce a single, well-sized amplicon' % p.name()
-                    continue
-                else:  # add targetregion
-                    p[0].targetposition = amplicons[0][0]
-                    p[1].targetposition = amplicons[0][1]
+                if len(p.amplicons(config['import']['ampliconsize']))==1 or len(p.reverse().amplicons(config['import']['ampliconsize']))==1:
+                    amplicons = p.amplicons(config['import']['ampliconsize'])
+                    p[0].targetposition = amplicons[0][0]  # m
+                    p[1].targetposition = amplicons[0][1]  # n
                     acceptedPairs.append(p)
+                else:
+                    if p.reversed:
+                        p.reverse()
+                    print >> sys.stderr, 'WARNING: Primer {} does not produce a single, well-sized amplicon ({},{})'.format(p.name(),len(p[0].loci),len(p[1].loci))
+                    #print >> sys.stderr, '\tFWD', ','.join([ str(l) for l in p[0].loci ])
+                    #print >> sys.stderr, '\tREV', ','.join([ str(l) for l in p[1].loci ])
+                    continue
             else:
                 acceptedPairs.append(p)
         validPairs = acceptedPairs
