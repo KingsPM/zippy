@@ -5,6 +5,7 @@ import primer3
 import pysam
 import subprocess
 from collections import defaultdict, OrderedDict
+from .interval import Interval
 
 '''returns common prefix (substring)'''
 def commonPrefix(left,right,stripchars='-_ ',commonlength=3):
@@ -30,7 +31,7 @@ class MultiFasta(object):
         if not os.path.exists(mapfile):
             proc = subprocess.check_call( \
                 [bowtie, '-f', '--end-to-end', \
-                '-k 10', '-L 10', '-N 1', '-D 20', '-R 3', \
+                '-k 50', '-L 10', '-N 1', '-D 20', '-R 3', \
                 '-x', db, '-U', self.file, '>', mapfile ])
         # Read fasta file (Create Primer)
         primers = {}
@@ -75,6 +76,7 @@ class PrimerPair(list):
     def __init__(self,elements,length=2, location=[]):
         list.__init__(self, elements)
         self.length = length  # pair of primers by default
+        self.reversed = False
 
     def _check_item_bound(self):
         if self.length and len(self) >= self.length:
@@ -84,25 +86,30 @@ class PrimerPair(list):
         if self.length and len(self) + len(L) > self.length:
             raise BoundExceedError()
 
+    def reverse(self):
+        super(PrimerPair, self).reverse()
+        self.reversed =  not self.reversed
+        return self
+
     def append(self, x):
         self._check_item_bound()
-        return super(BoundList, self).append(x)
+        return super(PrimerPair, self).append(x)
 
     def extend(self, L):
         self._check_list_bound(L)
-        return super(BoundList, self).extend(L)
+        return super(PrimerPair, self).extend(L)
 
     def insert(self, i, x):
         self._check_item_bound()
-        return super(BoundList, self).insert(i, x)
+        return super(PrimerPair, self).insert(i, x)
 
     def __add__(self, L):
         self._check_list_bound(L)
-        return super(BoundList, self).__add__(L)
+        return super(PrimerPair, self).__add__(L)
 
     def __iadd__(self, L):
         self._check_list_bound(L)
-        return super(BoundList, self).__iadd__(L)
+        return super(PrimerPair, self).__iadd__(L)
 
     def __setslice__(self, *args, **kwargs):
         if len(args) > 2 and self.length:
@@ -115,7 +122,7 @@ class PrimerPair(list):
                 len_add = len(L)
                 if len(self) - len_del + len_add > self.length:
                     raise BoundExceedError()
-        return super(BoundList, self).__setslice__(*args, **kwargs)
+        return super(PrimerPair, self).__setslice__(*args, **kwargs)
 
     def __lt__(self,other):
         return self.sortvalues() < other.sortvalues()
@@ -190,7 +197,18 @@ class PrimerPair(list):
 
     def sortvalues(self):
         assert len(self)==2
-        return (self.criticalsnp(), self.mispriming(), self.snpcount(), self.designrank())
+        return (len(self.amplicons([0,10000]))-1, self.criticalsnp(), self.mispriming(), self.snpcount(), self.designrank())
+
+    def amplicons(self,sizeRange=[0,1000]):  # counts possible amplicons to a certain size
+        amplicons = []
+        for m in self[0].loci:
+            for n in self[1].loci:
+                if m.chrom == n.chrom:
+                    amplen = n.offset + n.length - m.offset
+                    if (not sizeRange) or (amplen >= sizeRange[0] and amplen <= sizeRange[1]):
+                        amp = (m, n, Interval(m.chrom,m.offset,n.offset + n.length,self.name()))
+                        amplicons.append(amp)
+        return amplicons
 
     def snpcount(self):
         return len(self[0].snp)+len(self[1].snp)
@@ -209,6 +227,12 @@ class PrimerPair(list):
     def check(self, limits):
         for k,v in limits.items():
             x = getattr(self,k)()
+            try:
+                x = int(x)
+            except TypeError:
+                x = len(x)
+            except:
+                raise
             if x > v:
                 return False
         return True
