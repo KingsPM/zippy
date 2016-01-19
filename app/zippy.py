@@ -70,13 +70,7 @@ def importPrimerPairs(fastafile,primer3=True):
         print >> sys.stderr, 'Identifying correct amplicons for unplaced primer pairs...'
         for p in validPairs:
             if not p[0].targetposition or not p[1].targetposition:
-                amplicons = []
-                for m in p[0].loci:
-                    for n in p[1].loci:
-                        if m.chrom == n.chrom:
-                            if (n.offset + n.length) - m.offset > config['import']['ampliconsize'][0]\
-                            and (n.offset + n.length) - m.offset < config['import']['ampliconsize'][1]:
-                                amplicons.append([m,n])
+                amplicons = p.amplicons(config['import']['ampliconsize'])
                 if len(amplicons)!=1:  # skip import
                     print >> sys.stderr, 'WARNING: Primer %s does not produce a single, well-sized amplicon' % p.name()
                     continue

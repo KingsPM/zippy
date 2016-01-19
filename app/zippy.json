@@ -38,6 +38,7 @@
         "common": "/home/vagrant/dev/zippy/zippy_resources/dbsnp_138.b37.vcf.gz"
     },
     "designlimits": {
+        "amplicons": 1,
         "criticalsnp": 0,
         "mispriming": 10,
         "snpcount": 2,

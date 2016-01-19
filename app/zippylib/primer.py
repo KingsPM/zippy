@@ -5,6 +5,7 @@ import primer3
 import pysam
 import subprocess
 from collections import defaultdict, OrderedDict
+from .interval import Interval
 
 '''returns common prefix (substring)'''
 def commonPrefix(left,right,stripchars='-_ ',commonlength=3):
@@ -156,7 +157,18 @@ class PrimerPair(list):
 
     def sortvalues(self):
         assert len(self)==2
-        return (self.criticalsnp(), self.mispriming(), self.snpcount(), self.designrank())
+        return (len(self.amplicons([0,10000]))-1, self.criticalsnp(), self.mispriming(), self.snpcount(), self.designrank())
+
+    def amplicons(self,sizeRange=None):  # counts possible amplicons to a certain size
+        amplicons = []
+        for m in self[0].loci:
+            for n in self[1].loci:
+                if m.chrom == n.chrom:
+                    amplen = n.offset + n.length - m.offset
+                    if (not sizeRange) or (amplen >= sizeRange[0] and amplen <= sizeRange[1]):
+                        amplicons.append(Interval(m.chrom,m.offset,n.offset + n.length,self.name()))
+        return amplicons
+
 
     def snpcount(self):
         return len(self[0].snp)+len(self[1].snp)
