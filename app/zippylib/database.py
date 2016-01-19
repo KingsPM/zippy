@@ -64,7 +64,7 @@ class PrimerDB(object):
         except:
             raise
         else:
-            if add: 
+            if add:
                 # get uniqueid from status table for pairid
                 # get list of pairs from pairs table with uniqueid
                 # add uniqueid to blacklist

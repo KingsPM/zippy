@@ -1,0 +1,23 @@
+##fileformat=VCFv4.0
+##INFO=<ID=SOURCE,Number=.,Type=String,Description="Caller with highest quality score">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Sequence depth">
+##INFO=<ID=ALL,Number=0,Type=Flag,Description="Called in all samples">
+##INFO=<ID=AGREE,Number=0,Type=Flag,Description="Same GT in called samples">
+##INFO=<ID=OVERLAP,Number=0,Type=Flag,Description="Samples have differeing alleles at position">
+##INFO=<ID=INDEL,Number=0,Type=Flag,Description="Variant is an indel">
+##INFO=<ID=REFCALL,Number=0,Type=Flag,Description="Reference or no call">
+##FORMAT=<ID=DP,Number=.,Type=Integer,Description="Read Depth">
+##FORMAT=<ID=AF,Number=.,Type=Float,Description="Allele Frequency">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=QL,Number=1,Type=Float,Description="Quality Score">
+##FORMAT=<ID=GL,Number=.,Type=Float,Description="Genotype Likelihoods">
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Total number of alternate alleles in called genotypes">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Estimated allele frequency in the range (0,1]">
+##INFO=<ID=NS,Number=1,Type=Integer,Description="Number of samples with data">
+##INFO=<ID=AN,Number=1,Type=Integer,Description="Total number of alleles in called genotypes">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	FB	ST
+13	32890572	Somevariant	G	A	228.734	PASS	AC=1;AF=0.5;AN=2;DP=36;NS=2;SOURCE=FB;AGREE	GT:DP:AF:GQ:QL:GL	0/1:36:0.44:160:228.73:-33.0156,0,-44.9893	./.:.:.:.:.:.
+13	32893197	.	A	AT	26.9865	PASS	AC=1;AF=0.5;AN=2;DP=42;NS=2;SOURCE=FB;AGREE;INDEL	GT:DP:AF:GQ:QL:GL	0/1:42:0.39:26:26.99:-18.5988,0,-36.7722	./.:.:.:.:.:.
+17	41256086	.	AGAAAAAAAAAAGAA	G	41.1999	PASS	AC=1;AF=0.5;AN=2;DP=11;NS=2;SOURCE=FB;AGREE;INDEL	GT:DP:AF:GQ:QL:GL	0/1:11:0.60:0:41.20:.	./.:.:.:.:.:.
+17	41256102	.	A	T	41.1999	PASS	AC=1;AF=0.5;AN=2;DP=11;NS=2;SOURCE=FB;AGREE;INDEL	GT:DP:AF:GQ:QL:GL	0/1:11:0.60:0:41.20:.	./.:.:.:.:.:.
+17	41276082	.	ACT	A	119	PASS	AC=1;AF=0.5;AN=2;DP=43;NS=2;SOURCE=ST;AGREE;INDEL	GT:DP:AF:GQ:QL:GL	./.:.:.:.:.:.	0/1:43:0.33:127:119.00:-15.2,-0,-20.4

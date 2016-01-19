@@ -70,20 +70,18 @@ def importPrimerPairs(fastafile,primer3=True):
         print >> sys.stderr, 'Identifying correct amplicons for unplaced primer pairs...'
         for p in validPairs:
             if not p[0].targetposition or not p[1].targetposition:
-                amplicons = []
-                for m in p[0].loci:
-                    for n in p[1].loci:
-                        if m.chrom == n.chrom:
-                            if (n.offset + n.length) - m.offset > config['import']['ampliconsize'][0]\
-                            and (n.offset + n.length) - m.offset < config['import']['ampliconsize'][1]:
-                                amplicons.append([m,n])
-                if len(amplicons)!=1:  # skip import
-                    print >> sys.stderr, 'WARNING: Primer %s does not produce a single, well-sized amplicon' % p.name()
-                    continue
-                else:  # add targetregion
-                    p[0].targetposition = amplicons[0][0]
-                    p[1].targetposition = amplicons[0][1]
+                if len(p.amplicons(config['import']['ampliconsize']))==1 or len(p.reverse().amplicons(config['import']['ampliconsize']))==1:
+                    amplicons = p.amplicons(config['import']['ampliconsize'])
+                    p[0].targetposition = amplicons[0][0]  # m
+                    p[1].targetposition = amplicons[0][1]  # n
                     acceptedPairs.append(p)
+                else:
+                    if p.reversed:
+                        p.reverse()
+                    print >> sys.stderr, 'WARNING: Primer {} does not produce a single, well-sized amplicon ({},{})'.format(p.name(),len(p[0].loci),len(p[1].loci))
+                    #print >> sys.stderr, '\tFWD', ','.join([ str(l) for l in p[0].loci ])
+                    #print >> sys.stderr, '\tREV', ','.join([ str(l) for l in p[1].loci ])
+                    continue
             else:
                 acceptedPairs.append(p)
         validPairs = acceptedPairs
@@ -172,10 +170,13 @@ def getPrimers(intervals, options):
             intervalindex = { iv.name: iv for iv in intervals }
             intervalprimers = { iv.name: set([ p.uniqueid() for p in ivpairs[iv] ]) for iv in intervals }
             for pair in pairs:
+                passed = 0
                 if pair.uniqueid() not in intervalprimers[pair.name()]:
                     if pair.check(config['designlimits']):
                         ivpairs[intervalindex[pair.name()]].append(pair)
                         intervalprimers[pair.name()].add(pair.uniqueid())
+                if len(intervalprimers[pair.name()])==0:
+                    print >> sys.stderr, 'Primer {} failed on designlimits'.format(pair.name())
 
     # print primer pair count and build database table
     failure = [ iv.name for iv,p in ivpairs.items() if config['report']['pairs']>len(p) ]
