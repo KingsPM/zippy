@@ -194,14 +194,12 @@ def getPrimers(intervals, options):
         if not ivpairs[iv]:
             missedIntervals.append(iv)
         for i, p in enumerate(sorted(ivpairs[iv])):
-            if i == config['report']['pairs']: break  # only report number of primer pairs requested
+            if i == config['report']['pairs']:
+                break  # only report number of primer pairs requested
             resultList.append(p)
-            # log newly designed primer
             if p.designrank() >= 0:
                 p.log(config['logfile'])
-
-            resultline = iv.name+'\t'+repr(p)
-            primerTable.append(resultline.split())
+            primerTable.append([iv.name] + repr(p).split())
 
     return primerTable, resultList, missedIntervals
 
