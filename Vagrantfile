@@ -1,21 +1,15 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 Vagrant.configure(2) do |config|
-  #config.vm.synced_folder "..", "/home/vagrant/dev", type: "nfs"  # development folder  
-  config.vm.synced_folder "..", "/home/vagrant/dev"
-  config.ssh.forward_x11 = true
-  config.vm.define "sandbox" do |sandbox|
-    sandbox.vm.box = "ubuntu/precise64"
-    sandbox.vm.hostname = "sandbox.molpath"
-    sandbox.vm.network "private_network", ip: "192.168.33.22"
-    sandbox.vm.provider "virtualbox" do |vb|
-      vb.gui = false
-      vb.cpus = 2
-      vb.memory = 4096
-    end
-    #sandbox.vm.provision "shell", path: "minimal.sh"  # base install and dotfile import
-    sandbox.vm.provision "docker" do |d|
-        d.pull_images "debian:jessie"
-    end
+  config.vm.synced_folder ".", "/home/vagrant/dev/zippy", type: "nfs"
+  config.vm.box = "ubuntu/precise64"
+  config.vm.network "forwarded_port", guest: 8000, host: 8000
+  config.vm.network "forwarded_port", guest: 8080, host: 8080
+  config.vm.network "forwarded_port", guest: 5000, host: 5000
+  config.vm.network "private_network", ip: "55.55.55.5"
+  config.vm.provider "virtualbox" do |vb|
+    vb.gui = false
+    vb.cpus = 2
+    vb.memory = 8192
   end
 end

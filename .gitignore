@@ -14,6 +14,16 @@ flask/
 # C extensions
 *.so
 
+# vagrant
+.vagrant/
+
+# genome and index
+human_g1k_v37.*
+
+# VCFs (snpcheck)
+*.vcf.gz
+*.vcf.gz.tbi
+
 # Distribution / packaging
 .Python
 env/
