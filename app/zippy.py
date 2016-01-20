@@ -175,8 +175,10 @@ def getPrimers(intervals, options):
                     if pair.check(config['designlimits']):
                         ivpairs[intervalindex[pair.name()]].append(pair)
                         intervalprimers[pair.name()].add(pair.uniqueid())
-                if len(intervalprimers[pair.name()])==0:
-                    print >> sys.stderr, 'Primer {} failed on designlimits'.format(pair.name())
+            # print failed primer designs
+            for k,v in intervalprimers.items():
+                if len(v)==0:
+                    print >> sys.stderr, 'Primer {} failed on designlimits'.format(k)
 
     # print primer pair count and build database table
     failure = [ iv.name for iv,p in ivpairs.items() if config['report']['pairs']>len(p) ]
@@ -194,14 +196,12 @@ def getPrimers(intervals, options):
         if not ivpairs[iv]:
             missedIntervals.append(iv)
         for i, p in enumerate(sorted(ivpairs[iv])):
-            if i == config['report']['pairs']: break  # only report number of primer pairs requested
+            if i == config['report']['pairs']:
+                break  # only report number of primer pairs requested
             resultList.append(p)
-            # log newly designed primer
             if p.designrank() >= 0:
                 p.log(config['logfile'])
-
-            resultline = iv.name+'\t'+repr(p)
-            primerTable.append(resultline.split())
+            primerTable.append([iv.name] + repr(p).split())
 
     return primerTable, resultList, missedIntervals
 
@@ -362,6 +362,8 @@ if __name__=="__main__":
         print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTableConcat ])
 
         ## reports
+        # add controls
+
         # primer ordering
 
         # fill plate sheet

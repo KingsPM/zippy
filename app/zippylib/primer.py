@@ -139,36 +139,13 @@ class PrimerPair(list):
                 self[1].seq, self[1].tm, self[1].gc)
 
     def log(self,logfile):
+        timestamp = datetime.datetime.now().isoformat()
         with open(logfile, 'a') as fh:
-            print >> fh, "PRIMER PAIR:", self.name()
-            # date, primer name, FWD/REV,
-            # sequence, 
-            # snpcount, mispriming, criticalsnp, designrank
-            if self[0].targetposition.reverse:
-                leftReverse = 'REV'
-            else:
-                leftReverse = 'FWD'
-
-            if self[1].targetposition.reverse:
-                rightReverse = 'REV'
-            else:
-                rightReverse = 'FWD'
-
-            print >> fh, '\n\t', "Design time:", datetime.datetime.now(), " |  Primer name:", self[0].name, \
-            " |  Fwd/Rev:", leftReverse
-            print >> fh, '\n\t', "Sequence:", self[0].seq
-
-
-            print >> fh, '\n\n\t', "Design time:", datetime.datetime.now(), " |  Primer name:", self[1].name, \
-            " |  Fwd/Rev:", rightReverse
-            print >> fh, '\n\t', "Sequence:", self[1].seq
-
-            print >> fh, '\n\t', "SNPcount:", self.snpcount(), " |  Misprimes:", self.mispriming(), \
-            " |  Critical SNPs:", self.criticalsnp(), " |  Primer3 design rank:", self.designrank(), '\n'
-           
-            print >> fh, '-'*41
-
-
+            for p in self:
+                threeprimesnps = len([ s for s in p.snp if s[1] >= 2*len(p)/3 ])
+                print >> fh, '{timestamp:26} {primername:20} rank:{rank:<3d} ({fwdrev:1}) {seq:25} snps:{snps:4} misprime:{misprime:2d}'.format(\
+                    timestamp=timestamp[:26], primername=p.name, rank=p.rank, fwdrev='-' if p.targetposition.reverse else '+',
+                    seq=p.seq, snps=str(len(self[0].snp)-threeprimesnps)+'+'+str(threeprimesnps), misprime=len(p.loci)-1)
         return
 
 
@@ -199,7 +176,7 @@ class PrimerPair(list):
         assert len(self)==2
         return (len(self.amplicons([0,10000]))-1, self.criticalsnp(), self.mispriming(), self.snpcount(), self.designrank())
 
-    def amplicons(self,sizeRange=[0,1000]):  # counts possible amplicons to a certain size
+    def amplicons(self,sizeRange=[0,10000]):  # counts possible amplicons to a certain size
         amplicons = []
         for m in self[0].loci:
             for n in self[1].loci:
@@ -261,7 +238,7 @@ class Primer(object):
             pass
 
     def __str__(self):
-        return '<Primer ('+self.name+'): '+self.seq+', Targets: '+str(len(self.loci))+' (other significant: '+str(self.sigmatch)+'); Target position: '+str(self.targetposition)+'>'
+        return '<Primer ('+self.name+'):'+self.seq+' Mappings:'+str(len(self.loci))+' Target:'+str(self.targetposition)+'>'
 
     def __repr__(self):
         return '{:<20} {:<24} {:<}'.format(self.name,self.seq,str(self.targetposition))

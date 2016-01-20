@@ -1,19 +1,53 @@
 # Zippy
-Primer database and design
+Primer database and design tool
 
 ## Description
-This program integrates a simple SQLite primer database and design tool.
+This program integrates a simple SQLite primer database and design tool based on the Primer3 library.
+It allows the automatic generation of primer pairs based on a VCF, BED or SNPpy result table.
+All designed primers are
+
+## Install
+### Virtual machine
+fire up the virtual machine and connect with
+> `vagrant up && vagrant ssh`
+
+then follow the local installation instructions below.
+
+### local Install
+Just run
+> `make`
+
+This will download reference genome, build the indexes and install all prerequisites (needs root/sudo access).
 
 ## Usage
 To design primers and query existing
-> `primula.py <VCF> --design`
+> `zippy.py get <VCF/BED> --design`
 
 add primers to database
-> `primula.py -p <FASTA>`
+> `zippy.py add <FASTA>`
 
 retrieve (and design) primer for a single location
-> `primula.py -q chr1:202030 --design`
+> `zippy.py get chr1:202030-202100 --design`
+
+design/retrieve primers for a SNPpy result (batch mode)
+> `zippy.py batch <SNPpy>`
+
+## Release Notes
+### v1.0
+Primer3 base design
+genome mispriming check (bowtie)
+SNPcheck (crossvalidate primer location with indexed VCF)
+amplicon size validation on import
+batch processing of SNPpy results
+
+### v1.1 (FUTURE)
+worksheet and robot CSV file generation
+
+### v1.2 (FUTURE)
+Webinterface/GUI
+
 
 ## Reference Genome
-Make sure to use a Repeatmasked reference genome. Even better if common SNPs are masked as well (eg. >1%).
+Primers are designed from the unmasked 1kg reference genome while ignoring simple repeat regions.
+Alternatively, use a Repeatmasked reference genome. Even better if common SNPs are masked as well (eg. >1%).
 BEDTOOLS offers `maskfasta` for this purpose. Masking data in BED format can be obtained from UCSC (http://genome.ucsc.edu/cgi-bin/hgTables?command=start).
