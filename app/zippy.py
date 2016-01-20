@@ -362,6 +362,8 @@ if __name__=="__main__":
         print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTableConcat ])
 
         ## reports
+        # add controls
+
         # primer ordering
 
         # fill plate sheet
