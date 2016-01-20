@@ -93,16 +93,22 @@ class SNPpy(IntervalList):
             if line.startswith('#'):
                 commentcount += 1
             elif i-commentcount == 0:
-                self.header = line.split(delim)
+                self.header = line.rstrip().split(delim)
             else:
-                f = line.split()
-                row = dict(zip(self.header,f))
-                chrom = row['chromosome'][3:] if row['chromosome'].startswith('chr') else row['chromosome']
-                chromStart = int(row['position'])
-                chromEnd = chromStart+hgvsLength(row['HGVS_c'])
-                variantName = ':'.join([row['geneID'],row['transcriptID'],row['HGVS_c'],row['GT/CONSENSUS']]).replace('>','to')
-                iv = Interval(chrom,chromStart,chromEnd,name=variantName,sample=row['sampleID'])
-                self.append(iv)
+                try:
+                    f = line.rstrip().split(delim)
+                    row = dict(zip(self.header,f))
+                    chrom = row['chromosome'][3:] if row['chromosome'].startswith('chr') else row['chromosome']
+                    chromStart = int(row['position'])
+                    chromEnd = chromStart+hgvsLength(row['HGVS_c'])
+                    variantName = ':'.join([row['geneID'],row['transcriptID'],row['HGVS_c'],row['GT/CONSENSUS']]).replace('>','to')
+                    iv = Interval(chrom,chromStart,chromEnd,name=variantName,sample=row['sampleID'])
+                except:
+                    print line
+                    print row
+                    raise
+                else:
+                    self.append(iv)
         # add flanks and name
         for e in self:
             e.extend(flank)
