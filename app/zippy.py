@@ -24,7 +24,7 @@ from zippylib.files import VCF, BED, Interval, Data, readTargets, readBatch
 from zippylib.primer import MultiFasta, Primer3, Primer, PrimerPair
 from zippylib.database import PrimerDB
 from zippylib import ConfigError, Progressbar, banner
-
+from zippylib.reports import Worksheet
 from argparse import ArgumentParser
 from collections import defaultdict, Counter
 
@@ -248,8 +248,8 @@ if __name__=="__main__":
         help="SNPpy result table")
     parser_batch.add_argument("--design", dest="design", default=True, action="store_true", \
         help="Design primers if not in database [TRUE]")
-    parser_batch.add_argument("--outfile", dest="outfile", default='', type=str, \
-        help="Output base name (order, worksheet, unavailable)")
+    parser_batch.add_argument("--worksheet", dest="worksheet", default='', type=str, \
+        help="Create worksheet PDF, order and robot CSV")
     parser_batch.set_defaults(which='batch')
 
     ## update
@@ -361,11 +361,24 @@ if __name__=="__main__":
         ## print primerTable
         print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTableConcat ])
 
-        ## reports
-        # add controls
+        ## worksheets
+        if options.worksheet:
+            ws = Worksheet(primerTableConcat)  # load worksheet
+            ws.addControls()  # add controls
+            ws.fillPlates(size=config['report']['platesize'])
 
-        # primer ordering
+            for pl in ws.plates:
+                print repr(pl), pl.r, pl.c
+                print '---'
 
-        # fill plate sheet
+            # get test table
 
-        # print ordersheet
+            # build worklist and write robot csv
+
+            # get primer order sheet
+
+            sys.exit('---END---')
+
+            # print primer order sheet
+            with open(options.worksheet+'.csv') as fh:
+                print >> fh, ws.orderSheet(sep=',')

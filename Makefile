@@ -10,6 +10,7 @@ install:
 	pip install intervaltree
 	pip install networkx
 	pip install markdown2pdf
+	pip install numpy
 
 reportlab:
 	apt-get install -y build-essential libjpeg-dev libfreetype6-dev python-dev python-imaging

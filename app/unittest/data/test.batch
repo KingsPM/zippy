@@ -2,8 +2,15 @@ projectID	sampleID	runID	ngsSubpanel	chromosome	position	GT/CONSENSUS	HGVS_c	HGV
 first_run	damien	default	NONE	chr1	145416584	het	c.929C>G	p.Ala310Gly	HFE2	NM_213653.3
 first_run	damien	default	NONE	chr8	41543675	het	c.4508C>T	p.Ala1503Val	ANK1	NM_001142446.1
 first_run	damien	default	NONE	chr11	5248232	het	c.20A>T	p.Glu7Val	HBB	NM_000518.4
+first_run	damien	default	NONE	chr11	5248233	het	c.21C>T	p.Glu7Val	HBB	NM_000518.4
 first_run	flora	default	NONE	chrX	153760605	hom	c.1450C>T	p.Arg484Cys	G6PD	NM_000402.4
 first_run	james	default	NONE	chr6	26091179	het	c.187C>G	p.His63Asp	HFE	NM_000410.3
 first_run	bill	default	NONE	chr1	12387801	het	c.8087T>G	p.Val2696Gly	VPS13D	NM_015378.2
+first_run	flora	default	NONE	chr8	41543675	het	c.4508C>T	p.Ala1503Val	ANK1	NM_001142446.1
+first_run	james	default	NONE	chr11	5248232	het	c.20A>T	p.Glu7Val	HBB	NM_000518.4
+first_run	bill	default	NONE	chr11	5248233	het	c.21C>T	p.Glu7Val	HBB	NM_000518.4
+first_run	damien	default	NONE	chrX	153760605	hom	c.1450C>T	p.Arg484Cys	G6PD	NM_000402.4
+first_run	damien	default	NONE	chr6	26091179	het	c.187C>G	p.His63Asp	HFE	NM_000410.3
+first_run	fred	default	NONE	chr1	12387801	het	c.8087T>G	p.Val2696Gly	VPS13D	NM_015378.2
 secon_run	judith	default	NONE	chr15	62212770	het	c.7139A>T	p.His2380Leu	VPS13C	NM_020821.2
 secon_run	jasper	default	NONE	chr6	26091179	het	c.187C>G	p.His63Asp	HFE	NM_000410.3

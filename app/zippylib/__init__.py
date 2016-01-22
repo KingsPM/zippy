@@ -31,6 +31,12 @@ class ConfigError(Exception):
     def __str__(self):
         return "[!] CONFIGURATION ERROR\n\t", repr(self.value)
 
+'''exception class for plate errors (full, ...)'''
+class PlateError(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return "[!] PLATE ERROR \n\t", repr(self.value)
 
 '''simple progress bar with time estimation'''
 class Progressbar(object):
