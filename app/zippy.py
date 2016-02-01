@@ -240,6 +240,8 @@ if __name__=="__main__":
         help="Design primers if not in database")
     parser_retrieve.add_argument("--nostore", dest="nostore", default=False, action='store_true', \
         help="Do not store result in database")
+    parser_retrieve.add_argument("--outfile", dest="outfile", default='', type=str, \
+        help="Output file name")
     parser_retrieve.set_defaults(which='get')
 
     ## batch
@@ -329,7 +331,11 @@ if __name__=="__main__":
         primerTable, resultList, missedIntervals = getPrimers(intervals,options)
 
         ## print primerTable
-        print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTable ])
+        if options.outfile:
+            with open(options.outfile,'w') as fh:
+                print >> fh, '\n'.join([ '\t'.join(l) for l in primerTable ])
+        else:
+            print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTable ])
 
         ## print and store primer pairs
         if not options.nostore:
