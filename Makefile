@@ -3,7 +3,7 @@ all: install reportlab bowtie genome flask
 install:
 	apt-get update
 	apt-get install -y python-pip python2.7-dev sqlite ncurses-dev unzip git python-virtualenv htop
-	apt-get install -y libxslt-dev libxml2-dev ibffi-dev
+	apt-get install -y libxslt-dev libxml2-dev libffi-dev
 	pip install cython
 	pip install primer3-py
 	pip install pysam
