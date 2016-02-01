@@ -365,7 +365,7 @@ if __name__=="__main__":
         if options.worksheet:
             ws = Worksheet(primerTableConcat)  # load worksheet
             ws.addControls()  # add controls
-            ws.fillPlates(size=config['report']['platesize'])
+            ws.fillPlates(size=config['report']['platesize'],smart=True)
 
             for pl in ws.plates:
                 print repr(pl), pl.r, pl.c
