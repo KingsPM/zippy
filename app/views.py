@@ -16,7 +16,7 @@ app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
 celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
 celery.conf.update(app.config)
 
-@celery.task
+@celery.task()
 def query_zippy(file):
     # some long running task here
 	# filename = secure_filename(file.filename)
@@ -24,7 +24,7 @@ def query_zippy(file):
 	# file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 	# print "file saved to ./uploads/%s" % filename
 	# os.chdir('./app/')
-	# print subprocess.call(['./zippy.py', 'get', '-o', outfile, '../uploads/%s'% filename], shell=False)
+	# print subprocess.call(['./zippy.py', 'get', '--outfile', outfile, '../uploads/%s'% filename], shell=False)
 	return "running zippy..."
 
 
