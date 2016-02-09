@@ -194,7 +194,6 @@ def getPrimers(intervals, db, design, config):
 
     return primerTable, resultList, missedIntervals
 
-
 # ==============================================================================
 # === convenience functions ====================================================
 # ==============================================================================
@@ -241,9 +240,9 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
     # fill plate sheet
     # print ordersheet
 
-
-
-''' main script '''
+# ==============================================================================
+# === CLI ======================================================================
+# ==============================================================================
 def main():
     from zippylib import ascii_encode_dict
     from zippylib import banner
