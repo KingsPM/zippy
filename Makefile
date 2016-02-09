@@ -1,3 +1,5 @@
+# installation makefile
+
 all: install reportlab bowtie genome flask
 
 install:
@@ -47,4 +49,5 @@ flask:
 	flask/bin/pip install guess_language
 	flask/bin/pip install flipflop
 	flask/bin/pip install coverage
+	flask/bin/pip install celery
 	mkdir tmp
