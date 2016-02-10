@@ -3,6 +3,12 @@
 from zippylib.primer import Primer, PrimerPair
 import time
 
+
+'''read configuration (convert unicode to ascii string)'''
+def ascii_encode_dict(data):
+    ascii_encode = lambda x: x.encode('ascii') if type(x) is unicode else x
+    return dict(map(ascii_encode, pair) for pair in data.items())
+
 '''banner'''
 def banner(versionstring=''):
     return '''
