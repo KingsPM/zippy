@@ -80,3 +80,6 @@ target/
 
 # uploads
 uploads/*
+
+# Python virtualenv
+zippyvenv/*

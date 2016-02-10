@@ -30,6 +30,11 @@ def flatten(container):
             else:
                 yield i
 
+"""Generates the characters from `c1` to `c2`, inclusive."""
+def char_range(c1, c2):
+    for c in xrange(ord(c1), ord(c2)+1):
+        yield chr(c)
+
 '''exception class for configuration errors'''
 class ConfigError(Exception):
     def __init__(self, value):

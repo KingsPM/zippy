@@ -228,41 +228,43 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
         if db:
             db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
     ## print primerTable
+    writtenFiles = []
     if not outfile:
         print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTableConcat ])
     else:
-        # output .txt
-        with open(outfile+'.txt','w') as fh:
+        # output data
+        writtenFiles.append(outfile+'.txt')
+        print >> sys.stderr, "Writing results to {}...".format(writtenFiles[-1])
+        with open(writtenFiles[-1],'w') as fh:
             print >> fh, '\n'.join([ '\t'.join(l) for l in primerTableConcat ])
 
-        sys.exit('---END---')
-
+        # worksheet
+        writtenFiles.append(outfile+'.pdf')
+        print >> sys.stderr, "Writing worksheet to {}...".format(writtenFiles[-1])
         ws = Worksheet(primerTableConcat)  # load worksheet
         ws.addControls()  # add controls
-        ws.fillPlates(size=config['report']['platesize'],smart=True)
+        ws.fillPlates(size=config['report']['platesize'],randomize=True)
+        ws.workSheet(writtenFiles[-1])
 
-        # worksheet .PDF
-        with open(outfile+'.pdf') as fh:
-            print >> fh, ws.workSheet()
+        # robot csv
+        writtenFiles.append(outfile+'.robot.csv')
+        print >> sys.stderr, "Writing robot CSV to {}...".format(writtenFiles[-1])
+        ws.robotCsv(writtenFiles[-1], sep=',')
 
-        # orders .orders.csv
-        with open(outfile+'.orders.csv') as fh:
-            print >> fh, ws.orderCsv(sep=',')
+        # order list
+        allPrimerPairs = list(set([ l[2] for l in primerTableConcat ]))
+        data,colnames = db.dump('ordersheet', **config['ordersheet'])
+        orderLines = ['\t'.join(x) for x in data if x[0][:x[0].rfind('_')] in allPrimerPairs ]
+        if orderLines:
+            writtenFiles.append(outfile+'.order.csv')
+            print >> sys.stderr, "Writing order CSV to {}...".format(writtenFiles[-1])
+            with open(writtenFiles[-1],'w') as fh:
+                print >> fh, '\t'.join(colnames)
+                print >> fh, '\n'.join(orderLines)
+        else:
+            print >> sys.stderr, "No primers to be ordered"
 
-        # hamilton .hamilton.csv
-        with open(outfile+'.robot.csv') as fh:
-            print >> fh, ws.robotCsv(sep=',')
-
-        for pl in ws.plates:
-            print repr(pl), pl.r, pl.c
-            print '---'
-
-
-    ## reports
-    # add controls
-    # primer ordering
-    # fill plate sheet
-    # print ordersheet
+    return writtenFiles
 
 # ==============================================================================
 # === CLI ======================================================================
@@ -380,7 +382,7 @@ def main():
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
         zippyPrimerQuery(config, options.targets, options.design, options.outfile, db if options.store else None)
     elif options.which=='batch':
-        zippyBatchQuery(config, options.targets, True, options.outfile, db)
+        print zippyBatchQuery(config, options.targets, True, options.outfile, db)
 
 if __name__=="__main__":
     main()
