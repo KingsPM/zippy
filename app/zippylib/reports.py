@@ -68,8 +68,8 @@ class Report(object):
             ('ALIGN',(0,0),(-1,0),'CENTER'),
             ('INNERGRID', (1,1), (-1,-1), 0.25, colors.grey),
             ('BOX', (1,1), (-1,-1), 0.25, colors.grey),
-            ('BACKGROUND',(0,1),(0,-1),colors.grey),
-            ('BACKGROUND',(1,0),(-1,0),colors.grey)
+            ('BACKGROUND',(0,1),(0,-1),colors.snow),
+            ('BACKGROUND',(1,0),(-1,0),colors.snow)
             ])
 
         # self.elements.append(Paragraph('Plate layouts', self.styles["Heading2"]))
@@ -96,11 +96,9 @@ class Report(object):
             ('INNERGRID', (0,1), (1,len(s)), 0.25, colors.black),
             ('LINEABOVE', (0,1),(1,1),1,colors.black),
             ('BOX', (0,0), (1,len(s)), 1, colors.black),
-            #('BOX', (0,1), (0,len(s)), 0.25, colors.black),
             ('INNERGRID', (3,1), (4,len(p)), 0.25, colors.black),
             ('LINEABOVE', (3,1),(4,1),1,colors.black),
             ('BOX', (3,0), (4,len(p)), 1, colors.black),
-            #('BOX', (3,1), (3,len(p)), 0.25, colors.black)
             ])
 
         # self.elements.append(Paragraph('Sample - Primers', self.styles["Heading2"]))
@@ -121,7 +119,8 @@ class Report(object):
             ('FONTSIZE',(0,1),(-1,-1),8),
             ('BOX', (0,0), (-1,-1), 1, colors.black),
             ('INNERGRID', (0,0), (-1,-1), 0.25, colors.black),
-            ('LINEABOVE', (0,1),(-1,1),1,colors.black)
+            ('LINEABOVE', (0,1), (-1,1), 1, colors.black),
+            ('BACKGROUND', (0,1), (0,-1), colors.bisque)
             ])
 
         self.elements.append(Paragraph('Checks', self.styles["Heading4"]))
