@@ -46,11 +46,11 @@ class Report(object):
         # flowable elements
         self.elements = []
         # Header
-        logo = Image("viapath.png",width=1.88*inch,height=inch)
+        logo = Image("viapath.png",width=1.32*inch,height=0.7*inch)
         titl = Paragraph('%s' % title, self.styles["Heading1"])
         date = Paragraph('<font size=12>Generated on %s</font>' % time.ctime(), self.styles["Normal"])
         self.elements.append(Table([[logo,titl],['',date]],
-            colWidths=[2.2*inch,5*inch],
+            colWidths=[1.5*inch,4.5*inch],
             style=[ ('SPAN',(0,0),(0,1)), ('VALIGN',(0,0),(-1,-1),'BOTTOM'),
                 ('VALIGN',(1,1),(-1,-1),'TOP'), ('ALIGN',(1,0),(-1,-1),'LEFT') ]))
         self.elements.append(Spacer(1, 12))
@@ -72,11 +72,10 @@ class Report(object):
             ('BACKGROUND',(1,0),(-1,0),colors.grey)
             ])
 
-        self.elements.append(Paragraph('Plate layouts', self.styles["Heading2"]))
-        self.elements.append(Spacer(1, 2))
+        # self.elements.append(Paragraph('Plate layouts', self.styles["Heading2"]))
+        # self.elements.append(Spacer(1, 2))
         for plateNumber, data in enumerate(plates):
-            self.elements.append(Paragraph('Plate%s' % str(plateNumber+1), self.styles["Heading3"]))
-            self.elements.append(Spacer(1, 8))
+            self.elements.append(Paragraph('Plate%s' % str(plateNumber+1), self.styles["Heading4"]))
             data = [ [ chr(ord('A')+i) ] + r for i,r in enumerate(data) ]  # add row names
             data = [ [ str(c) if c else '' for c in range(len(data[0])) ] ] + data  # add column names
             # Make paragraphs
@@ -88,27 +87,52 @@ class Report(object):
             self.elements.append(t)
             self.elements.append(Spacer(1, 12))
 
-
     def samplePrimerLists(self,s,p):
-        PLATE_STYLE = TableStyle(
-            [
-            ('FONTSIZE',(0,0),(-1,-1),5),
-            ('VALIGN',(0,0),(-1,0),'BOTTOM'),
-            ('VALIGN',(0,1),(-1,-1),'MIDDLE'),
-            ('ALIGN',(0,1),(-1,-1),'LEFT'),
-            ('ALIGN',(0,0),(-1,0),'CENTER'),
-            ('INNERGRID', (1,1), (-1,-1), 0.25, colors.grey),
-            ('BOX', (1,1), (-1,-1), 0.25, colors.grey),
-            ('BACKGROUND',(0,1),(0,-1),colors.grey),
-            ('BACKGROUND',(1,0),(-1,0),colors.grey)
+        TABLE_STYLE = TableStyle([
+            ('FONTSIZE',(0,1),(-1,-1),8),
+            ('FONTSIZE',(0,0),(-1,0),10),
+            ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+            ('ALIGN',(0,0),(-1,-1),'LEFT'),
+            ('INNERGRID', (0,1), (1,len(s)), 0.25, colors.black),
+            ('LINEABOVE', (0,1),(1,1),1,colors.black),
+            ('BOX', (0,0), (1,len(s)), 1, colors.black),
+            #('BOX', (0,1), (0,len(s)), 0.25, colors.black),
+            ('INNERGRID', (3,1), (4,len(p)), 0.25, colors.black),
+            ('LINEABOVE', (3,1),(4,1),1,colors.black),
+            ('BOX', (3,0), (4,len(p)), 1, colors.black),
+            #('BOX', (3,1), (3,len(p)), 0.25, colors.black)
             ])
-        pass
 
+        # self.elements.append(Paragraph('Sample - Primers', self.styles["Heading2"]))
+        self.elements.append(Spacer(1, 2))
+        data = [[str(len(s)),'Samples','',str(len(p)),'Primer Pairs']]
+        for i in range(max(len(s),len(p))):
+            data.append([ '', s[i] if i<len(s) else '', '', '', p[i] if i<len(p) else '' ])
+        t = Table(data, colWidths=[0.6*cm,7*cm,0.3*cm,0.6*cm,7*cm], rowHeights=0.6*cm)
+        t.setStyle(TABLE_STYLE)
+        self.elements.append(t)
+        self.elements.append(Spacer(1, 12))
 
-    def checkBoxes(self):
-
-        pass
+    def checkBoxes(self,titles):
         # right justified checkboxes with appropriate names
+        TABLE_STYLE = TableStyle([
+            ('ALIGN',(0,0),(-1,-1),'RIGHT'),
+            ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+            ('FONTSIZE',(0,1),(-1,-1),8),
+            ('BOX', (0,0), (-1,-1), 1, colors.black),
+            ('INNERGRID', (0,0), (-1,-1), 0.25, colors.black),
+            ('LINEABOVE', (0,1),(-1,1),1,colors.black)
+            ])
+
+        self.elements.append(Paragraph('Checks', self.styles["Heading4"]))
+        self.elements.append(Spacer(1, 2))
+        data = [[ 'Task', 'Date', 'Checker']]
+        for i in range(len(titles)):
+            data.append([ titles[i], '', '' ])
+        t = Table(data, colWidths=[7.5*cm,4*cm,4*cm], rowHeights=0.6*cm)
+        t.setStyle(TABLE_STYLE)
+        self.elements.append(t)
+        self.elements.append(Spacer(1, 12))
 
 
     def build(self):
@@ -212,16 +236,14 @@ class Worksheet(list):
             samples += s
             primers += p
             plates.append(m)
-        r.plateLayouts(plates)
         # sample and primer list
-        # r.samplePrimerLists(list(set(samples)),list(set(primers)))
+        r.samplePrimerLists(list(set(samples)),list(set(primers)))
         # add checkboxes
-        # r.checkboxes()
+        r.checkBoxes(['Plate orientation'])
+        # plate layout
+        r.plateLayouts(plates)
+        # build pdf
         r.build()
-
-        #     Table(platemap, colWidths=None, rowHeights=None, style=None, splitByRow=1,
-        #         repeatRows=0, repeatCols=0)
-
 
 
 class Plate(object):
