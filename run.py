@@ -1,4 +1,4 @@
-#!flask/bin/python
+#!zippyvenv/bin/python
 
 from app import app
 
