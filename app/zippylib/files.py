@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 
-__doc__=="""
-######################
-# simple VCF parser  #
-######################
-"""
+__doc__=="""File parsing classes"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "0.1"
+__version__ = "1.1"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"

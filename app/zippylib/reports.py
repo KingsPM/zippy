@@ -1,17 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-__doc__=="""
-####################
-# Report generator #
-####################
-"""
+__doc__=="""Report Generator"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "1.0"
+__version__ = "1.1"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
-__status__ = "Prototype"
+__status__ = "Production"
 
 import sys
 import time
