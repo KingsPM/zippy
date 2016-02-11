@@ -1,5 +1,13 @@
 #!/usr/bin/env python
 
+__doc__=="""SQLITE Database API"""
+__author__ = "David Brawand"
+__license__ = "MIT"
+__version__ = "1.1"
+__maintainer__ = "David Brawand"
+__email__ = "dbrawand@nhs.net"
+__status__ = "Production"
+
 import sys, os, re, ast
 import datetime
 import json

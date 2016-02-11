@@ -40,7 +40,7 @@ SNPcheck (crossvalidate primer location with indexed VCF)
 amplicon size validation on import
 batch processing of SNPpy results
 
-### v1.1 (FUTURE)
+### v1.1
 worksheet and robot CSV file generation
 
 ### v1.2 (FUTURE)

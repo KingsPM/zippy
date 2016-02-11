@@ -10,7 +10,7 @@ __doc__=="""
 __author__ = "David Brawand"
 __credits__ = ['David Brawand','Christopher Wall']
 __license__ = "MIT"
-__version__ = "1.0"
+__version__ = "1.1"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -242,9 +242,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
             writtenFiles.append(outfile+'.primertest.pdf')
             print >> sys.stderr, "Writing Test Worksheet to {}...".format(writtenFiles[-1])
             ws = Worksheet(primerTestTable,name="Primer Test PCR")  # load worksheet
-            print '<', len(ws)
             ws.addControls(control='Normal')  # add positive controls
-            print '>', len(ws)
             ws.fillPlates(size=config['report']['platesize'],randomize=True,\
                 includeSamples=False, includeControls=True)  # only include controls
             ws.createWorkSheet(writtenFiles[-1],**config['report']['volumes'])

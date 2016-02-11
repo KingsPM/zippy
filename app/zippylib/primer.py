@@ -1,4 +1,13 @@
 #!/usr/bin/env python
+
+__doc__=="""Primer3 Classes"""
+__author__ = "David Brawand"
+__license__ = "MIT"
+__version__ = "1.1"
+__maintainer__ = "David Brawand"
+__email__ = "dbrawand@nhs.net"
+__status__ = "Production"
+
 import sys, os, re, datetime
 from hashlib import md5, sha1
 import primer3
