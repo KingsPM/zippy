@@ -241,7 +241,8 @@ class PrimerDB(object):
                 cursor.execute('''SELECT DISTINCT p.pairid, p.left, p.right
                     FROM pairs AS p, status AS s
                     WHERE p.pairid = s.pairid AND p.uniqueid = s.uniqueid
-                    AND s.status IS NULL ORDER BY s.dateadded, p.pairid;''')
+                    AND s.well IS NULL AND s.vessel IS NULL
+                    ORDER BY s.dateadded, p.pairid;''')
                 rows = cursor.fetchall()
             finally:
                 self.db.close()
@@ -257,7 +258,7 @@ class PrimerDB(object):
             if "sequencetags" in kwargs.keys():
                 for row in rows:
                     row[1] = kwargs['sequencetags']['left'] + row[1]
-                    row[2] += kwargs['sequencetags']['right']
+                    row[2] = kwargs['sequencetags']['right'] + row[2]
             # expand fwd reverse
             expandedrows = []
             columns = tuple(columns[:1] + [ 'sequence' ] + columns[3:])
@@ -265,26 +266,3 @@ class PrimerDB(object):
                 expandedrows.append([row[0]+'_fwd', row[1]] + row[3:])
                 expandedrows.append([row[0]+'_rev', row[2]] + row[3:])
             return expandedrows, columns
-
-'''
-def update(self,filename,bucket='default'):
-        # parse filenames
-        if type(filename) is not list and type(filename) is not tuple:
-            inserts = [ (filename, bucket, datetime.datetime.now()) ]
-        else:
-            inserts = [ (fn, bucket, datetime.datetime.now()) for fn in filename ]
-        # execute query
-        self.db = sqlite3.connect(self.sqlite)
-        cursor = self.db.cursor()
-        try:
-            cursor.executemany('INSERT OR REPLACE INTO files(filename,bucket,created) VALUES(?,?,?)', inserts)
-            self.db.commit()
-        except:
-            print >> sys.stderr, filename
-            print >> sys.stderr, bucket
-            print >> sys.stderr, datetime.date.today()
-            raise
-        finally:
-            self.db.close()
-        return
-'''

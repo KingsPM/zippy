@@ -35,7 +35,8 @@
         "bowtieindex": "/home/vagrant/dev/zippy/zippy_resources/human_g1k_v37.bowtie"
     },
     "snpcheck": {
-        "common": "/home/vagrant/dev/zippy/zippy_resources/dbsnp_138.b37.vcf.gz",
+        "common": "/home/vagrant/dev/zippy/zippy_resources/dbsnp_138.b37.G5A.vcf.gz",
+        "full": "/home/vagrant/dev/zippy/zippy_resources/dbsnp_138.b37.vcf.gz",
         "G5A": "/home/vagrant/dev/zippy/zippy_resources/dbsnp_138.b37.G5A.vcf.gz"
     },
     "designlimits": {
@@ -46,7 +47,8 @@
         "designrank": 100
     },
     "report": {
-        "pairs": 1
+        "pairs": 1,
+        "platesize": [8,12]
     },
     "ordersheet": {
         "extracolumns": {

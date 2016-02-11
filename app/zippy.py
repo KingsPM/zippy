@@ -23,8 +23,8 @@ import tempfile
 from zippylib.files import VCF, BED, Interval, Data, readTargets, readBatch
 from zippylib.primer import MultiFasta, Primer3, Primer, PrimerPair
 from zippylib.database import PrimerDB
-from zippylib import ConfigError, Progressbar
-
+from zippylib import ConfigError, Progressbar, banner
+from zippylib.reports import Worksheet
 from argparse import ArgumentParser
 from collections import defaultdict, Counter
 
@@ -228,17 +228,43 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
         if db:
             db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
     ## print primerTable
-    if outfile:
-        with open(outfile,'w') as fh:
-            print >> fh, '\n'.join([ '\t'.join(l) for l in primerTableConcat ])
-    else:
+    writtenFiles = []
+    if not outfile:
         print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTableConcat ])
+    else:
+        # output data
+        writtenFiles.append(outfile+'.txt')
+        print >> sys.stderr, "Writing results to {}...".format(writtenFiles[-1])
+        with open(writtenFiles[-1],'w') as fh:
+            print >> fh, '\n'.join([ '\t'.join(l) for l in primerTableConcat ])
 
-    ## reports
-    # add controls
-    # primer ordering
-    # fill plate sheet
-    # print ordersheet
+        # worksheet
+        writtenFiles.append(outfile+'.pdf')
+        print >> sys.stderr, "Writing worksheet to {}...".format(writtenFiles[-1])
+        ws = Worksheet(primerTableConcat)  # load worksheet
+        ws.addControls()  # add controls
+        ws.fillPlates(size=config['report']['platesize'],randomize=True)
+        ws.workSheet(writtenFiles[-1])
+
+        # robot csv
+        writtenFiles.append(outfile+'.robot.csv')
+        print >> sys.stderr, "Writing robot CSV to {}...".format(writtenFiles[-1])
+        ws.robotCsv(writtenFiles[-1], sep=',')
+
+        # order list
+        allPrimerPairs = list(set([ l[2] for l in primerTableConcat ]))
+        data,colnames = db.dump('ordersheet', **config['ordersheet'])
+        orderLines = ['\t'.join(x) for x in data if x[0][:x[0].rfind('_')] in allPrimerPairs ]
+        if orderLines:
+            writtenFiles.append(outfile+'.order.csv')
+            print >> sys.stderr, "Writing order CSV to {}...".format(writtenFiles[-1])
+            with open(writtenFiles[-1],'w') as fh:
+                print >> fh, '\t'.join(colnames)
+                print >> fh, '\n'.join(orderLines)
+        else:
+            print >> sys.stderr, "No primers to be ordered"
+
+    return writtenFiles
 
 # ==============================================================================
 # === CLI ======================================================================
@@ -286,7 +312,7 @@ def main():
     parser_batch.add_argument("--design", dest="design", default=True, action="store_true", \
         help="Design primers if not in database [TRUE]")
     parser_batch.add_argument("--outfile", dest="outfile", default='', type=str, \
-        help="Output base name (order, worksheet, unavailable)")
+        help="Create worksheet PDF, order and robot CSV")
     parser_batch.set_defaults(which='batch')
 
     ## update
@@ -356,8 +382,7 @@ def main():
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
         zippyPrimerQuery(config, options.targets, options.design, options.outfile, db if options.store else None)
     elif options.which=='batch':
-        zippyBatchQuery(config, options.targets, True, options.outfile, db)
-
+        print zippyBatchQuery(config, options.targets, True, options.outfile, db)
 
 if __name__=="__main__":
     main()
