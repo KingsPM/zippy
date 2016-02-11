@@ -1,7 +1,20 @@
 #!/usr/bin/env python
 
+__doc__=="""Zippy Library"""
+__author__ = "David Brawand"
+__license__ = "MIT"
+__version__ = "1.1"
+__maintainer__ = "David Brawand"
+__email__ = "dbrawand@nhs.net"
+__status__ = "Production"
+
 from zippylib.primer import Primer, PrimerPair
 import time
+
+'''read configuration (convert unicode to ascii string)'''
+def ascii_encode_dict(data):
+    ascii_encode = lambda x: x.encode('ascii') if type(x) is unicode else x
+    return dict(map(ascii_encode, pair) for pair in data.items())
 
 '''banner'''
 def banner(versionstring=''):
@@ -24,6 +37,11 @@ def flatten(container):
             else:
                 yield i
 
+"""Generates the characters from `c1` to `c2`, inclusive."""
+def char_range(c1, c2):
+    for c in xrange(ord(c1), ord(c2)+1):
+        yield chr(c)
+
 '''exception class for configuration errors'''
 class ConfigError(Exception):
     def __init__(self, value):
@@ -31,6 +49,12 @@ class ConfigError(Exception):
     def __str__(self):
         return "[!] CONFIGURATION ERROR\n\t", repr(self.value)
 
+'''exception class for plate errors (full, ...)'''
+class PlateError(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return "[!] PLATE ERROR \n\t", repr(self.value)
 
 '''simple progress bar with time estimation'''
 class Progressbar(object):

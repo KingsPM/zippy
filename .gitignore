@@ -74,3 +74,12 @@ docs/_build/
 
 # PyBuilder
 target/
+
+# mac stuff
+.DS_Store
+
+# uploads
+uploads/*
+
+# Python virtualenv
+zippyvenv/*

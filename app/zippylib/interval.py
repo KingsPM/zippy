@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 
-__doc__=="""
-########################
-# interval class/list  #
-########################
-"""
+__doc__=="""Interval Lists"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "0.1"
+__version__ = "1.1"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -69,4 +65,3 @@ class IntervalList(list):
 
     def __str__(self):
         return "<IntervalList (%s) %d elements> " % (self.source, len(self))
-    

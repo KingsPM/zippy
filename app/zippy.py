@@ -10,7 +10,7 @@ __doc__=="""
 __author__ = "David Brawand"
 __credits__ = ['David Brawand','Christopher Wall']
 __license__ = "MIT"
-__version__ = "1.0"
+__version__ = "1.1"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -24,12 +24,12 @@ from zippylib.files import VCF, BED, Interval, Data, readTargets, readBatch
 from zippylib.primer import MultiFasta, Primer3, Primer, PrimerPair
 from zippylib.database import PrimerDB
 from zippylib import ConfigError, Progressbar, banner
-
+from zippylib.reports import Worksheet
 from argparse import ArgumentParser
 from collections import defaultdict, Counter
 
 '''reads fasta fastafile, searches genome for targets, decides if valid pairs'''
-def importPrimerPairs(fastafile,primer3=True):
+def importPrimerPairs(fastafile,config,primer3=True):
     # read primers (fasta file)
     primerfile = MultiFasta(fastafile)
     print >> sys.stderr, "Placing primers on genome..."
@@ -88,38 +88,27 @@ def importPrimerPairs(fastafile,primer3=True):
     return validPairs
 
 '''get primers from intervals'''
-def getPrimers(intervals, options):
+def getPrimers(intervals, db, design, config):
     ivpairs = defaultdict(list)  # found/designed primer pairs (from database or design)
-    blacklist = db.blacklist()
+    blacklist = db.blacklist() if db else []
     # primer searching in database by default
-    progress = Progressbar(len(intervals),'Querying database')
-    for i, iv in enumerate(intervals):
-        sys.stderr.write('\r'+progress.show(i))
-        ivpairs[iv] = []
-        primerpairs = db.query(iv)
-        if primerpairs:
-            for pair in primerpairs:
-                ivpairs[iv].append(pair)
-            # remove excess primers (ordered by midpointdistance)
-            ivpairs[iv] = ivpairs[iv][:config['report']['pairs']]
-    sys.stderr.write('\r'+progress.show(len(intervals))+'\n')
-
-    # print query count
-    if options.debug:
-        for iv,pp in ivpairs.items():
-            if not pp:
-                print >> sys.stderr, 'no primer for', iv
-    print >> sys.stderr, 'Found primers for {:d} out of {:d} intervals in database'.format(len([ iv for iv in intervals if ivpairs[iv]]), len(intervals))
-
-    # show blacklist
-    if options.debug:
-        bl = db.blacklist()
-        print >> sys.stderr, '\n++BLACKLIST+++++++++++++++++++++++++++'
-        print >> sys.stderr, '\n'.join(bl) if bl else 'empty'
-        print >> sys.stderr, '++++++++++++++++++++++++++++++++++++++\n'
+    if db:
+        progress = Progressbar(len(intervals),'Querying database')
+        for i, iv in enumerate(intervals):
+            sys.stderr.write('\r'+progress.show(i))
+            ivpairs[iv] = []
+            primerpairs = db.query(iv)
+            if primerpairs:
+                for pair in primerpairs:
+                    ivpairs[iv].append(pair)
+                # remove excess primers (ordered by midpointdistance)
+                ivpairs[iv] = ivpairs[iv][:config['report']['pairs']]
+        sys.stderr.write('\r'+progress.show(len(intervals))+'\n')
+        # print query count
+        print >> sys.stderr, 'Found primers for {:d} out of {:d} intervals in database'.format(len([ iv for iv in intervals if ivpairs[iv]]), len(intervals))
 
     # designing
-    if options.design:
+    if design:
         designedPairs = {}
         progress = Progressbar(len(intervals),'Designing primers')
         for i,iv in enumerate(intervals):
@@ -140,7 +129,7 @@ def getPrimers(intervals, options):
                     for pairnumber, pair in enumerate(v):
                         print >> fh, pair[0].fasta('_'.join([ k.name, str(pairnumber), "left" ]))
                         print >> fh, pair[1].fasta('_'.join([ k.name, str(pairnumber), "right" ]))
-            pairs = importPrimerPairs(fh.name,primer3=True)
+            pairs = importPrimerPairs(fh.name, config, primer3=True)
             os.unlink(fh.name)  # remove fasta file
 
             ## Remove non-specific and blacklisted primer pairs
@@ -201,15 +190,97 @@ def getPrimers(intervals, options):
             resultList.append(p)
             if p.designrank() >= 0:
                 p.log(config['logfile'])
-            primerTable.append([iv.name] + repr(p).split())
-
+            primerTable.append([iv.name] + repr(p).split('\t'))
     return primerTable, resultList, missedIntervals
 
+# ==============================================================================
+# === convenience functions ====================================================
+# ==============================================================================
 
-''' main script '''
-if __name__=="__main__":
+def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None):
+    intervals = readTargets(targets, config['tiling'])  # get intervals from file or commandline
+    # get/design primer pairs
+    primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config)
+    ## print primerTable
+    if outfile:
+        with open(outfile,'w') as fh:
+            print >> fh, '\n'.join([ '\t'.join(l) for l in primerTable ])
+    else:
+        print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTable ])
+    ## print and store primer pairs
+    if db:
+        db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
 
-    # print banner
+def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
+    sampleVariants = readBatch(targets, config['tiling'])
+    print >> sys.stderr, '\n'.join([ '{:<20} {:>2d}'.format(sample,len(variants)) \
+        for sample,variants in sorted(sampleVariants.items(),key=lambda x: x[0]) ])
+    # for each sample design
+    primerTableConcat = []
+    for sample, intervals in sorted(sampleVariants.items(),key=lambda x: x[0]):
+        print >> sys.stderr, "Getting primers for {} variants in sample {}".format(len(intervals),sample)
+        # get/design primers
+        primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config)
+        # store result list
+        primerTableConcat += [ [sample]+l for l in primerTable ]
+        # store primers
+        if db:
+            db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
+    ## print primerTable
+    writtenFiles = []
+    if not outfile:
+        print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTableConcat ])
+    else:
+        # output data
+        writtenFiles.append(outfile+'.txt')
+        print >> sys.stderr, "Writing results to {}...".format(writtenFiles[-1])
+        with open(writtenFiles[-1],'w') as fh:
+            print >> fh, '\n'.join([ '\t'.join(l) for l in primerTableConcat ])
+        # Primer Test Worksheet
+        primerTestTable = [ x for x in primerTableConcat if not all(x[3:5]) ]
+        if primerTestTable:
+            writtenFiles.append(outfile+'.primertest.pdf')
+            print >> sys.stderr, "Writing Test Worksheet to {}...".format(writtenFiles[-1])
+            ws = Worksheet(primerTestTable,name="Primer Test PCR")  # load worksheet
+            ws.addControls(control='Normal')  # add positive controls
+            ws.fillPlates(size=config['report']['platesize'],randomize=True,\
+                includeSamples=False, includeControls=True)  # only include controls
+            ws.createWorkSheet(writtenFiles[-1],**config['report']['volumes'])
+            # robot csv
+            writtenFiles.append(outfile+'.primertest.csv')
+            print >> sys.stderr, "Writing Test CSV to {}...".format(writtenFiles[-1])
+            ws.robotCsv(writtenFiles[-1], sep=',')
+            # order list
+            testPrimerPairs = list(set([ l[2] for l in primerTestTable ]))
+            data,colnames = db.dump('ordersheet', **config['ordersheet'])
+            orderLines = ['\t'.join(x) for x in data if x[0][:x[0].rfind('_')] in testPrimerPairs ]
+            writtenFiles.append(outfile+'.ordersheet.csv')
+            print >> sys.stderr, "Writing primer order list to {}...".format(writtenFiles[-1])
+            with open(writtenFiles[-1],'w') as fh:
+                print >> fh, '\t'.join(colnames)
+                print >> fh, '\n'.join(orderLines)
+
+        # Batch PCR worksheet
+        writtenFiles.append(outfile+'.pdf')
+        print >> sys.stderr, "Writing worksheet to {}...".format(writtenFiles[-1])
+        ws = Worksheet(primerTableConcat,name='Validation batch PCR')  # load worksheet
+        ws.addControls()  # add controls
+        ws.fillPlates(size=config['report']['platesize'],randomize=True)
+        ws.createWorkSheet(writtenFiles[-1],**config['report']['volumes'])
+        # robot csv
+        writtenFiles.append(outfile+'.csv')
+        print >> sys.stderr, "Writing robot CSV to {}...".format(writtenFiles[-1])
+        ws.robotCsv(writtenFiles[-1], sep=',')
+
+    return writtenFiles
+
+# ==============================================================================
+# === CLI ======================================================================
+# ==============================================================================
+def main():
+    from zippylib import ascii_encode_dict
+    from zippylib import banner
+
     print >> sys.stderr, banner(__version__)
 
     parser = ArgumentParser(prog="zippy.py", description= 'Zippy - Primer design and database')
@@ -220,11 +291,9 @@ if __name__=="__main__":
     global_group = parser.add_argument_group('Global options')
     global_group.add_argument("-c", dest="config", default='zippy.json',metavar="JSON_FILE", \
         help="configuration file [zippy.json]")
-    global_group.add_argument("--debug", dest="debug", default=False, action="store_true", \
-        help="Debugging (show database dump at end)")
 
     # run modes
-    subparsers = parser.add_subparsers(help='help for subcommand')
+    subparsers = parser.add_subparsers(help='Help for subcommand')
 
     ## add primers
     parser_add = subparsers.add_parser('add', help='Add previously designed primers to database')
@@ -238,8 +307,10 @@ if __name__=="__main__":
         help="File with intervals of interest or chr:start-end")
     parser_retrieve.add_argument("--design", dest="design", default=False, action="store_true", \
         help="Design primers if not in database")
-    parser_retrieve.add_argument("--nostore", dest="nostore", default=False, action='store_true', \
+    parser_retrieve.add_argument("--nostore", dest="store", default=True, action='store_false', \
         help="Do not store result in database")
+    parser_retrieve.add_argument("--outfile", dest="outfile", default='', type=str, \
+        help="Output file name")
     parser_retrieve.set_defaults(which='get')
 
     ## batch
@@ -249,7 +320,7 @@ if __name__=="__main__":
     parser_batch.add_argument("--design", dest="design", default=True, action="store_true", \
         help="Design primers if not in database [TRUE]")
     parser_batch.add_argument("--outfile", dest="outfile", default='', type=str, \
-        help="Output base name (order, worksheet, unavailable)")
+        help="Create worksheet PDF, order and robot CSV")
     parser_batch.set_defaults(which='batch')
 
     ## update
@@ -272,21 +343,15 @@ if __name__=="__main__":
 
     options = parser.parse_args()
 
-    ## read configuration (convert unicode to ascii string)
-    def ascii_encode_dict(data):
-        ascii_encode = lambda x: x.encode('ascii') if type(x) is unicode else x
-        return dict(map(ascii_encode, pair) for pair in data.items())
+    # read config and open database
     with open(options.config) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
-
-    # open database handler
     db = PrimerDB(config['database'])
 
     if options.which=='add':  # read primers and add to database
-        pairs = importPrimerPairs(options.primers, primer3=False)  # import and locate primer pairs
+        pairs = importPrimerPairs(options.primers, config, primer3=False)  # import and locate primer pairs
         db.addPair(*pairs)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
         sys.stderr.write('Added {} primer pairs to database\n'.format(len(pairs)))
-        if options.debug: print repr(db)  # show database content (debugging only)
     elif options.which=='dump':  # data dump fucntions (`for bulk downloads`)
         # dump amplicons fo given size to stdout
         try:
@@ -323,49 +388,9 @@ if __name__=="__main__":
         if options.blacklist:
             db.blacklist(options.blacklist)
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
-        intervals = readTargets(options.targets, config['tiling'])  # get intervals from file or commandline
-
-        # get/design primer pairs
-        primerTable, resultList, missedIntervals = getPrimers(intervals,options)
-
-        ## print primerTable
-        print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTable ])
-
-        ## print and store primer pairs
-        if not options.nostore:
-            db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
-
-        ## print database content
-        if options.debug:
-            print >> sys.stderr, '\n++DATABASE++++++++++++++++++++++++++++'
-            print >> sys.stderr, repr(db)
-            print >> sys.stderr, '++++++++++++++++++++++++++++++++++++++\n'
-
+        zippyPrimerQuery(config, options.targets, options.design, options.outfile, db if options.store else None)
     elif options.which=='batch':
-        sampleVariants = readBatch(options.targets, config['tiling'])
-        print >> sys.stderr, '\n'.join([ '{:<20} {:>2d}'.format(sample,len(variants)) \
-            for sample,variants in sorted(sampleVariants.items(),key=lambda x: x[0]) ])
-        # for each sample design
-        primerTableConcat = []
-        for sample, intervals in sorted(sampleVariants.items(),key=lambda x: x[0]):
-            print >> sys.stderr, "Getting primers for {} variants in sample {}".format(len(intervals),sample)
-            # get/design primers
-            primerTable, resultList, missedIntervals = getPrimers(intervals,options)
+        print zippyBatchQuery(config, options.targets, True, options.outfile, db)
 
-            # store result list
-            primerTableConcat += [ [sample]+l for l in primerTable ]
-
-            # store primers
-            db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
-
-        ## print primerTable
-        print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTableConcat ])
-
-        ## reports
-        # add controls
-
-        # primer ordering
-
-        # fill plate sheet
-
-        # print ordersheet
+if __name__=="__main__":
+    main()

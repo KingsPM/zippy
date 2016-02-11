@@ -1,0 +1,48 @@
+body {
+    background-color: #F8F8F8;
+    padding-left: 0px;
+    margin: 40px;
+}
+
+header {
+	width: 100%;
+	background-color: #009933;
+	color: white;
+	padding: 15px;
+	margin-left: -50px;
+	/*margin-bottom: 10px;*/
+	top:0;
+	font-size: 35px;
+	text-align: center;
+	position: fixed;
+	height: 40px;
+}
+
+#below_header {
+	margin-top: 80px;
+}
+
+h1 {
+	width: 100%;
+	background-color: #009933;
+	color: white;
+	padding: 10px 10px 10px 20px;
+	margin-top: -10px;
+	margin-right: -10px;
+	margin-left: -10px;
+}
+
+input[type=submit] {
+	background-color: #009933;
+    border: hidden;
+    border-radius: 4px;
+    color: white;
+    padding: 20px;
+    text-decoration: none;
+    cursor: pointer;
+    width: 10%;
+}
+
+input[type=file] {
+    cursor: pointer;
+}

@@ -1,4 +1,13 @@
 #!/usr/bin/env python
+
+__doc__=="""Primer3 Classes"""
+__author__ = "David Brawand"
+__license__ = "MIT"
+__version__ = "1.1"
+__maintainer__ = "David Brawand"
+__email__ = "dbrawand@nhs.net"
+__status__ = "Production"
+
 import sys, os, re, datetime
 from hashlib import md5, sha1
 import primer3
@@ -73,10 +82,11 @@ class BoundExceedError(Exception):
 
 '''primer pair (list)'''
 class PrimerPair(list):
-    def __init__(self,elements,length=2, location=[]):
+    def __init__(self, elements, length=2, location=()):
         list.__init__(self, elements)
         self.length = length  # pair of primers by default
         self.reversed = False
+        self.location = location if any(location) else ('','')
 
     def _check_item_bound(self):
         if self.length and len(self) >= self.length:
@@ -128,15 +138,14 @@ class PrimerPair(list):
         return self.sortvalues() < other.sortvalues()
 
     def __repr__(self):
-        if self[0].targetposition and self[1].targetposition:
-            return '{}\t{}\t{:.1f}\t{:.1f}\t{}\t{:.1f}\t{:.1f}\t{}\t{}\t{}'.format(self.name(), \
-                self[0].seq, self[0].tm, self[0].gc, \
-                self[1].seq, self[1].tm, self[1].gc, \
-                self[0].targetposition.chrom, self[0].targetposition.offset+self[0].targetposition.length, self[1].targetposition.offset)
-        else:
-            return '{}\t{}\t{:.1f}\t{:.1f}\t{}\t{:.1f}\t{:.1f}\tNA\tNA\tNA'.format(self.name(), \
-                self[0].seq, self[0].tm, self[0].gc, \
-                self[1].seq, self[1].tm, self[1].gc)
+        return '{}\t{}\t{}\t{}\t{:.1f}\t{:.1f}\t{}\t{:.1f}\t{:.1f}\t{}\t{}\t{}'.format(self.name(), \
+            self.location[0] if len(self.location)>0 else '',
+            self.location[1] if len(self.location)>1 else '',
+            self[0].seq, self[0].tm, self[0].gc, \
+            self[1].seq, self[1].tm, self[1].gc, \
+            self[0].targetposition.chrom if self[0].targetposition else 'NA',
+            self[0].targetposition.offset+self[0].targetposition.length if self[0].targetposition else 'NA',
+            self[1].targetposition.offset if self[1].targetposition else 'NA')
 
     def log(self,logfile):
         timestamp = datetime.datetime.now().isoformat()

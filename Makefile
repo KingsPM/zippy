@@ -1,19 +1,36 @@
-all: install reportlab bowtie genome flask
+# installation makefile
+
+all: install bowtie genome
 
 install:
 	apt-get update
-	apt-get install -y python-pip python2.7-dev sqlite ncurses-dev unzip git python-virtualenv htop
-	apt-get install -y libxslt-dev libxml2-dev ibffi-dev
-	pip install cython
-	pip install primer3-py
-	pip install pysam
-	pip install intervaltree
-	pip install networkx
-	pip install markdown2pdf
-
-reportlab:
+	apt-get install -y python-pip python2.7-dev sqlite3 ncurses-dev unzip git python-virtualenv htop
+	apt-get install -y libxslt-dev libxml2-dev libffi-dev
+	apt-get install -y redis-server
 	apt-get install -y build-essential libjpeg-dev libfreetype6-dev python-dev python-imaging
-	pip install reportlab
+	# create python venv
+	virtualenv zippyvenv
+	zippyvenv/bin/pip install reportlab
+	zippyvenv/bin/pip install cython
+	zippyvenv/bin/pip install primer3-py
+	zippyvenv/bin/pip install pysam
+	zippyvenv/bin/pip install intervaltree
+	zippyvenv/bin/pip install flask
+	zippyvenv/bin/pip install flask-login
+	zippyvenv/bin/pip install flask-openid
+	zippyvenv/bin/pip install flask-mail
+	zippyvenv/bin/pip install flask-sqlalchemy
+	zippyvenv/bin/pip install sqlalchemy-migrate
+	zippyvenv/bin/pip install flask-whooshalchemy
+	zippyvenv/bin/pip install flask-wtf
+	zippyvenv/bin/pip install flask-babel
+	zippyvenv/bin/pip install guess_language
+	zippyvenv/bin/pip install flipflop
+	zippyvenv/bin/pip install coverage
+	zippyvenv/bin/pip install celery
+	zippyvenv/bin/pip install redis
+	mkdir tmp
+	echo "activate python virtual environment with 'source zippyvenv/bin/activate'"
 
 bowtie:
 	wget -c http://netix.dl.sourceforge.net/project/bowtie-bio/bowtie2/2.2.6/bowtie2-2.2.6-linux-x86_64.zip && \
@@ -32,19 +49,3 @@ genome-download:
 genome-index:
 	cd zippy_resources && \
 	bowtie2-build human_g1k_v37.fasta human_g1k_v37.bowtie
-
-flask:
-	virtualenv flask
-	flask/bin/pip install flask
-	flask/bin/pip install flask-login
-	flask/bin/pip install flask-openid
-	flask/bin/pip install flask-mail
-	flask/bin/pip install flask-sqlalchemy
-	flask/bin/pip install sqlalchemy-migrate
-	flask/bin/pip install flask-whooshalchemy
-	flask/bin/pip install flask-wtf
-	flask/bin/pip install flask-babel
-	flask/bin/pip install guess_language
-	flask/bin/pip install flipflop
-	flask/bin/pip install coverage
-	mkdir tmp
