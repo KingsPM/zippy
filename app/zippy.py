@@ -190,8 +190,7 @@ def getPrimers(intervals, db, design, config):
             resultList.append(p)
             if p.designrank() >= 0:
                 p.log(config['logfile'])
-            primerTable.append([iv.name] + repr(p).split())
-
+            primerTable.append([iv.name] + repr(p).split('\t'))
     return primerTable, resultList, missedIntervals
 
 # ==============================================================================
@@ -237,32 +236,43 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
         print >> sys.stderr, "Writing results to {}...".format(writtenFiles[-1])
         with open(writtenFiles[-1],'w') as fh:
             print >> fh, '\n'.join([ '\t'.join(l) for l in primerTableConcat ])
-
-        # worksheet
-        writtenFiles.append(outfile+'.pdf')
-        print >> sys.stderr, "Writing worksheet to {}...".format(writtenFiles[-1])
-        ws = Worksheet(primerTableConcat)  # load worksheet
-        ws.addControls()  # add controls
-        ws.fillPlates(size=config['report']['platesize'],randomize=True)
-        ws.workSheet(writtenFiles[-1])
-
-        # robot csv
-        writtenFiles.append(outfile+'.robot.csv')
-        print >> sys.stderr, "Writing robot CSV to {}...".format(writtenFiles[-1])
-        ws.robotCsv(writtenFiles[-1], sep=',')
-
-        # order list
-        allPrimerPairs = list(set([ l[2] for l in primerTableConcat ]))
-        data,colnames = db.dump('ordersheet', **config['ordersheet'])
-        orderLines = ['\t'.join(x) for x in data if x[0][:x[0].rfind('_')] in allPrimerPairs ]
-        if orderLines:
-            writtenFiles.append(outfile+'.order.csv')
-            print >> sys.stderr, "Writing order CSV to {}...".format(writtenFiles[-1])
+        # Primer Test Worksheet
+        primerTestTable = [ x for x in primerTableConcat if not all(x[3:5]) ]
+        if primerTestTable:
+            writtenFiles.append(outfile+'.primertest.pdf')
+            print >> sys.stderr, "Writing Test Worksheet to {}...".format(writtenFiles[-1])
+            ws = Worksheet(primerTestTable,name="Primer Test PCR")  # load worksheet
+            print '<', len(ws)
+            ws.addControls(control='Normal')  # add positive controls
+            print '>', len(ws)
+            ws.fillPlates(size=config['report']['platesize'],randomize=True,\
+                includeSamples=False, includeControls=True)  # only include controls
+            ws.createWorkSheet(writtenFiles[-1],**config['report']['volumes'])
+            # robot csv
+            writtenFiles.append(outfile+'.primertest.csv')
+            print >> sys.stderr, "Writing Test CSV to {}...".format(writtenFiles[-1])
+            ws.robotCsv(writtenFiles[-1], sep=',')
+            # order list
+            testPrimerPairs = list(set([ l[2] for l in primerTestTable ]))
+            data,colnames = db.dump('ordersheet', **config['ordersheet'])
+            orderLines = ['\t'.join(x) for x in data if x[0][:x[0].rfind('_')] in testPrimerPairs ]
+            writtenFiles.append(outfile+'.ordersheet.csv')
+            print >> sys.stderr, "Writing primer order list to {}...".format(writtenFiles[-1])
             with open(writtenFiles[-1],'w') as fh:
                 print >> fh, '\t'.join(colnames)
                 print >> fh, '\n'.join(orderLines)
-        else:
-            print >> sys.stderr, "No primers to be ordered"
+
+        # Batch PCR worksheet
+        writtenFiles.append(outfile+'.pdf')
+        print >> sys.stderr, "Writing worksheet to {}...".format(writtenFiles[-1])
+        ws = Worksheet(primerTableConcat,name='Validation batch PCR')  # load worksheet
+        ws.addControls()  # add controls
+        ws.fillPlates(size=config['report']['platesize'],randomize=True)
+        ws.createWorkSheet(writtenFiles[-1],**config['report']['volumes'])
+        # robot csv
+        writtenFiles.append(outfile+'.csv')
+        print >> sys.stderr, "Writing robot CSV to {}...".format(writtenFiles[-1])
+        ws.robotCsv(writtenFiles[-1], sep=',')
 
     return writtenFiles
 
