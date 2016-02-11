@@ -10,6 +10,6 @@ Vagrant.configure(2) do |config|
   config.vm.provider "virtualbox" do |vb|
     vb.gui = false
     vb.cpus = 2
-    vb.memory = 8192
+    vb.memory = 6144
   end
 end

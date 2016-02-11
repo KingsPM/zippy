@@ -4,7 +4,7 @@ all: install bowtie genome
 
 install:
 	apt-get update
-	apt-get install -y python-pip python2.7-dev sqlite ncurses-dev unzip git python-virtualenv htop
+	apt-get install -y python-pip python2.7-dev sqlite3 ncurses-dev unzip git python-virtualenv htop
 	apt-get install -y libxslt-dev libxml2-dev libffi-dev
 	apt-get install -y redis-server
 	apt-get install -y build-essential libjpeg-dev libfreetype6-dev python-dev python-imaging
