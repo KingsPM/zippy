@@ -101,7 +101,7 @@ class SNPpy(IntervalList):
                     chrom = row['chromosome'][3:] if row['chromosome'].startswith('chr') else row['chromosome']
                     chromStart = int(row['position'])
                     chromEnd = chromStart+hgvsLength(row['HGVS_c'])
-                    variantName = ':'.join([row['geneID'],row['transcriptID'],row['HGVS_c'],row['GT/CONSENSUS']]).replace('>','to')
+                    variantName = '_'.join([row['geneID'],row['transcriptID'],row['HGVS_c']]).replace('>','to')
                     iv = Interval(chrom,chromStart,chromEnd,name=variantName,sample=row['sampleID'])
                 except:
                     print line

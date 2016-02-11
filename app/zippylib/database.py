@@ -128,6 +128,7 @@ class PrimerDB(object):
         for p in pairs:
             flat.append(p[0])
             flat.append(p[1])
+
         self.addPrimer(*flat)
         # add pairs
         try:
@@ -146,7 +147,7 @@ class PrimerDB(object):
                 end = right.targetposition.offset+right.targetposition.length
                 cursor.execute('''INSERT OR REPLACE INTO pairs(pairid,uniqueid,left,right,chrom,start,end) VALUES(?,?,?,?,?,?,?)''', \
                     (p.name(), p.uniqueid(), left.seq, right.seq, chrom, start, end))
-                cursor.execute('''INSERT OR REPLACE INTO status(pairid,uniqueid,dateadded) VALUES(?,?,?)''', \
+                cursor.execute('''INSERT OR IGNORE INTO status(pairid,uniqueid,dateadded) VALUES(?,?,?)''', \
                     (p.name(), p.uniqueid(), current_time))
             self.db.commit()
         finally:
@@ -183,33 +184,41 @@ class PrimerDB(object):
             rightTargetposition = Locus(row[3], row[5]-len(row[2]), len(row[2]), True)
             leftPrimer = Primer(name+'_left', leftSeq, leftTargetposition)
             rightPrimer = Primer(name+'_right', rightSeq, rightTargetposition)
-            location = row[6:8]
             leftPrimer.calcProperties()
             rightPrimer.calcProperties()
-            primerPairs.append(PrimerPair([leftPrimer, rightPrimer], location))
+            primerPairs.append(PrimerPair([leftPrimer, rightPrimer], location=row[6:8]))
         return primerPairs  # ordered by midpoint distance
-
 
     def storePrimer(self,pairid,vessel,well):
         '''updates the location in which primer pairs are stored in the status table'''
-
         try:
             self.db = sqlite3.connect(self.sqlite)
         except:
             raise
         else:
+            # update
             try:
                 cursor = self.db.cursor()
-                cursor.execute('''UPDATE status SET vessel = ?, well = ?
+                cursor.execute('''UPDATE OR ABORT status SET vessel = ?, well = ?
                     WHERE pairid = ?''', (vessel, well, pairid))
                 self.db.commit()
             except sqlite3.IntegrityError:
                 return False
+            except:
+                raise
+            # check if updated
+            try:
+                cursor.execute('''SELECT DISTINCT vessel, well, pairid
+                    FROM status WHERE pairid = ?;''', (pairid,) )
+                rows = cursor.fetchall()
+                assert len(rows)==1 and rows[0][0] == vessel and rows[0][1] == well
+            except AssertionError:
+                return False
+            except:
+                raise
         finally:
             self.db.close()
         return True
-
-
 
     def dump(self,what,**kwargs):
         if what=='amplicons':
@@ -230,7 +239,7 @@ class PrimerDB(object):
             return rows, ('chrom','chromStart','chromEnd','name')  # rows and colnames
             # return [ '{}\t{}\t{}\t{}'.format(*row) for row in rows ]
         elif what=='ordersheet':
-            # dump amplicons (all possible)
+            # dump pending orders
             try:
                 self.db = sqlite3.connect(self.sqlite)
             except:
@@ -266,3 +275,19 @@ class PrimerDB(object):
                 expandedrows.append([row[0]+'_fwd', row[1]] + row[3:])
                 expandedrows.append([row[0]+'_rev', row[2]] + row[3:])
             return expandedrows, columns
+        elif what=='locations':
+            # dump locations (all possible)
+            try:
+                self.db = sqlite3.connect(self.sqlite)
+            except:
+                raise
+            else:
+                cursor = self.db.cursor()
+                # PAIRS
+                cursor.execute('''SELECT DISTINCT p.pairid, s.vessel, s.well
+                    FROM pairs AS p, status AS s
+                    WHERE p.pairid = s.pairid AND p.uniqueid = s.uniqueid;''')
+                rows = cursor.fetchall()
+            finally:
+                self.db.close()
+            return rows, ['name','vesel','well']
