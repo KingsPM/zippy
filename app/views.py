@@ -11,8 +11,8 @@ from zippylib.database import PrimerDB
 import hashlib
 
 ALLOWED_EXTENSIONS = set(['txt', 'batch', 'vcf', 'bed'])
-UPLOAD_FOLDER = '/home/vagrant/dev/zippy/uploads'
-DOWNLOAD_FOLDER = '/home/vagrant/dev/zippy/'
+UPLOAD_FOLDER = 'uploads'
+DOWNLOAD_FOLDER = 'results'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['DOWNLOAD_FOLDER'] = DOWNLOAD_FOLDER
 
@@ -52,6 +52,9 @@ def file_uploaded():
 
 @app.route('/file_uploaded/<path:filename>')
 def download_file(filename):
+    print app.config['DOWNLOAD_FOLDER']
+    print filename
+    print dir(app)
     return send_from_directory(app.config['DOWNLOAD_FOLDER'],
                                filename, as_attachment=True)
 
@@ -82,23 +85,24 @@ def upload():
     if uploadFile and allowed_file(uploadFile.filename):
         filename = secure_filename(uploadFile.filename)
         print filename
-        uploadFile.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        fileHash = hashlib.sha1(open('./uploads/%s' % filename).read()).hexidigest()
-        subprocess.check.call(['mkdir', '-p', './results/%s' % fileHash])
+        uploadedFile = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        uploadFile.save(uploadedFile)
+        fileHash = hashlib.sha1(open(uploadedFile).read()).hexdigest()
+        subprocess.check_call(['mkdir', '-p', os.path.join(app.config['DOWNLOAD_FOLDER'], fileHash)], shell=False)
         print "file saved to ./uploads/%s" % filename
         configFile = './app/zippy.json'
-        targetFile = './uploads/%s' % filename
         print configFile
-        print targetFile
         with open(configFile) as conf:
             config = json.load(conf, object_hook=ascii_encode_dict)
         db = PrimerDB(config['database'])
+        saveLocation = './%s/%s/%s' % (DOWNLOAD_FOLDER, fileHash, filename)
         print 'About to run Zippy'
         #zippyBatchQuery(config, targets, design=True, outfile=None, db=None)
-        arrayOfFiles = zippyBatchQuery(config, './uploads/%s' % filename, True, filename, db)
-        for eachFile in arrayOfFiles:
-            subprocess.check.call(['mv', eachFile, './results/%s/' % fileHash])
-        # print arrayOfFiles
+        arrayOfFiles = zippyBatchQuery(config, uploadedFile, True, saveLocation, db)
+        print arrayOfFiles
+        import re
+        arrayOfFiles = [ re.sub(r'.*'+app.config['DOWNLOAD_FOLDER']+'/','',x) for x in arrayOfFiles ]
+        print arrayOfFiles
         
 
         # print subprocess.call(['/home/vagrant/dev/zippy/app/zippy.py', '-c', '/home/vagrant/dev/zippy/app/zippy.json', 'batch', '--outfile', 'outfile', '/home/vagrant/dev/zippy/uploads/%s'% filename], shell=False)
