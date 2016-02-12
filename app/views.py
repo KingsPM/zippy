@@ -8,10 +8,11 @@ from app import app
 from zippy import zippyBatchQuery
 from zippylib import ascii_encode_dict
 from zippylib.database import PrimerDB
+import hashlib
 
 ALLOWED_EXTENSIONS = set(['txt', 'batch', 'vcf', 'bed'])
 UPLOAD_FOLDER = '/home/vagrant/dev/zippy/uploads'
-DOWNLOAD_FOLDER = '/home/vagrant/dev/zippy/app'
+DOWNLOAD_FOLDER = '/home/vagrant/dev/zippy/'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['DOWNLOAD_FOLDER'] = DOWNLOAD_FOLDER
 
@@ -47,11 +48,7 @@ def no_file():
 
 @app.route('/file_uploaded')
 def file_uploaded():
-
     return render_template('file_uploaded.html')
-
-
-
 
 @app.route('/file_uploaded/<path:filename>')
 def download_file(filename):
@@ -86,6 +83,8 @@ def upload():
         filename = secure_filename(uploadFile.filename)
         print filename
         uploadFile.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        fileHash = hashlib.sha1(open('./uploads/%s' % filename).read()).hexidigest()
+        subprocess.check.call(['mkdir', '-p', './results/%s' % fileHash])
         print "file saved to ./uploads/%s" % filename
         configFile = './app/zippy.json'
         targetFile = './uploads/%s' % filename
@@ -96,14 +95,17 @@ def upload():
         db = PrimerDB(config['database'])
         print 'About to run Zippy'
         #zippyBatchQuery(config, targets, design=True, outfile=None, db=None)
-        zippyBatchQuery(config, './uploads/%s' % filename, True, filename, db)
+        arrayOfFiles = zippyBatchQuery(config, './uploads/%s' % filename, True, filename, db)
+        for eachFile in arrayOfFiles:
+            subprocess.check.call(['mv', eachFile, './results/%s/' % fileHash])
+        # print arrayOfFiles
         
 
         # print subprocess.call(['/home/vagrant/dev/zippy/app/zippy.py', '-c', '/home/vagrant/dev/zippy/app/zippy.json', 'batch', '--outfile', 'outfile', '/home/vagrant/dev/zippy/uploads/%s'% filename], shell=False)
         # os.chdir('./app/')
         # print subprocess.call(['./zippy.py', 'batch', '--outfile', 'outfile', '../uploads/%s'% filename], shell=False)
         # return redirect('/file_uploaded')
-        return render_template('file_uploaded.html', filename=filename)
+        return render_template('file_uploaded.html', outputFiles=arrayOfFiles)
     else:
         print("file for upload not supplied or file-type not allowed")
         return redirect('/no_file')
