@@ -48,7 +48,12 @@
     },
     "report": {
         "pairs": 1,
-        "platesize": [8,12]
+        "platesize": [8,12],
+        "volumes": {
+            "mastermix": 13,
+            "qsolution": 23,
+            "excess": 0.1
+        }
     },
     "ordersheet": {
         "extracolumns": {

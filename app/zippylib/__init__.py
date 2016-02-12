@@ -1,8 +1,16 @@
 #!/usr/bin/env python
 
-from .primer import Primer, PrimerPair
-import time
+__doc__=="""Zippy Library"""
+__author__ = "David Brawand"
+__license__ = "MIT"
+__version__ = "1.1"
+__maintainer__ = "David Brawand"
+__email__ = "dbrawand@nhs.net"
+__status__ = "Production"
 
+from .primer import Primer, PrimerPair
+#from zippylib.primer import Primer, PrimerPair
+import time
 
 '''read configuration (convert unicode to ascii string)'''
 def ascii_encode_dict(data):

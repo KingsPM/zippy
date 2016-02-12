@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 
-__doc__=="""
-######################
-# simple VCF parser  #
-######################
-"""
+__doc__=="""File parsing classes"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "0.1"
+__version__ = "1.1"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -101,7 +97,7 @@ class SNPpy(IntervalList):
                     chrom = row['chromosome'][3:] if row['chromosome'].startswith('chr') else row['chromosome']
                     chromStart = int(row['position'])
                     chromEnd = chromStart+hgvsLength(row['HGVS_c'])
-                    variantName = ':'.join([row['geneID'],row['transcriptID'],row['HGVS_c'],row['GT/CONSENSUS']]).replace('>','to')
+                    variantName = '_'.join([row['geneID'],row['transcriptID'],row['HGVS_c']]).replace('>','to')
                     iv = Interval(chrom,chromStart,chromEnd,name=variantName,sample=row['sampleID'])
                 except:
                     print line
