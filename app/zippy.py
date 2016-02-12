@@ -245,7 +245,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
             ws.addControls(control='Normal')  # add positive controls
             ws.fillPlates(size=config['report']['platesize'],randomize=True,\
                 includeSamples=False, includeControls=True)  # only include controls
-            ws.createWorkSheet(writtenFiles[-1],**config['report']['volumes'])
+            ws.createWorkSheet(writtenFiles[-1],**config['report'])
             # robot csv
             writtenFiles.append(outfile+'.primertest.csv')
             print >> sys.stderr, "Writing Test CSV to {}...".format(writtenFiles[-1])
@@ -266,7 +266,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
         ws = Worksheet(primerTableConcat,name='Validation batch PCR')  # load worksheet
         ws.addControls()  # add controls
         ws.fillPlates(size=config['report']['platesize'],randomize=True)
-        ws.createWorkSheet(writtenFiles[-1],**config['report']['volumes'])
+        ws.createWorkSheet(writtenFiles[-1],**config['report'])
         # robot csv
         writtenFiles.append(outfile+'.csv')
         print >> sys.stderr, "Writing robot CSV to {}...".format(writtenFiles[-1])
