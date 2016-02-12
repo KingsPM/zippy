@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from zippylib.primer import Primer, PrimerPair
+from .primer import Primer, PrimerPair
 import time
 
 

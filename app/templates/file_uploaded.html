@@ -1,4 +1,11 @@
 {% extends "index.html" %}
 {% block content %}
 	<p>File upload succesful</p>
+	<!-- {%for file in outfile%} -->
+
+	
+	<a href="/file_uploaded/{{filename}}.txt">{{filename}} text file</a>
+	<a href="/file_uploaded/{{filename}}.pdf">{{filename}} pdf</a>
+	<a href="/file_uploaded/{{filename}}.robot.csv">{{filename}} robot csv</a>
+	<a href="/file_uploaded/{{filename}}.order.csv">{{filename}} order csv</a>
 {% endblock %}
