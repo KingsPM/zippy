@@ -1,9 +1,10 @@
 import os
+import re
 import json
 from flask import Flask, render_template, request, redirect, send_from_directory
 from celery import Celery
 from werkzeug.utils import secure_filename
-import subprocess 
+import subprocess
 from app import app
 from zippy import zippyBatchQuery
 from zippylib import ascii_encode_dict
@@ -11,10 +12,9 @@ from zippylib.database import PrimerDB
 import hashlib
 
 ALLOWED_EXTENSIONS = set(['txt', 'batch', 'vcf', 'bed'])
-UPLOAD_FOLDER = 'uploads'
-DOWNLOAD_FOLDER = 'results'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['DOWNLOAD_FOLDER'] = DOWNLOAD_FOLDER
+app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['DOWNLOAD_FOLDER'] = 'results'
+app.config['CONFIG_FILE'] = 'app/zippy.json'
 
 app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0'
 app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
@@ -52,11 +52,8 @@ def file_uploaded():
 
 @app.route('/file_uploaded/<path:filename>')
 def download_file(filename):
-    print app.config['DOWNLOAD_FOLDER']
-    print filename
-    print dir(app)
-    return send_from_directory(app.config['DOWNLOAD_FOLDER'],
-                               filename, as_attachment=True)
+    return send_from_directory(os.getcwd(), filename, as_attachment=True)
+    # return send_from_directory(app.config['DOWNLOAD_FOLDER'], filename, as_attachment=True)
 
 # @app.route('/upload/', methods=['POST'])
 # def upload():
@@ -84,31 +81,26 @@ def upload():
     print("request of file successful")
     if uploadFile and allowed_file(uploadFile.filename):
         filename = secure_filename(uploadFile.filename)
-        print filename
+        print "UPLOAD FILENAME", uploadFile.filename, filename
+
+        # save file
         uploadedFile = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         uploadFile.save(uploadedFile)
-        fileHash = hashlib.sha1(open(uploadedFile).read()).hexdigest()
-        subprocess.check_call(['mkdir', '-p', os.path.join(app.config['DOWNLOAD_FOLDER'], fileHash)], shell=False)
-        print "file saved to ./uploads/%s" % filename
-        configFile = './app/zippy.json'
-        print configFile
-        with open(configFile) as conf:
-            config = json.load(conf, object_hook=ascii_encode_dict)
-        db = PrimerDB(config['database'])
-        saveLocation = './%s/%s/%s' % (DOWNLOAD_FOLDER, fileHash, filename)
-        print 'About to run Zippy'
-        #zippyBatchQuery(config, targets, design=True, outfile=None, db=None)
-        arrayOfFiles = zippyBatchQuery(config, uploadedFile, True, saveLocation, db)
-        print arrayOfFiles
-        import re
-        arrayOfFiles = [ re.sub(r'.*'+app.config['DOWNLOAD_FOLDER']+'/','',x) for x in arrayOfFiles ]
-        print arrayOfFiles
-        
+        print "file saved to %s" % uploadedFile
 
-        # print subprocess.call(['/home/vagrant/dev/zippy/app/zippy.py', '-c', '/home/vagrant/dev/zippy/app/zippy.json', 'batch', '--outfile', 'outfile', '/home/vagrant/dev/zippy/uploads/%s'% filename], shell=False)
-        # os.chdir('./app/')
-        # print subprocess.call(['./zippy.py', 'batch', '--outfile', 'outfile', '../uploads/%s'% filename], shell=False)
-        # return redirect('/file_uploaded')
+        # open config file and database
+        with open(app.config['CONFIG_FILE']) as conf:
+            config = json.load(conf, object_hook=ascii_encode_dict)
+            db = PrimerDB(config['database'])
+
+        # create output folder
+        downloadFolder = os.path.join(app.config['DOWNLOAD_FOLDER'], hashlib.sha1(open(uploadedFile).read()).hexdigest())
+        subprocess.check_call(['mkdir', '-p', downloadFolder], shell=False)
+
+        # run zippy
+        print 'About to run Zippy'
+        downloadFile = os.path.join(downloadFolder, filename)
+        arrayOfFiles = zippyBatchQuery(config, uploadedFile, True, downloadFile, db)
         return render_template('file_uploaded.html', outputFiles=arrayOfFiles)
     else:
         print("file for upload not supplied or file-type not allowed")
@@ -128,8 +120,3 @@ def upload():
 #     else:
 #         print("file for upload not supplied or file-type not allowed")
 #         return redirect('/no_file')
-
-
-
-
-
