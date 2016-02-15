@@ -17,7 +17,7 @@ from copy import deepcopy
 from random import shuffle
 import itertools
 from collections import Counter
-from . import PlateError, char_range, imageDir
+from . import PlateError, char_range, imageDir, githash
 
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
@@ -28,12 +28,50 @@ from reportlab.lib.units import cm, inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
 from reportlab.rl_config import defaultPageSize
 
+# Page Settings
+PAGE_HEIGHT=defaultPageSize[1]; PAGE_WIDTH=defaultPageSize[0]
+leftMargin = rightMargin = 2.6*cm
+topMargin = 2*cm
+bottomMargin = 2*cm
+
+# MolPath version controlled document template
+class MolPathTemplate(canvas.Canvas):
+    def __init__(self, *args, **kwargs):
+        canvas.Canvas.__init__(self, *args, **kwargs)
+        self.pages = []
+
+    def showPage(self):
+        self.pages.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        page_count = len(self.pages)
+        for page in self.pages:
+            self.__dict__.update(page)
+            self.makePage(page_count)
+            canvas.Canvas.showPage(self)
+        canvas.Canvas.save(self)
+
+    def makePage(self, page_count):
+        self.setFont("Helvetica", 9)
+        # header
+        headerstring = "KINGS COLLEGE HOSPITAL, MOLECULAR PATHOLOGY"
+        self.drawRightString(PAGE_WIDTH-rightMargin, PAGE_HEIGHT-topMargin/2.0, headerstring)
+        # authorised by
+        authorised = "James Bond"
+        self.drawString(leftMargin, bottomMargin/2, "Authorised by %s" % authorised)
+        # version
+        self.drawCentredString(PAGE_WIDTH/2, bottomMargin/2, githash('zippy'))
+        # page number
+        page = "Page %s of %s" % (self._pageNumber, page_count)
+        self.drawRightString(PAGE_WIDTH-rightMargin, bottomMargin/2, page)
+
 
 class Report(object):
     def __init__(self,fi,title='This is the title',logo=None):
         # get document
         self.doc = SimpleDocTemplate(fi,pagesize=A4,
-                        rightMargin=2.54*cm,leftMargin=2.54*cm,
+                        rightMargin=rightMargin,leftMargin=leftMargin,
                         topMargin=2*cm,bottomMargin=cm)
         # style sheets
         self.styles = getSampleStyleSheet()
@@ -74,11 +112,6 @@ class Report(object):
         t.setStyle(TABLE_STYLE)
         self.elements.append(t)
         self.elements.append(Spacer(1, 12))
-
-
-        # Warning
-        # self.elements.append(Paragraph('<font size=14>Always double check everything!</font>', self.styles["Warning"]))
-        # self.elements.append(Spacer(1, 24))
 
     def plateLayouts(self,plates):
         PLATE_STYLE = TableStyle(
@@ -158,7 +191,6 @@ class Report(object):
         self.elements.append(t)
         self.elements.append(Spacer(1, 12))
 
-
     def checkBoxes(self,titles):
         # right justified checkboxes with appropriate names
         TABLE_STYLE = TableStyle([
@@ -173,7 +205,7 @@ class Report(object):
 
         self.elements.append(Paragraph('Checks', self.styles["Heading4"]))
         self.elements.append(Spacer(1, 2))
-        data = [[ 'Task', 'Date', 'Checker']]
+        data = [[ 'Task', 'Date', 'Operator']]
         for i in range(len(titles)):
             data.append([ titles[i], '', '' ])
         t = Table(data, colWidths=[7.5*cm,4*cm,4*cm], rowHeights=0.6*cm)
@@ -181,9 +213,10 @@ class Report(object):
         self.elements.append(t)
         self.elements.append(Spacer(1, 12))
 
-
     def build(self):
-        self.doc.build(self.elements)
+        self.doc.build(self.elements, canvasmaker=MolPathTemplate)
+        #self.doc.build(self.elements, onFirstPage=myFirstPage, onLaterPages=myFirstPage)
+        # self.doc.build(self.elements)
 
 
 '''PCR test [PrimerPair X Sample] (multiple variants)'''
