@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+	<p>Zippy returned the following primers: -</p>
+	{% if resultList is not equalto [] %}
+		{% for item in resultList %}
+			<b>Amplified region:</b> {{item[0].targetposition.chrom}}:{{item[0].targetposition.offset+item[0].targetposition.length}}-{{item[1].targetposition.offset}}<hr>
+				<b><i>LEFT PRIMER</i></b><br>
+				<b>Sequence:</b> {{item[0].seq}}<br>
+				<b>Locus:</b> {{item[0].targetposition}}<br>
+				<b>TM:</b> {{item[0].tm}}<br>
+				<b>GC:</b> {{item[0].gc}}<br>
+				<hr>
+				<b><i>RIGHT PRIMER</i></b><br>
+				<b>Sequence:</b> {{item[1].seq}}<br>
+				<b>Locus:</b> {{item[1].targetposition}}<br>
+				<b>TM:</b> {{item[1].tm}}<br>
+				<b>GC:</b> {{item[1].gc}}<br>
+				<hr>
+		{% endfor %}
+	{% endif %}
+	{% if missedIntervals is not equalto [] %}
+		<p>Zippy unable to design primers that satisfy the design limits set for the following intervals: -</p>
+		{% for interval in missedIntervals %}
+			<p>{{interval}}</p>
+		{% endfor %}
+		<p>Please re-submit a different genomic location or relax the configuration design limits and attempt the primer design again</p>
+		<div>
+    	    <p>Enter specific locus to design primer for in the form: <i>Chromosome:Start-End</i></p>
+    	    <form action="/adhoc_design/" method="post" enctype="multipart/form-data">
+    	        <input type="text" name="locus"><br><br>
+    	        <input type="submit" value="Submit">
+    	    </form>
+    	</div>
+	{% endif %}
+
+{% endblock %}

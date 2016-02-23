@@ -197,7 +197,7 @@ def getPrimers(intervals, db, design, config):
 # === convenience functions ====================================================
 # ==============================================================================
 
-def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None):
+def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=False):
     intervals = readTargets(targets, config['tiling'])  # get intervals from file or commandline
     # get/design primer pairs
     primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config)
@@ -208,8 +208,11 @@ def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None):
     else:
         print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTable ])
     ## print and store primer pairs
-    if db:
+    # if db:
+    if store:
+        print "Adding primers to database"
         db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
+    return primerTable, resultList, missedIntervals
 
 def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
     sampleVariants = readBatch(targets, config['tiling'])
@@ -388,7 +391,7 @@ def main():
         if options.blacklist:
             db.blacklist(options.blacklist)
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
-        zippyPrimerQuery(config, options.targets, options.design, options.outfile, db if options.store else None)
+        zippyPrimerQuery(config, options.targets, options.design, options.outfile, db, store if options.store else None)
     elif options.which=='batch':
         print zippyBatchQuery(config, options.targets, True, options.outfile, db)
 
