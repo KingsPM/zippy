@@ -16,8 +16,8 @@ import sqlite3
 import fnmatch
 import copy
 from collections import defaultdict
-from zippylib import flatten
-from zippylib.primer import Primer, Locus, PrimerPair
+from . import flatten
+from .primer import Primer, Locus, PrimerPair
 
 class PrimerDB(object):
     def __init__(self, database, user='unkown'):

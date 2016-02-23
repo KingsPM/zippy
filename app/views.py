@@ -1,14 +1,20 @@
 import os
-from flask import Flask, render_template, request, redirect
+import re
+import json
+from flask import Flask, render_template, request, redirect, send_from_directory
 from celery import Celery
-# from flask.ext.wtf import Form
 from werkzeug.utils import secure_filename
-import subprocess 
+import subprocess
 from app import app
+from zippy import zippyBatchQuery
+from zippylib import ascii_encode_dict
+from zippylib.database import PrimerDB
+import hashlib
 
 ALLOWED_EXTENSIONS = set(['txt', 'batch', 'vcf', 'bed'])
-UPLOAD_FOLDER = '/home/vagrant/dev/zippy/uploads'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['DOWNLOAD_FOLDER'] = 'results'
+app.config['CONFIG_FILE'] = 'app/zippy.json'
 
 app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0'
 app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
@@ -16,17 +22,15 @@ app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
 celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
 celery.conf.update(app.config)
 
-@celery.task()
+@celery.task(bind=True)
 def query_zippy(uploadFile):
-    # some long running task here
-    print >> sys.stderr, dir(uploadFile)
     filename = secure_filename(uploadFile.filename)
     print filename
     uploadFile.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
     print "file saved to ./uploads/%s" % filename
     os.chdir('./app/')
     print subprocess.call(['./zippy.py', 'get', '--outfile', outfile, '../uploads/%s'% filename], shell=False)
-    print "running zippy..."
+    return "running zippy..."
 
 
 def allowed_file(filename):
@@ -46,38 +50,73 @@ def no_file():
 def file_uploaded():
     return render_template('file_uploaded.html')
 
+@app.route('/file_uploaded/<path:filename>')
+def download_file(filename):
+    return send_from_directory(os.getcwd(), filename, as_attachment=True)
+    # return send_from_directory(app.config['DOWNLOAD_FOLDER'], filename, as_attachment=True)
+
+# @app.route('/upload/', methods=['POST'])
+# def upload():
+#   uploadFile = request.files['filePath']
+#   print("request of file successful")
+#   if uploadFile and allowed_file(uploadFile.filename):
+#       filename = secure_filename(uploadFile.filename)
+#       print filename
+#       print app.config['UPLOAD_FOLDER']
+#       uploadFile.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+#       print "file saved to ./uploads/%s" % filename
+#       os.chdir('./app/')
+#       print subprocess.call(['./zippy.py', 'get', '--outfile', 'outfile', '../uploads/%s'% filename], shell=False)
+#       print "running zippy..."
+#       return redirect('/file_uploaded')
+#   else:
+#       print("file for upload not supplied or file-type not allowed")
+#       return redirect('/no_file')
+
+
+
 @app.route('/upload/', methods=['POST'])
 def upload():
-  uploadFile = request.files['filePath']
-  print("request of file successful")
-  if uploadFile and allowed_file(uploadFile.filename):
-      filename = secure_filename(uploadFile.filename)
-      print filename
-      print app.config['UPLOAD_FOLDER']
-      uploadFile.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-      print "file saved to ./uploads/%s" % filename
-      os.chdir('./app/')
-      print subprocess.call(['./zippy.py', 'get', '--outfile', 'outfile', '../uploads/%s'% filename], shell=False)
-      # print os.system('./zippy.py batch ././uploads/%s'% filename)'./zippy.py get -o', outfile, '../uploads/%s'% filename
-      # print list_content.communicate()
-      print "running zippy..."
-      return redirect('/file_uploaded')
-  else:
-      print("file for upload not supplied or file-type not allowed")
-      return redirect('/no_file')
+    uploadFile = request.files['filePath']
+    print("request of file successful")
+    if uploadFile and allowed_file(uploadFile.filename):
+        filename = secure_filename(uploadFile.filename)
+        print "UPLOAD FILENAME", uploadFile.filename, filename
+
+        # save file
+        uploadedFile = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        uploadFile.save(uploadedFile)
+        print "file saved to %s" % uploadedFile
+
+        # open config file and database
+        with open(app.config['CONFIG_FILE']) as conf:
+            config = json.load(conf, object_hook=ascii_encode_dict)
+            db = PrimerDB(config['database'])
+
+        # create output folder
+        downloadFolder = os.path.join(app.config['DOWNLOAD_FOLDER'], hashlib.sha1(open(uploadedFile).read()).hexdigest())
+        subprocess.check_call(['mkdir', '-p', downloadFolder], shell=False)
+
+        # run zippy
+        print 'About to run Zippy'
+        downloadFile = os.path.join(downloadFolder, filename)
+        arrayOfFiles = zippyBatchQuery(config, uploadedFile, True, downloadFile, db)
+        return render_template('file_uploaded.html', outputFiles=arrayOfFiles)
+    else:
+        print("file for upload not supplied or file-type not allowed")
+        return redirect('/no_file')
+
 
 # @app.route('/upload/', methods=['POST'])
 # def upload():
 #     ourFile = request.files['filePath']
 #     print("request of file successful")
 #     if ourFile and allowed_file(ourFile.filename):
-#         query_zippy.apply_async(args=[ourFile])
+
+#         query = query_zippy.apply_async(args=[ourFile])
+#         print type(query), dir(query), query.id
+#         print("has run through zippy")
 #         return redirect('/file_uploaded')
 #     else:
 #         print("file for upload not supplied or file-type not allowed")
 #         return redirect('/no_file')
-
-
-
-
-

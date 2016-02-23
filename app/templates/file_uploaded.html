@@ -1,4 +1,10 @@
-{% extends "index.html" %}
+{% extends "base.html" %}
 {% block content %}
 	<p>File upload succesful</p>
+	<p>Zippy returned the following files: -</p>
+	<ul>
+		{% for file in outputFiles %}
+			<li><a href="/file_uploaded/{{file}}" target="_blank">{{file}}</a></li>
+		{% endfor %}
+	</ul>
 {% endblock %}

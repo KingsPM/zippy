@@ -1,24 +1,9 @@
-<html>
-    <head>
-    	<title>Zippy - Primer Design Tool</title>
-    	<link rel="stylesheet" type="text/css" href="../static/styles.css">
-    </head>
-    <body>
-    	<div>
-    	<header><b>Zippy: Primer Design and Storage</b></header>
-        <hr>
-    	</div>
-    	<div id="below_header">
-    	</div>
-    	<div>
-    		<form action="/upload/" method="post" enctype="multipart/form-data">
-    			<input type="file" name="filePath"><br /><br />
-	       		<input type="submit" value="Upload">
-	       		</p>
-		    </form>
-		</div>
-        <div>
-            {% block content %}{% endblock %}
-        </div>
-    </body>
-</html>
+{% extends "base.html" %}
+{% block content %}
+    <div>
+        <form action="/upload/" method="post" enctype="multipart/form-data">
+            <input type="file" name="filePath"><br /><br />
+            <input type="submit" value="Upload">
+        </form>
+    </div>
+{% endblock %}
