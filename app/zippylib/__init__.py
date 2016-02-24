@@ -11,6 +11,10 @@ __status__ = "Production"
 from .primer import Primer, PrimerPair
 #from zippylib.primer import Primer, PrimerPair
 import time
+import os
+
+'''static stuff'''
+imageDir = os.path.join(os.path.dirname(os.path.abspath(__file__)),'../static')
 
 '''read configuration (convert unicode to ascii string)'''
 def ascii_encode_dict(data):

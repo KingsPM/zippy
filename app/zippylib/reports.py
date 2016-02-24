@@ -9,6 +9,7 @@ __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
 
+import os
 import sys
 import time
 from math import ceil
@@ -16,7 +17,7 @@ from copy import deepcopy
 from random import shuffle
 import itertools
 from collections import Counter
-from . import PlateError, char_range
+from . import PlateError, char_range, imageDir
 
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
@@ -29,7 +30,7 @@ from reportlab.rl_config import defaultPageSize
 
 
 class Report(object):
-    def __init__(self,fi,title='This is the title'):
+    def __init__(self,fi,title='This is the title',logo=None):
         # get document
         self.doc = SimpleDocTemplate(fi,pagesize=A4,
                         rightMargin=2.54*cm,leftMargin=2.54*cm,
@@ -43,7 +44,7 @@ class Report(object):
         # flowable elements
         self.elements = []
         # Header
-        logo = Image("viapath.png",width=1.32*inch,height=0.7*inch)
+        logo = Image(os.path.join(imageDir,logo),width=1.32*inch,height=0.7*inch) if logo else Paragraph('LOGO', self.styles["Heading1"])
         titl = Paragraph('%s' % title, self.styles["Heading1"])
         date = Paragraph('<font size=12>Generated on %s</font>' % time.ctime(), self.styles["Normal"])
         self.elements.append(Table([[logo,titl],['',date]],
@@ -280,7 +281,8 @@ class Worksheet(list):
 
     # print worksheet
     def createWorkSheet(self,fi,**kwargs):
-        r = Report(fi,self.name)
+        logo = kwargs['logo'] if 'logo' in kwargs.keys() and kwargs['logo'] else None
+        r = Report(fi,self.name,logo)
         # add plates
         samples, primers, plates = [], [], []
         for p in self.plates:
@@ -293,7 +295,7 @@ class Worksheet(list):
         orderedSamples = [ x[0] for x in sorted(sampleOrder.items(), key=lambda x: x[1]) ]
         r.samplePrimerLists(orderedSamples,list(set(primers)))
         # reaction volume list
-        r.volumeLists(sum([len(p) for p in self.plates]),kwargs['mastermix'],kwargs['qsolution'],kwargs['excess'])
+        r.volumeLists(sum([len(p) for p in self.plates]),kwargs['volumes']['mastermix'],kwargs['volumes']['qsolution'],kwargs['volumes']['excess'])
         # add checkboxes
         checkTasks = ['Plate orientation checked'] if all([ p[1][0] for p in primers]) \
             else ['New primers ordered', 'Plate orientation checked', 'Primer checked and storage assigned'] if not any([ p[1][0] for p in primers]) \
