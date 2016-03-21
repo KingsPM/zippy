@@ -341,6 +341,9 @@ class Primer3(object):
         return len(self.pairs)
 
     def design(self,name,pars):
+        print >> sys.stderr, '\n DESIGN REGION is', self.designregion, '\t SEQUENCE is', self.sequence
+        print >> sys.stderr, name, pars
+        print >> sys.stderr, 0, self.flank, len(self.sequence)-self.flank, self.flank
         # extract sequence with flanks
         # Sequence args
         seq = {

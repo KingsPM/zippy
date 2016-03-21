@@ -111,12 +111,15 @@ def upload():
 
 @app.route('/adhoc_design/', methods=['POST'])
 def adhocdesign():
-    locus = request.form['locus']
+    locus = request.form.get('locus')
+    print locus
+    store = request.form.get('store')
+    print store
     with open(app.config['CONFIG_FILE']) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
         db = PrimerDB(config['database'])
-    # zippyPrimerQuery(config, targets, design=True, outfile=None, db=None)
-    primerTable, resultList, missedIntervals = zippyPrimerQuery(config, locus, True, None, db, False)
+    # zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=False)
+    primerTable, resultList, missedIntervals = zippyPrimerQuery(config, locus, True, None, db, store)
     missedIntervalNames = []
     for interval in missedIntervals:
         missedIntervalNames.append(interval.name)

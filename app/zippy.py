@@ -209,7 +209,7 @@ def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=
         print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTable ])
     ## print and store primer pairs
     # if db:
-    if store:
+    if store and db:
         print "Adding primers to database"
         db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
     return primerTable, resultList, missedIntervals
@@ -391,7 +391,7 @@ def main():
         if options.blacklist:
             db.blacklist(options.blacklist)
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
-        zippyPrimerQuery(config, options.targets, options.design, options.outfile, db, store if options.store else None)
+        zippyPrimerQuery(config, options.targets, options.design, options.outfile, db, options.store)
     elif options.which=='batch':
         print zippyBatchQuery(config, options.targets, True, options.outfile, db)
 

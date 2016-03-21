@@ -97,8 +97,12 @@ class SNPpy(IntervalList):
                     chrom = row['chromosome'][3:] if row['chromosome'].startswith('chr') else row['chromosome']
                     chromStart = int(row['position'])
                     chromEnd = chromStart+hgvsLength(row['HGVS_c'])
+                    gene = row['geneID']
+                    exonOf = row['rank']
+                    exon = exonOf.split('/')[0]
                     variantName = '_'.join([row['geneID'],row['transcriptID'],row['HGVS_c']]).replace('>','to')
-                    iv = Interval(chrom,chromStart,chromEnd,name=variantName,sample=row['sampleID'])
+                    geneExon = '_'.join([gene,exon])
+                    iv = Interval(chrom,chromStart,chromEnd,name=geneExon,sample=row['sampleID'])
                 except:
                     print line
                     print row
@@ -184,15 +188,16 @@ def readBatch(fi,tiling):
 '''return length of variant from hgvs.c notation'''
 def hgvsLength(hgvs,default=10):
     try:
-        assert hgvs.startswith('c.')
-    except:
-        raise
-    try:
         m = re.match('c.\d+(\D+)(>|ins|del|dup)(\w+)$',hgvs)
         assert m
     except:
-        print >> sys.stderr, "WARNING: could not find length of variant, assuming %s" % str(default)
-        return default
+        try:
+            l = int(hgvs)
+        except:
+            print >> sys.stderr, "WARNING: could not find length of variant, assuming %s" % str(default)
+            return default
+        else:
+            return l
     else:
         return len(m.group(3))
 

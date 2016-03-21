@@ -7,4 +7,11 @@
 			<li><a href="/file_uploaded/{{file}}" target="_blank">{{file}}</a></li>
 		{% endfor %}
 	</ul>
+	{% if missedIntervals is not equalto [] %}
+		<p>Zippy unable to design primers that satisfy the design limits set for the following intervals: -</p>
+		{% for interval in missedIntervals %}
+			<p>{{interval}}</p>
+		{% endfor %}
+	{% endif %}
+
 {% endblock %}
