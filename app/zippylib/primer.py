@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 __doc__=="""Primer3 Classes"""
 __author__ = "David Brawand"
@@ -331,7 +332,7 @@ class Primer3(object):
         self.target = target
         self.flank = flank
         fasta = pysam.FastaFile(self.genome)
-        self.designregion = ( self.target[0], self.target[1]-self.flank, self.target[2]+self.flank )
+        self.designregion = ( str(self.target[0]), self.target[1]-self.flank, self.target[2]+self.flank )
         self.sequence = fasta.fetch(*self.designregion)
         self.pairs = []
         self.explain = []
@@ -340,11 +341,14 @@ class Primer3(object):
         return len(self.pairs)
 
     def design(self,name,pars):
+        print >> sys.stderr, '\n DESIGN REGION is', self.designregion, '\t SEQUENCE is', self.sequence
+        print >> sys.stderr, name, pars
+        print >> sys.stderr, 0, self.flank, len(self.sequence)-self.flank, self.flank
         # extract sequence with flanks
         # Sequence args
         seq = {
-            'SEQUENCE_ID': name,
-            'SEQUENCE_TEMPLATE': self.sequence,
+            'SEQUENCE_ID': str(name),
+            'SEQUENCE_TEMPLATE': str(self.sequence),
             'SEQUENCE_PRIMER_PAIR_OK_REGION_LIST': [0, self.flank, len(self.sequence)-self.flank, self.flank]
         }
         # design primers

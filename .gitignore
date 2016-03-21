@@ -86,3 +86,6 @@ zippyvenv/*
 
 # resources
 zippy_resources/*
+
+# scratch
+scratch/*

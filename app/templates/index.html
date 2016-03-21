@@ -2,8 +2,19 @@
 {% block content %}
     <div>
         <form action="/upload/" method="post" enctype="multipart/form-data">
-            <input type="file" name="filePath"><br /><br />
+            <input type="file" name="filePath"><br><br>
             <input type="submit" value="Upload">
+        </form>
+    </div>
+    <div>
+        <br>
+    </div>
+    <div>
+        <p>Or enter specific locus to design primer for in the form: <i>Chromosome:Start-End</i></p>
+        <form action="/adhoc_design/" method="post" enctype="multipart/form-data">
+            <input type="text" name="locus"><br><br>
+            <input type="checkbox" name="store" value="True">Store designed primers<br><br>
+            <input type="submit" value="Submit">
         </form>
     </div>
 {% endblock %}

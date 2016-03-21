@@ -23,7 +23,7 @@
             "PRIMER_MAX_POLY_X": 4,
             "PRIMER_PRODUCT_SIZE_RANGE": [[100,600]],
             "PRIMER_GC_CLAMP": 1,
-            "PRIMER_NUM_RETURN": 100,
+            "PRIMER_NUM_RETURN": 10,
             "PRIMER_MISPRIMING_LIBRARY":"/home/vagrant/dev/zippy/zippy_resources/human_repeat_simple.fa"
         }
     },
@@ -51,8 +51,8 @@
         "pairs": 1,
         "platesize": [8,12],
         "volumes": {
-            "mastermix": 13,
-            "qsolution": 23,
+            "mastermix": 6,
+            "qsolution": 2,
             "excess": 0.1
         }
     },

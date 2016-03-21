@@ -6,12 +6,12 @@ from celery import Celery
 from werkzeug.utils import secure_filename
 import subprocess
 from app import app
-from zippy import zippyBatchQuery
+from zippy import zippyBatchQuery, zippyPrimerQuery
 from zippylib import ascii_encode_dict
 from zippylib.database import PrimerDB
 import hashlib
 
-ALLOWED_EXTENSIONS = set(['txt', 'batch', 'vcf', 'bed'])
+ALLOWED_EXTENSIONS = set(['txt', 'batch', 'vcf', 'bed', 'csv'])
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['DOWNLOAD_FOLDER'] = 'results'
 app.config['CONFIG_FILE'] = 'app/zippy.json'
@@ -53,7 +53,10 @@ def file_uploaded():
 @app.route('/file_uploaded/<path:filename>')
 def download_file(filename):
     return send_from_directory(os.getcwd(), filename, as_attachment=True)
-    # return send_from_directory(app.config['DOWNLOAD_FOLDER'], filename, as_attachment=True)
+
+@app.route('/adhoc_result')
+def adhoc_result(primerTable, resultList, missedIntervals):
+    return render_template('file_uploaded.html', primerTable, resultList, missedIntervals)
 
 # @app.route('/upload/', methods=['POST'])
 # def upload():
@@ -105,6 +108,24 @@ def upload():
     else:
         print("file for upload not supplied or file-type not allowed")
         return redirect('/no_file')
+
+@app.route('/adhoc_design/', methods=['POST'])
+def adhocdesign():
+    locus = request.form.get('locus')
+    print locus
+    store = request.form.get('store')
+    print store
+    with open(app.config['CONFIG_FILE']) as conf:
+        config = json.load(conf, object_hook=ascii_encode_dict)
+        db = PrimerDB(config['database'])
+    # zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=False)
+    primerTable, resultList, missedIntervals = zippyPrimerQuery(config, locus, True, None, db, store)
+    missedIntervalNames = []
+    for interval in missedIntervals:
+        missedIntervalNames.append(interval.name)
+    # os.chdir('./app/')
+    # print subprocess.call(['./zippy.py', 'get', locus, '--design', '--nostore'], shell=False)
+    return render_template('/adhoc_result.html', primerTable=primerTable, resultList=resultList, missedIntervals=missedIntervalNames)
 
 
 # @app.route('/upload/', methods=['POST'])
