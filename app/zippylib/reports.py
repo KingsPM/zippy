@@ -11,11 +11,12 @@ __status__ = "Production"
 
 import os
 import sys
-import time
+import time, datetime
 from math import ceil
 from copy import deepcopy
 from random import shuffle
 import itertools
+from hashlib import sha1
 from collections import Counter
 from . import PlateError, char_range, imageDir, githash
 
@@ -33,6 +34,9 @@ PAGE_HEIGHT=defaultPageSize[1]; PAGE_WIDTH=defaultPageSize[0]
 leftMargin = rightMargin = 2.6*cm
 topMargin = 2*cm
 bottomMargin = 2*cm
+
+# barcode encoding for primer names
+barcode = lambda x: sha1(x).hexdigest()[:10]
 
 # MolPath version controlled document template
 class MolPathTemplate(canvas.Canvas):
@@ -65,7 +69,6 @@ class MolPathTemplate(canvas.Canvas):
         # page number
         page = "Page %s of %s" % (self._pageNumber, page_count)
         self.drawRightString(PAGE_WIDTH-rightMargin, bottomMargin/2, page)
-
 
 class Report(object):
     def __init__(self,fi,title='This is the title',logo=None):
@@ -250,6 +253,7 @@ class Worksheet(list):
         list.__init__(self, [])
         self.plates = []
         self.name = name
+        self.date = datetime.datetime.now().isoformat()
         for i, e in enumerate(elements):
             data = dict(zip(fieldNames,e))
             t = Test(sample=data['sample'],primerpair=data['primerpair'], primerstorage=[data['vessel'],data['well']])
@@ -271,7 +275,7 @@ class Worksheet(list):
     '''print robot csv, (DestinationPlate,DestinationWell,SampleID,PrimerID)'''
     def robotCsv(self,fi,sep=','):
         with open(fi,'w') as fh:
-            print >> fh, sep.join(['DestinationPlate','DestinationWell','PrimerID','SampleID','Confirmations'])
+            print >> fh, sep.join(['DestinationPlate','DestinationWell','PrimerID','SampleID','Confirmations','PrimerName'])
             for n, p in enumerate(self.plates):
                 P = 'Plate'+str(n+1)
                 for i,row in enumerate(p.M):
@@ -279,7 +283,7 @@ class Worksheet(list):
                     for j,cell in enumerate(row):
                         C = str(j+1)
                         if cell:
-                            print >> fh, sep.join([P,R+C,cell.primerpair,cell.sample,str(len(cell.variants))])
+                            print >> fh, sep.join([P,R+C,barcode(cell.primerpair),cell.sample,str(len(cell.variants)),cell.primerpair])
 
     '''assign tests to plate (smart work better only for big test sets)'''
     def fillPlates(self,size=[8,12],randomize=True,roworder='sample',includeSamples=True,includeControls=True):
@@ -338,6 +342,30 @@ class Worksheet(list):
         r.plateLayouts(plates)
         # build pdf
         r.build()
+
+    def tubeLabels(self,fi='/dev/null'):
+        # detects collisions, run with empty output to validate
+        digests = {}  # digest -> name
+        with open(fi,'w') as fh:
+            print >> fh, '~SD30'  # darkness to maximum
+            for n, p in enumerate(self.plates):
+                for i,row in enumerate(p.M):
+                    for j,cell in enumerate(row):
+                        if cell:
+                            # generate barcode
+                            d = barcode(cell.primerpair)
+                            if d in digests.keys():
+                                try:
+                                    assert cell.primerpair == digests[d]
+                                except:
+                                    raise Exception('BarcodeCollision')
+                            else:
+                                digests[d] = cell.primerpair
+                            print >> fh, "^XA"
+                            print >> fh, "^FO20,25^AB^FD{}^FS".format(self.date)
+                            print >> fh, "^FO20,50^AB,25^FD{}^FS".format(cell.primerpair)
+                            print >> fh, "^FO20,100^BY1.5^BCN,80,Y,N,N^FD{}^FS".format(d)
+                            print >> fh, "^XZ"
 
 
 class Plate(object):

@@ -249,6 +249,10 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
             ws.fillPlates(size=config['report']['platesize'],randomize=True,\
                 includeSamples=False, includeControls=True)  # only include controls
             ws.createWorkSheet(writtenFiles[-1],**config['report'])
+            # tube labels
+            writtenFiles.append(outfile+'.tubeLabels.zpl')
+            print >> sys.stderr, "Writing labels to {}...".format(writtenFiles[-1])
+            ws.tubeLabels(writtenFiles[-1])
             # robot csv
             writtenFiles.append(outfile+'.primertest.csv')
             print >> sys.stderr, "Writing Test CSV to {}...".format(writtenFiles[-1])
