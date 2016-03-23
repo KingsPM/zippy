@@ -364,9 +364,9 @@ class Worksheet(list):
                                 digests[d] = cell.primerpair
                             print >> fh, "^XA"  # start label
                             print >> fh, "^FO20,25^AB^FD{}^FS".format(self.date[:self.date.rfind(':')])  # date to the minute
-                            print >> fh, "^FO20,50^AB,25^FD{}^FS".format(cell.primerpair)  # primer name
-                            print >> fh, "^FO20,50^AB^FD{}^FS".format(meta)  # primer name
-                            print >> fh, "^FO20,100^BY1.5^BCN,80,Y,N,N^FD{}^FS".format(d)  # barcode digest
+                            print >> fh, "^FO20,45^AB,25^FD{}^FS".format(cell.primerpair)  # primer name
+                            print >> fh, "^FO20,75^AB^FD{}^FS".format(meta)  # primer name
+                            print >> fh, "^FO20,95^BY1.5^BCN,80,Y,N,N^FD{}^FS".format(d)  # barcode digest
                             print >> fh, "^XZ"  # end label
 
 
