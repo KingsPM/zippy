@@ -216,14 +216,17 @@ def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=
 
 def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
     sampleVariants = readBatch(targets, config['tiling'])
+    print >> sys.stderr, 'Read worked'
     print >> sys.stderr, '\n'.join([ '{:<20} {:>2d}'.format(sample,len(variants)) \
         for sample,variants in sorted(sampleVariants.items(),key=lambda x: x[0]) ])
     # for each sample design
     primerTableConcat = []
+    allMissedIntervals = []
     for sample, intervals in sorted(sampleVariants.items(),key=lambda x: x[0]):
         print >> sys.stderr, "Getting primers for {} variants in sample {}".format(len(intervals),sample)
         # get/design primers
         primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config)
+        allMissedIntervals += [missedIntervals]
         # store result list
         primerTableConcat += [ [sample]+l for l in primerTable ]
         # store primers
@@ -275,7 +278,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
         print >> sys.stderr, "Writing robot CSV to {}...".format(writtenFiles[-1])
         ws.robotCsv(writtenFiles[-1], sep=',')
 
-    return writtenFiles
+    return writtenFiles, allMissedIntervals
 
 # ==============================================================================
 # === CLI ======================================================================
