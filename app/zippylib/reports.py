@@ -343,7 +343,7 @@ class Worksheet(list):
         # build pdf
         r.build()
 
-    def tubeLabels(self,fi='/dev/null'):
+    def tubeLabels(self,fi='/dev/null',meta=''):
         # detects collisions, run with empty output to validate
         digests = {}  # digest -> name
         with open(fi,'w') as fh:
@@ -361,11 +361,12 @@ class Worksheet(list):
                                     raise Exception('BarcodeCollision')
                             else:
                                 digests[d] = cell.primerpair
-                            print >> fh, "^XA"
-                            print >> fh, "^FO20,25^AB^FD{}^FS".format(self.date)
-                            print >> fh, "^FO20,50^AB,25^FD{}^FS".format(cell.primerpair)
-                            print >> fh, "^FO20,100^BY1.5^BCN,80,Y,N,N^FD{}^FS".format(d)
-                            print >> fh, "^XZ"
+                            print >> fh, "^XA"  # start label
+                            print >> fh, "^FO20,25^AB^FD{}^FS".format(self.date[:self.date.rfind(':')])  # date to the minute
+                            print >> fh, "^FO20,50^AB,25^FD{}^FS".format(cell.primerpair)  # primer name
+                            print >> fh, "^FO20,50^AB^FD{}^FS".format(meta)  # primer name
+                            print >> fh, "^FO20,100^BY1.5^BCN,80,Y,N,N^FD{}^FS".format(d)  # barcode digest
+                            print >> fh, "^XZ"  # end label
 
 
 class Plate(object):
@@ -432,16 +433,17 @@ class Plate(object):
 
     def compress(self,rvalue):
         # find maximum row count
-        maxColumn = int(len(self)/float(self.nrow))+1
-        # start with longest row (and only rows wich exceed maxColumns)
-        rowOrder = { i: r.count(None) for i,r in enumerate(self.M) if r.count(None) < self.ncol-maxColumn }
+        maxColumn = [ int(len(self)/self.nrow) + 1 if r < len(self) % self.nrow else int(len(self)/self.nrow) \
+            for r in range(self.nrow) ]
+        # start with longest row (and only rows which exceed maxColumns)
+        rowOrder = { i: r.count(None) for i,r in enumerate(self.M) if r.count(None) < self.ncol-maxColumn[i] }
         longRows = [ i for i,r in sorted(rowOrder.items(), key=lambda x: x[1], reverse=False) ]
         for r in longRows:
             # find best row (sum of empty and own)
-            for c in range(maxColumn,self.ncol):
+            for c in range(maxColumn[r],self.ncol):
                 if self.M[r][c] is not None:
                     bestRows = [ br for br in self._bestRows(self.M[r][c],rvalue) \
-                        if br!=r and self.M[br].count(None) > self.ncol-maxColumn ]
+                        if br!=r and self.M[br].count(None) > self.ncol-maxColumn[br] ]
                     # find leftmost free position
                     for bc in range(self.ncol):
                         if self.M[bestRows[0]][bc] is None:

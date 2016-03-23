@@ -43,9 +43,15 @@ batch processing of SNPpy results
 ### v1.1
 worksheet and robot CSV file generation
 
-### v1.2 (FUTURE)
+### v1.2
 Webinterface/GUI
+Tube Label Generation
+Fixed for Robot CSV
 
+### v1.3 (FUTURE)
+Asynchronous Design process
+Primer metadata adding
+Web GUI extensions
 
 ## Reference Genome
 Primers are designed from the unmasked 1kg reference genome while ignoring simple repeat regions.

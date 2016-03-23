@@ -62,7 +62,7 @@
             "purification": "desalt"
         },
         "sequencetags": {
-            "COMMENT": "M13(-21)/M13_pUC",
+            "name": "M13(-21)/M13_pUC",
             "left": "TGTAAAACGACGGCCAGT",
             "right": "CAGGAAACAGCTATGACC"
         }

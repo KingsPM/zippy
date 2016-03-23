@@ -252,7 +252,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
             # tube labels
             writtenFiles.append(outfile+'.tubeLabels.zpl')
             print >> sys.stderr, "Writing labels to {}...".format(writtenFiles[-1])
-            ws.tubeLabels(writtenFiles[-1])
+            ws.tubeLabels(writtenFiles[-1],meta=config['ordersheet']['sequencetags']['name'])
             # robot csv
             writtenFiles.append(outfile+'.primertest.csv')
             print >> sys.stderr, "Writing Test CSV to {}...".format(writtenFiles[-1])
@@ -274,6 +274,8 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
         ws.addControls()  # add controls
         ws.fillPlates(size=config['report']['platesize'],randomize=True)
         ws.createWorkSheet(writtenFiles[-1],**config['report'])
+        # validate primer tube labels
+        ws.tubeLabels()
         # robot csv
         writtenFiles.append(outfile+'.csv')
         print >> sys.stderr, "Writing robot CSV to {}...".format(writtenFiles[-1])
