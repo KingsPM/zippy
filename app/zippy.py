@@ -312,7 +312,7 @@ def main():
 
     ## retrieve
     parser_retrieve = subparsers.add_parser('get', help='Get/design primers')
-    parser_retrieve.add_argument("targets", default=None, metavar="VCF/BED/Interval", \
+    parser_retrieve.add_argument("targets", default=None, metavar="VCF/BED/Interval/GenePred", \
         help="File with intervals of interest or chr:start-end")
     parser_retrieve.add_argument("--design", dest="design", default=False, action="store_true", \
         help="Design primers if not in database")

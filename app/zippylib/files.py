@@ -18,6 +18,53 @@ from . import ConfigError
 from .interval import *
 
 
+'''GenePred parser with automatic segment numbering and tiling'''
+class GenePred(IntervalList):
+    def __init__(self,fh,interval=None,overlap=None,flank=0):
+        IntervalList.__init__(self, [], source='GenePred')
+        counter = Counter()
+        intervalindex = defaultdict(list)
+        genes = set()
+        for line in fh:
+            if line.startswith("#"):
+                continue
+            else:
+                # create interval
+                f = line.split()
+                print >> sys.stderr, f
+                ## foreach exon
+                exons = zip(f[9].split(','),f[10].split(','))
+                gene = f[12]
+                assert f[3] in ['+','-']
+                # check if multiple transcripts
+                if gene in genes:
+                    print >> sys.stderr, "WARNING: {} has multiple transcripts, will use letter suffix".format(gene)
+                genes.add(gene)
+                # create exons
+                for e in range(int(f[8])):
+                    exonNumber = int(f[8]) - e if f[3] == '-' else e + 1
+                    iv = Interval(f[2],int(exons[e][0]),int(exons[e][1]),gene+'_'+str(exonNumber),f[3].startswith('-'))
+                    intervalindex[iv.name].append(iv)
+        # suffix interval names if necessary
+        for gn, ivs in intervalindex.items():
+            # add suffix
+            if len(ivs)>1:
+                for i,iv in enumerate(ivs):
+                    iv.name += '{}'.format(chr(i+97))
+            # split interval if necessary
+            for iv in ivs:
+                if interval and overlap and interval < len(iv):
+                    self += iv.tile(interval,overlap,len(f)>3)  # name with suffix if named interval
+                else:
+                    self += [ iv ]
+
+        # add flanks
+        for e in self:
+            e.extend(flank)
+            print >> sys.stderr, e
+
+        return
+
 '''bed parser with automatic segment numbering and tiling'''
 class BED(IntervalList):
     def __init__(self,fh,interval=None,overlap=None,flank=0):
@@ -154,6 +201,8 @@ def readTargets(targets,tiling):
                 intervals = VCF(fh,**tiling)
             elif targets.endswith('bed'):  # BED files (BED3 with automatic names)
                 intervals = BED(fh,**tiling)
+            elif targets.endswith('txt') or targets.lower().endswith('genepred'):  # GenePred files (uses gene name if unique)
+                intervals = GenePred(fh,**tiling)
             else:
                 raise Exception('UnknownFileExtension')
     elif re.match('\w+:\d+-\d+',targets):  # single interval
