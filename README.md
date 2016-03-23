@@ -46,7 +46,8 @@ worksheet and robot CSV file generation
 ### v1.2
 Webinterface/GUI
 Tube Label Generation
-Fixed for Robot CSV
+Fixed Plate filling
+GenePred input for design
 
 ### v1.3 (FUTURE)
 Asynchronous Design process
