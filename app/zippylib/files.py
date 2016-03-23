@@ -31,7 +31,6 @@ class GenePred(IntervalList):
             else:
                 # create interval
                 f = line.split()
-                print >> sys.stderr, f
                 ## foreach exon
                 exons = zip(f[9].split(','),f[10].split(','))
                 gene = f[12]
@@ -57,12 +56,9 @@ class GenePred(IntervalList):
                     self += iv.tile(interval,overlap,len(f)>3)  # name with suffix if named interval
                 else:
                     self += [ iv ]
-
         # add flanks
         for e in self:
             e.extend(flank)
-            print >> sys.stderr, e
-
         return
 
 '''bed parser with automatic segment numbering and tiling'''
