@@ -397,8 +397,8 @@ def main():
                 print >> sys.stderr, 'Location already occupied' # Try and include statement of primer pair stored at location
             else:
                 print >> sys.stderr, 'Primer pair location updated'
-        if options.blacklist:
-            db.blacklist(options.blacklist)
+        if options.blacklist is not None:
+            print >> sys.stderr, 'Blacklisted:', ','.join(db.blacklist(options.blacklist))
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
         zippyPrimerQuery(config, options.targets, options.design, options.outfile, db, options.store)
     elif options.which=='batch':
