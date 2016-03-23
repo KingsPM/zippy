@@ -32,6 +32,13 @@ retrieve (and design) primer for a single location
 design/retrieve primers for a SNPpy result (batch mode)
 > `zippy.py batch <SNPpy>`
 
+Blacklist primer
+> `zippy.py update -b <PRIMERNAME>`
+
+Set/update primer storage location
+> `zippy.py update -l <PRIMERNAME> <VESSEL> <WELL>`
+
+
 ## Release Notes
 ### v1.0
 Primer3 base design
