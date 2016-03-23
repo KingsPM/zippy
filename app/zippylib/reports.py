@@ -160,7 +160,6 @@ class Report(object):
             ('LINEABOVE', (3,1),(-1,1),1,colors.black),
             ('BOX', (3,0), (-1,len(p)), 1, colors.black),
             ])
-        p = sorted(p, key=lambda x: x[1])
         data = [[str(len(s)),'Samples','',str(len(p)),'Primer Pairs', 'Vessel', 'Well']]
         for i in range(max(len(s),len(p))):
             data.append([ '', s[i] if i<len(s) else '', '', ''] + \
@@ -286,7 +285,7 @@ class Worksheet(list):
                             print >> fh, sep.join([P,R+C,barcode(cell.primerpair),cell.sample,str(len(cell.variants)),cell.primerpair])
 
     '''assign tests to plate (smart work better only for big test sets)'''
-    def fillPlates(self,size=[8,12],randomize=True,roworder='sample',includeSamples=True,includeControls=True):
+    def fillPlates(self,size=[8,12],randomize=True,roworder='primerpair',includeSamples=True,includeControls=True):
         if randomize:
             shuffle(self)  # shuffle filling
         else:
@@ -327,10 +326,12 @@ class Worksheet(list):
             samples += s
             primers += p
             plates.append(m)
-        # sample and primer list (samples in similar order to plate)
+        # sample and primer list (samples and primers similar to plate order)
         sampleOrder = { s: self.plates[0]._bestRows(Test(s,'dummy'),'sample')[0] for s in set(samples) }
         orderedSamples = [ x[0] for x in sorted(sampleOrder.items(), key=lambda x: x[1]) ]
-        r.samplePrimerLists(orderedSamples,list(set(primers)))
+        primerOrder = { p: self.plates[0]._bestRows(Test(s,'dummy'),'primerpair')[0] for p in set(primers) }
+        orderedPrimers = [ x[0] for x in sorted(primerOrder.items(), key=lambda x: x[1]) ]
+        r.samplePrimerLists(orderedSamples,orderedPrimers)
         # reaction volume list
         r.volumeLists(sum([len(p) for p in self.plates]),kwargs['volumes']['mastermix'],kwargs['volumes']['qsolution'],kwargs['volumes']['excess'])
         # add checkboxes
