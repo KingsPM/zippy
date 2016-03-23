@@ -84,7 +84,7 @@ def upload():
     print("request of file successful")
     if uploadFile and allowed_file(uploadFile.filename):
         filename = secure_filename(uploadFile.filename)
-        print "UPLOAD FILENAME", uploadFile.filename, filename
+        print "Uploaded: ", filename
 
         # save file
         uploadedFile = os.path.join(app.config['UPLOAD_FOLDER'], filename)
@@ -100,11 +100,17 @@ def upload():
         downloadFolder = os.path.join(app.config['DOWNLOAD_FOLDER'], hashlib.sha1(open(uploadedFile).read()).hexdigest())
         subprocess.check_call(['mkdir', '-p', downloadFolder], shell=False)
 
-        # run zippy
+        # run Zippy to design primers
         print 'About to run Zippy'
-        downloadFile = os.path.join(downloadFolder, filename)
-        arrayOfFiles = zippyBatchQuery(config, uploadedFile, True, downloadFile, db)
-        return render_template('file_uploaded.html', outputFiles=arrayOfFiles)
+        shortName = os.path.splitext(filename)[0]
+        downloadFile = os.path.join(downloadFolder, shortName)
+        arrayOfFiles, missedIntervals = zippyBatchQuery(config, uploadedFile, True, downloadFile, db)
+        missedIntervalNames = []
+        for interval in missedIntervals:
+            for i in interval:
+                missedIntervalNames.append(i.name)
+        print 'Missed intervals: ', missedIntervalNames
+        return render_template('file_uploaded.html', outputFiles=arrayOfFiles, missedIntervals=missedIntervalNames)
     else:
         print("file for upload not supplied or file-type not allowed")
         return redirect('/no_file')
