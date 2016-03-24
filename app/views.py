@@ -6,7 +6,7 @@ from celery import Celery
 from werkzeug.utils import secure_filename
 import subprocess
 from app import app
-from zippy import zippyBatchQuery, zippyPrimerQuery
+from zippy import zippyBatchQuery, zippyPrimerQuery, updateLocation
 from zippylib import ascii_encode_dict
 from zippylib.database import PrimerDB
 import hashlib
@@ -58,24 +58,9 @@ def download_file(filename):
 def adhoc_result(primerTable, resultList, missedIntervals):
     return render_template('file_uploaded.html', primerTable, resultList, missedIntervals)
 
-# @app.route('/upload/', methods=['POST'])
-# def upload():
-#   uploadFile = request.files['filePath']
-#   print("request of file successful")
-#   if uploadFile and allowed_file(uploadFile.filename):
-#       filename = secure_filename(uploadFile.filename)
-#       print filename
-#       print app.config['UPLOAD_FOLDER']
-#       uploadFile.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-#       print "file saved to ./uploads/%s" % filename
-#       os.chdir('./app/')
-#       print subprocess.call(['./zippy.py', 'get', '--outfile', 'outfile', '../uploads/%s'% filename], shell=False)
-#       print "running zippy..."
-#       return redirect('/file_uploaded')
-#   else:
-#       print("file for upload not supplied or file-type not allowed")
-#       return redirect('/no_file')
-
+@app.route('/location_updated')
+def location_updated(status):
+    return render_template('location_updated.html', status)
 
 
 @app.route('/upload/', methods=['POST'])
@@ -133,17 +118,15 @@ def adhocdesign():
     # print subprocess.call(['./zippy.py', 'get', locus, '--design', '--nostore'], shell=False)
     return render_template('/adhoc_result.html', primerTable=primerTable, resultList=resultList, missedIntervals=missedIntervalNames)
 
+@app.route('/update_location/', methods=['POST'])
+def update_Location():
+    location = request.form.get('location')
+    with open(app.config['CONFIG_FILE']) as conf:
+        config = json.load(conf, object_hook=ascii_encode_dict)
+        db = PrimerDB(config['database'])
+    updateStatus = updateLocation(location, db)
+    print updateStatus
+    return render_template('location_updated.html', status=updateStatus)
 
-# @app.route('/upload/', methods=['POST'])
-# def upload():
-#     ourFile = request.files['filePath']
-#     print("request of file successful")
-#     if ourFile and allowed_file(ourFile.filename):
 
-#         query = query_zippy.apply_async(args=[ourFile])
-#         print type(query), dir(query), query.id
-#         print("has run through zippy")
-#         return redirect('/file_uploaded')
-#     else:
-#         print("file for upload not supplied or file-type not allowed")
-#         return redirect('/no_file')
+
