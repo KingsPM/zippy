@@ -41,6 +41,9 @@ class Interval(object):
         return "<Interval ("+self.name+") "+self.chrom+":"+str(self.chromStart)+'-'+str(self.chromEnd)+ \
             " ["+str(self.strand)+"] len:"+str(len(self))+">"
 
+    def __repr__(self):
+        return "\t".join(map(str,[self.chrom, self.chromStart, self.chromEnd, self.name]))
+
     def tile(self,i,o,suffix=True):  # interval, overlap
         splitintervals = int(ceil( (len(self)-o) / float(i-o) ))  # interval number
         optimalsize = int(ceil( (len(self) + splitintervals*o - o) / float(splitintervals) ))  # optimal interval size
