@@ -209,14 +209,14 @@ def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=
         print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTable ])
     ## print and store primer pairs
     # if db:
-    if store and db:
-        print "Adding primers to database"
+    if store and db and design:
         db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
+        print >> sys.stderr, "Primers added to database"
     return primerTable, resultList, missedIntervals
 
 def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
+    print >> sys.stderr, 'Reading batch file {}...'.format(targets)
     sampleVariants = readBatch(targets, config['tiling'])
-    print >> sys.stderr, 'Read worked'
     print >> sys.stderr, '\n'.join([ '{:<20} {:>2d}'.format(sample,len(variants)) \
         for sample,variants in sorted(sampleVariants.items(),key=lambda x: x[0]) ])
     # for each sample design
@@ -297,6 +297,7 @@ def updateLocation(location, database):
     else:
         print >> sys.stderr, 'Location already occupied' # Try and include statement of primer pair stored at location
         return 'Location already occupied'
+
 
 # ==============================================================================
 # === CLI ======================================================================
@@ -403,13 +404,6 @@ def main():
     elif options.which=='update':  #update location primer pairs are stored
         if options.location:
             updateLocation(options.location, db)
-            # pairid = options.location[0]
-            # vessel = options.location[1]
-            # well = options.location[2]
-            # if not db.storePrimer(pairid,vessel,well):
-            #     print >> sys.stderr, 'Location already occupied' # Try and include statement of primer pair stored at location
-            # else:
-            #     print >> sys.stderr, 'Primer pair location updated'
         if options.blacklist:
             db.blacklist(options.blacklist)
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)

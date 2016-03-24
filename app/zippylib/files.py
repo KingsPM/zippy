@@ -20,49 +20,98 @@ from .interval import *
 
 '''GenePred parser with automatic segment numbering and tiling'''
 class GenePred(IntervalList):
-    def __init__(self,fh,interval=None,overlap=None,flank=0):
+    def __init__(self,fh,interval=None,overlap=None,flank=0,combine=True):
         IntervalList.__init__(self, [], source='GenePred')
         counter = Counter()
         intervalindex = defaultdict(list)
-        genes = set()
+        # read exons per gene
+        genes = defaultdict(list)
         for line in fh:
             if line.startswith("#"):
                 continue
             else:
-                # create interval
+                # create gene and add exons
                 f = line.split()
-                print >> sys.stderr, f
-                ## foreach exon
-                exons = zip(f[9].split(','),f[10].split(','))
-                gene = f[12]
                 assert f[3] in ['+','-']
-                # check if multiple transcripts
-                if gene in genes:
-                    print >> sys.stderr, "WARNING: {} has multiple transcripts, will use letter suffix".format(gene)
-                genes.add(gene)
-                # create exons
-                for e in range(int(f[8])):
-                    exonNumber = int(f[8]) - e if f[3] == '-' else e + 1
-                    iv = Interval(f[2],int(exons[e][0]),int(exons[e][1]),gene+'_'+str(exonNumber),f[3].startswith('-'))
-                    intervalindex[iv.name].append(iv)
-        # suffix interval names if necessary
-        for gn, ivs in intervalindex.items():
-            # add suffix
-            if len(ivs)>1:
-                for i,iv in enumerate(ivs):
-                    iv.name += '{}'.format(chr(i+97))
-            # split interval if necessary
+                reverse = f[3].startswith('-')
+                gene = Interval(f[2],int(f[4]),int(f[5]),f[12],reverse)
+                for e in zip(f[9].split(','),f[10].split(',')):
+                    try:
+                        gene.addSubintervals([Interval(f[2],int(e[0]),int(e[1]),f[12],reverse)])
+                    except ValueError:
+                        pass
+                    except:
+                        raise
+                # find appropriate gene (same name, and overlapping)
+                ovpgenes = [ g for g in genes[gene.name] if gene.overlap(g) ]
+                if ovpgenes:
+                    try:
+                        assert len(ovpgenes) == 1
+                    except:
+                        # MERGE 2 GENES (there were non-overlapping transcripts in same gene locus!)
+                        for i in range(1,len(ovpgenes)):
+                            ovpgenes[0].merge(ovpgenes[i],subintervals=True)
+                            genes[gene.name].remove(ovpgenes[i])  # remove merged
+                    ovpgenes[0].addSubintervals(gene.subintervals)  # add exons from other transcript/gene
+                    ovpgenes[0].flattenSubintervals()  # flatten intervals IntervalList
+                else:
+                    # add new
+                    genes[gene.name].append(gene)
+        # name metaexons and combine if small enough
+        for genename, genelist in genes.items():
+            for g in genelist:
+                if combine:
+                    # iteratively combine closest exons
+                    combinedExons = [ [x] for x in sorted(g.subintervals) ]
+                    while True:
+                        # get distances
+                        distances = [ max([ x.chromEnd for x in combinedExons[i]]) - \
+                            min([ x.chromStart for x in combinedExons[i-1]]) \
+                            for i in range(1,len(combinedExons)) ]
+                        # combine smallest distance
+                        if any([ d < interval for d in distances ]):
+                            smallestIndex = distances.index(min(distances))
+                            recombinedExons = []
+                            for i,e in enumerate(combinedExons):
+                                if i > smallestIndex:  # merge with previous and add remainder
+                                    recombinedExons[-1] += e
+                                    if i+1 < len(combinedExons):
+                                        recombinedExons += combinedExons[i+1:]
+                                    break
+                                else:
+                                    recombinedExons.append(e)
+                            combinedExons = recombinedExons
+                        else:
+                            break
+                    # add exon numbers
+                    i = 0
+                    for e in combinedExons:
+                        # get exons
+                        ii = range(i,i+len(e))
+                        exonNumbers = [ len(g.subintervals) - x for x in ii ] if g.strand < 0 else [ x+1 for x in ii ]
+                        if len(e)>1:  # combine exons
+                            for j in range(1,len(e)):
+                                e[0].merge(e[j])
+                        e[0].name += '_{}'.format('+'.join(map(str,sorted(exonNumbers))))
+                        intervalindex[e[0].name].append(e[0])
+                        i += len(e)
+                else:
+                    # append exon number
+                    for i, e in enumerate(sorted(g.subintervals)):
+                        exonNumber = len(g.subintervals) - i if g.strand < 0 else i + 1
+                        e.name += '_{}'.format(str(exonNumber))
+                        intervalindex[e.name].append(e)
+        # split interval if necessary
+        for ivs in intervalindex.values():
             for iv in ivs:
                 if interval and overlap and interval < len(iv):
+                    assert '+' not in iv.name  # paranoia
                     self += iv.tile(interval,overlap,len(f)>3)  # name with suffix if named interval
                 else:
                     self += [ iv ]
-
         # add flanks
         for e in self:
             e.extend(flank)
-            print >> sys.stderr, e
-
         return
 
 '''bed parser with automatic segment numbering and tiling'''
