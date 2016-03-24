@@ -62,25 +62,6 @@ def adhoc_result(primerTable, resultList, missedIntervals):
 def location_updated(status):
     return render_template('location_updated.html', status)
 
-# @app.route('/upload/', methods=['POST'])
-# def upload():
-#   uploadFile = request.files['filePath']
-#   print("request of file successful")
-#   if uploadFile and allowed_file(uploadFile.filename):
-#       filename = secure_filename(uploadFile.filename)
-#       print filename
-#       print app.config['UPLOAD_FOLDER']
-#       uploadFile.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-#       print "file saved to ./uploads/%s" % filename
-#       os.chdir('./app/')
-#       print subprocess.call(['./zippy.py', 'get', '--outfile', 'outfile', '../uploads/%s'% filename], shell=False)
-#       print "running zippy..."
-#       return redirect('/file_uploaded')
-#   else:
-#       print("file for upload not supplied or file-type not allowed")
-#       return redirect('/no_file')
-
-
 
 @app.route('/upload/', methods=['POST'])
 def upload():
@@ -143,23 +124,9 @@ def update_Location():
     with open(app.config['CONFIG_FILE']) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
         db = PrimerDB(config['database'])
-    print location
     updateStatus = updateLocation(location, db)
     print updateStatus
     return render_template('location_updated.html', status=updateStatus)
 
 
 
-# @app.route('/upload/', methods=['POST'])
-# def upload():
-#     ourFile = request.files['filePath']
-#     print("request of file successful")
-#     if ourFile and allowed_file(ourFile.filename):
-
-#         query = query_zippy.apply_async(args=[ourFile])
-#         print type(query), dir(query), query.id
-#         print("has run through zippy")
-#         return redirect('/file_uploaded')
-#     else:
-#         print("file for upload not supplied or file-type not allowed")
-#         return redirect('/no_file')
