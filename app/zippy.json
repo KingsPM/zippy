@@ -2,7 +2,7 @@
     "database": "zippy.sqlite",
     "logfile": "zippy.log",
     "tiling": {
-        "interval": 400,
+        "interval": 500,
         "overlap": 10,
         "flank" : 15
     },
