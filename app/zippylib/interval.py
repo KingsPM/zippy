@@ -48,12 +48,17 @@ class Interval(object):
     def tile(self,i,o,suffix=True):  # interval, overlap
         splitintervals = int(ceil( (len(self)-o) / float(i-o) ))  # interval number
         optimalsize = int(ceil( (len(self) + splitintervals*o - o) / float(splitintervals) ))  # optimal interval size
-        tiles = []
+        # get tile spans (and number of exons)
+        tilespan = []
         for n,tilestart in enumerate(range(self.chromStart, self.chromEnd, optimalsize-o)):
             tileend = min(tilestart+optimalsize, self.chromEnd)
-            tiles.append(Interval(self.chrom,tilestart,tileend, self.name+'_'+str(n+1) if suffix else None, self.strand < 0))
+            tilespan.append((tilestart,tileend))
             if tileend == self.chromEnd:
                 break
+        tiles = []
+        for n,t in enumerate(tilespan):
+            tilenumber = len(tilespan)-n if self.strand < 0 else n+1
+            tiles.append(Interval(self.chrom,t[0],t[1],self.name+'_'+str(tilenumber) if suffix else None, self.strand < 0))
         return tiles
 
     def extend(self,flank):

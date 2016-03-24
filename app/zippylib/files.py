@@ -112,8 +112,6 @@ class GenePred(IntervalList):
         # add flanks
         for e in self:
             e.extend(flank)
-            print repr(e)
-        raise NotImplementedError
         return
 
 '''bed parser with automatic segment numbering and tiling'''
