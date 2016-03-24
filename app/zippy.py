@@ -10,7 +10,7 @@ __doc__=="""
 __author__ = "David Brawand"
 __credits__ = ['David Brawand','Christopher Wall']
 __license__ = "MIT"
-__version__ = "1.1"
+__version__ = "1.2"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -197,7 +197,7 @@ def getPrimers(intervals, db, design, config):
 # === convenience functions ====================================================
 # ==============================================================================
 
-def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None):
+def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=False):
     intervals = readTargets(targets, config['tiling'])  # get intervals from file or commandline
     # get/design primer pairs
     primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config)
@@ -208,19 +208,25 @@ def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None):
     else:
         print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTable ])
     ## print and store primer pairs
-    if db:
+    # if db:
+    if store and db and design:
         db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
+        print >> sys.stderr, "Primers added to database"
+    return primerTable, resultList, missedIntervals
 
 def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
+    print >> sys.stderr, 'Reading batch file {}...'.format(targets)
     sampleVariants = readBatch(targets, config['tiling'])
     print >> sys.stderr, '\n'.join([ '{:<20} {:>2d}'.format(sample,len(variants)) \
         for sample,variants in sorted(sampleVariants.items(),key=lambda x: x[0]) ])
     # for each sample design
     primerTableConcat = []
+    allMissedIntervals = []
     for sample, intervals in sorted(sampleVariants.items(),key=lambda x: x[0]):
         print >> sys.stderr, "Getting primers for {} variants in sample {}".format(len(intervals),sample)
         # get/design primers
         primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config)
+        allMissedIntervals += [missedIntervals]
         # store result list
         primerTableConcat += [ [sample]+l for l in primerTable ]
         # store primers
@@ -245,7 +251,11 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
             ws.addControls(control='Normal')  # add positive controls
             ws.fillPlates(size=config['report']['platesize'],randomize=True,\
                 includeSamples=False, includeControls=True)  # only include controls
-            ws.createWorkSheet(writtenFiles[-1],**config['report']['volumes'])
+            ws.createWorkSheet(writtenFiles[-1],**config['report'])
+            # tube labels
+            writtenFiles.append(outfile+'.tubelabels.txt')
+            print >> sys.stderr, "Writing tube labels to {}...".format(writtenFiles[-1])
+            ws.tubeLabels(writtenFiles[-1],meta=config['ordersheet']['sequencetags']['name'])
             # robot csv
             writtenFiles.append(outfile+'.primertest.csv')
             print >> sys.stderr, "Writing Test CSV to {}...".format(writtenFiles[-1])
@@ -266,13 +276,28 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
         ws = Worksheet(primerTableConcat,name='Validation batch PCR')  # load worksheet
         ws.addControls()  # add controls
         ws.fillPlates(size=config['report']['platesize'],randomize=True)
-        ws.createWorkSheet(writtenFiles[-1],**config['report']['volumes'])
+        ws.createWorkSheet(writtenFiles[-1],**config['report'])
+        # validate primer tube labels
+        ws.tubeLabels()
         # robot csv
         writtenFiles.append(outfile+'.csv')
         print >> sys.stderr, "Writing robot CSV to {}...".format(writtenFiles[-1])
         ws.robotCsv(writtenFiles[-1], sep=',')
 
-    return writtenFiles
+    return writtenFiles, allMissedIntervals
+
+def updateLocation(location, database):
+    location = location.split(' ')
+    pairid = location[0]
+    vessel = location[1]
+    well = location[2]
+    if database.storePrimer(pairid,int(vessel),well):
+        print >> sys.stderr, 'Primer pair location updated'
+        return '%s location updated to %s : %s' %(pairid, vessel, well)
+    else:
+        print >> sys.stderr, 'Location already occupied' # Try and include statement of primer pair stored at location
+        return 'Location already occupied'
+
 
 # ==============================================================================
 # === CLI ======================================================================
@@ -303,7 +328,7 @@ def main():
 
     ## retrieve
     parser_retrieve = subparsers.add_parser('get', help='Get/design primers')
-    parser_retrieve.add_argument("targets", default=None, metavar="VCF/BED/Interval", \
+    parser_retrieve.add_argument("targets", default=None, metavar="VCF/BED/Interval/GenePred", \
         help="File with intervals of interest or chr:start-end")
     parser_retrieve.add_argument("--design", dest="design", default=False, action="store_true", \
         help="Design primers if not in database")
@@ -378,17 +403,11 @@ def main():
                 print '\t'.join(map(str,row))
     elif options.which=='update':  #update location primer pairs are stored
         if options.location:
-            pairid = options.location[0]
-            vessel = options.location[1]
-            well = options.location[2]
-            if not db.storePrimer(pairid,vessel,well):
-                print >> sys.stderr, 'Location already occupied' # Try and include statement of primer pair stored at location
-            else:
-                print >> sys.stderr, 'Primer pair location updated'
+            updateLocation(options.location, db)
         if options.blacklist:
             db.blacklist(options.blacklist)
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
-        zippyPrimerQuery(config, options.targets, options.design, options.outfile, db if options.store else None)
+        zippyPrimerQuery(config, options.targets, options.design, options.outfile, db, options.store)
     elif options.which=='batch':
         print zippyBatchQuery(config, options.targets, True, options.outfile, db)
 

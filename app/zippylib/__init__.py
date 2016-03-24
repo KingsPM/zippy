@@ -1,15 +1,48 @@
 #!/usr/bin/env python
 
-__doc__=="""Zippy Library"""
+__doc__=="""Zippy"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "1.1"
+__version__ = "1.2"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
 
-from zippylib.primer import Primer, PrimerPair
+from .primer import Primer, PrimerPair
 import time
+import os
+import subprocess
+
+'''version string'''
+# pipeline version string
+def githash(prefix=None):
+    taghash, headhash = {},{}
+    gitrevision = [ prefix ] if prefix else []
+    head = None
+    for i, line in enumerate(subprocess.check_output(['git', 'show-ref', '--head', '--abbrev=7']).split('\n')):
+        f = line.split()
+        if len(f)==2:
+            if f[1] == 'HEAD':
+                head = f[0]
+            elif 'tags' in f[1]:
+                taghash[f[0]] = f[1].split('/')[2]
+            elif 'heads' in f[1]:
+                headhash[f[0]] = '/'.join(f[1].split('/')[2:])
+    # add head name
+    try:
+        gitrevision.append(headhash[head])
+    except:
+        gitrevision.append('detached')
+    # add tag name
+    try:
+        gitrevision.append(taghash[head])  # return tag name
+    except KeyError:
+        gitrevision.append(head)  # return hash of revision
+    return '-'.join(gitrevision)
+
+
+'''static stuff'''
+imageDir = os.path.join(os.path.dirname(os.path.abspath(__file__)),'../static')
 
 '''read configuration (convert unicode to ascii string)'''
 def ascii_encode_dict(data):

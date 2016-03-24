@@ -1,4 +1,18 @@
-{% extends "index.html" %}
+{% extends "base.html" %}
 {% block content %}
 	<p>File upload succesful</p>
+	<p>Zippy returned the following files: -</p>
+	<ul>
+		{% for file in outputFiles %}
+		{% set filelist = file.split('/') %}
+			<li><a href="/file_uploaded/{{file}}" target="_blank">{{filelist[-1]}}</a></li>
+		{% endfor %}
+	</ul>
+	{% if missedIntervals is not equalto [] %}
+		<p>Zippy unable to design primers that satisfy the design limits set for the following intervals: -</p>
+		{% for interval in missedIntervals %}
+			<p>{{interval}}</p>
+		{% endfor %}
+	{% endif %}
+
 {% endblock %}

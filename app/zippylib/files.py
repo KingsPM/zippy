@@ -3,7 +3,7 @@
 __doc__=="""File parsing classes"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "1.1"
+__version__ = "1.2"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -17,6 +17,102 @@ from hashlib import sha1
 from . import ConfigError
 from .interval import *
 
+
+'''GenePred parser with automatic segment numbering and tiling'''
+class GenePred(IntervalList):
+    def __init__(self,fh,interval=None,overlap=None,flank=0,combine=True):
+        IntervalList.__init__(self, [], source='GenePred')
+        counter = Counter()
+        intervalindex = defaultdict(list)
+        # read exons per gene
+        genes = defaultdict(list)
+        for line in fh:
+            if line.startswith("#"):
+                continue
+            else:
+                # create gene and add exons
+                f = line.split()
+                assert f[3] in ['+','-']
+                reverse = f[3].startswith('-')
+                gene = Interval(f[2],int(f[4]),int(f[5]),f[12],reverse)
+                for e in zip(f[9].split(','),f[10].split(',')):
+                    try:
+                        gene.addSubintervals([Interval(f[2],int(e[0]),int(e[1]),f[12],reverse)])
+                    except ValueError:
+                        pass
+                    except:
+                        raise
+                # find appropriate gene (same name, and overlapping)
+                ovpgenes = [ g for g in genes[gene.name] if gene.overlap(g) ]
+                if ovpgenes:
+                    try:
+                        assert len(ovpgenes) == 1
+                    except:
+                        # MERGE 2 GENES (there were non-overlapping transcripts in same gene locus!)
+                        for i in range(1,len(ovpgenes)):
+                            ovpgenes[0].merge(ovpgenes[i],subintervals=True)
+                            genes[gene.name].remove(ovpgenes[i])  # remove merged
+                    ovpgenes[0].addSubintervals(gene.subintervals)  # add exons from other transcript/gene
+                    ovpgenes[0].flattenSubintervals()  # flatten intervals IntervalList
+                else:
+                    # add new
+                    genes[gene.name].append(gene)
+        # name metaexons and combine if small enough
+        for genename, genelist in genes.items():
+            for g in genelist:
+                if combine:
+                    # iteratively combine closest exons
+                    combinedExons = [ [x] for x in sorted(g.subintervals) ]
+                    while True:
+                        # get distances
+                        distances = [ max([ x.chromEnd for x in combinedExons[i]]) - \
+                            min([ x.chromStart for x in combinedExons[i-1]]) \
+                            for i in range(1,len(combinedExons)) ]
+                        # combine smallest distance
+                        if any([ d < interval for d in distances ]):
+                            smallestIndex = distances.index(min(distances))
+                            recombinedExons = []
+                            for i,e in enumerate(combinedExons):
+                                if i > smallestIndex:  # merge with previous and add remainder
+                                    recombinedExons[-1] += e
+                                    if i+1 < len(combinedExons):
+                                        recombinedExons += combinedExons[i+1:]
+                                    break
+                                else:
+                                    recombinedExons.append(e)
+                            combinedExons = recombinedExons
+                        else:
+                            break
+                    # add exon numbers
+                    i = 0
+                    for e in combinedExons:
+                        # get exons
+                        ii = range(i,i+len(e))
+                        exonNumbers = [ len(g.subintervals) - x for x in ii ] if g.strand < 0 else [ x+1 for x in ii ]
+                        if len(e)>1:  # combine exons
+                            for j in range(1,len(e)):
+                                e[0].merge(e[j])
+                        e[0].name += '_{}'.format('+'.join(map(str,sorted(exonNumbers))))
+                        intervalindex[e[0].name].append(e[0])
+                        i += len(e)
+                else:
+                    # append exon number
+                    for i, e in enumerate(sorted(g.subintervals)):
+                        exonNumber = len(g.subintervals) - i if g.strand < 0 else i + 1
+                        e.name += '_{}'.format(str(exonNumber))
+                        intervalindex[e.name].append(e)
+        # split interval if necessary
+        for ivs in intervalindex.values():
+            for iv in ivs:
+                if interval and overlap and interval < len(iv):
+                    assert '+' not in iv.name  # paranoia
+                    self += iv.tile(interval,overlap,len(f)>3)  # name with suffix if named interval
+                else:
+                    self += [ iv ]
+        # add flanks
+        for e in self:
+            e.extend(flank)
+        return
 
 '''bed parser with automatic segment numbering and tiling'''
 class BED(IntervalList):
@@ -97,7 +193,10 @@ class SNPpy(IntervalList):
                     chrom = row['chromosome'][3:] if row['chromosome'].startswith('chr') else row['chromosome']
                     chromStart = int(row['position'])
                     chromEnd = chromStart+hgvsLength(row['HGVS_c'])
-                    variantName = '_'.join([row['geneID'],row['transcriptID'],row['HGVS_c']]).replace('>','to')
+                    try:
+                        variantName = '_'.join([row['geneID'],row['rank'].split('/')[0]])  # use exon number
+                    except:
+                        variantName = '_'.join([row['geneID'],row['transcriptID'],row['HGVS_c']]).replace('>','to')
                     iv = Interval(chrom,chromStart,chromEnd,name=variantName,sample=row['sampleID'])
                 except:
                     print line
@@ -151,6 +250,8 @@ def readTargets(targets,tiling):
                 intervals = VCF(fh,**tiling)
             elif targets.endswith('bed'):  # BED files (BED3 with automatic names)
                 intervals = BED(fh,**tiling)
+            elif targets.endswith('txt') or targets.lower().endswith('genepred'):  # GenePred files (uses gene name if unique)
+                intervals = GenePred(fh,**tiling)
             else:
                 raise Exception('UnknownFileExtension')
     elif re.match('\w+:\d+-\d+',targets):  # single interval
@@ -184,15 +285,16 @@ def readBatch(fi,tiling):
 '''return length of variant from hgvs.c notation'''
 def hgvsLength(hgvs,default=10):
     try:
-        assert hgvs.startswith('c.')
-    except:
-        raise
-    try:
         m = re.match('c.\d+(\D+)(>|ins|del|dup)(\w+)$',hgvs)
         assert m
     except:
-        print >> sys.stderr, "WARNING: could not find length of variant, assuming %s" % str(default)
-        return default
+        try:
+            l = int(hgvs)
+        except:
+            print >> sys.stderr, "WARNING: could not find length of variant, assuming %s" % str(default)
+            return default
+        else:
+            return l
     else:
         return len(m.group(3))
 

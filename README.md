@@ -32,6 +32,13 @@ retrieve (and design) primer for a single location
 design/retrieve primers for a SNPpy result (batch mode)
 > `zippy.py batch <SNPpy>`
 
+Blacklist primer
+> `zippy.py update -b <PRIMERNAME>`
+
+Set/update primer storage location
+> `zippy.py update -l <PRIMERNAME> <VESSEL> <WELL>`
+
+
 ## Release Notes
 ### v1.0
 Primer3 base design
@@ -43,9 +50,16 @@ batch processing of SNPpy results
 ### v1.1
 worksheet and robot CSV file generation
 
-### v1.2 (FUTURE)
+### v1.2
 Webinterface/GUI
+Tube Label Generation
+Fixed Plate filling
+GenePred input for design
 
+### v1.3 (FUTURE)
+Asynchronous Design process
+Primer metadata adding
+Web GUI extensions
 
 ## Reference Genome
 Primers are designed from the unmasked 1kg reference genome while ignoring simple repeat regions.

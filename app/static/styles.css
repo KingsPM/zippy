@@ -1,7 +1,7 @@
 body {
-    background-color: #F8F8F8;
-    padding-left: 0px;
+    background-color: #FFFFFF;
     margin: 40px;
+    font-family: helvetica;
 }
 
 header {
@@ -22,11 +22,21 @@ header {
 	margin-top: 80px;
 }
 
+#left {
+	float: left;
+	width: 50%;
+}
+
+#right {
+	float: right;
+	width: 50%;
+}
+
 h1 {
 	width: 100%;
 	background-color: #009933;
 	color: white;
-	padding: 10px 10px 10px 20px;
+	padding: 10px 20px 10px 20px;
 	margin-top: -10px;
 	margin-right: -10px;
 	margin-left: -10px;
@@ -40,9 +50,15 @@ input[type=submit] {
     padding: 20px;
     text-decoration: none;
     cursor: pointer;
-    width: 10%;
+    width: 100px;
 }
 
 input[type=file] {
     cursor: pointer;
+}
+
+.pop {
+	color: #00802b;
+	font-weight: bold;
+	font-style: italic;
 }

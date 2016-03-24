@@ -2,7 +2,7 @@
     "database": "zippy.sqlite",
     "logfile": "zippy.log",
     "tiling": {
-        "interval": 400,
+        "interval": 500,
         "overlap": 10,
         "flank" : 15
     },
@@ -23,7 +23,7 @@
             "PRIMER_MAX_POLY_X": 4,
             "PRIMER_PRODUCT_SIZE_RANGE": [[100,600]],
             "PRIMER_GC_CLAMP": 1,
-            "PRIMER_NUM_RETURN": 100,
+            "PRIMER_NUM_RETURN": 10,
             "PRIMER_MISPRIMING_LIBRARY":"/home/vagrant/dev/zippy/zippy_resources/human_repeat_simple.fa"
         }
     },
@@ -47,11 +47,12 @@
         "designrank": 100
     },
     "report": {
+        "logo": "viapath.png",
         "pairs": 1,
         "platesize": [8,12],
         "volumes": {
-            "mastermix": 13,
-            "qsolution": 23,
+            "mastermix": 6,
+            "qsolution": 2,
             "excess": 0.1
         }
     },
@@ -61,7 +62,7 @@
             "purification": "desalt"
         },
         "sequencetags": {
-            "COMMENT": "M13(-21)/M13_pUC",
+            "name": "M13(-21)/M13_pUC",
             "left": "TGTAAAACGACGGCCAGT",
             "right": "CAGGAAACAGCTATGACC"
         }

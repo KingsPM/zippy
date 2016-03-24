@@ -83,3 +83,9 @@ uploads/*
 
 # Python virtualenv
 zippyvenv/*
+
+# resources
+zippy_resources/*
+
+# scratch
+scratch/*
