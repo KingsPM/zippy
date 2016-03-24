@@ -280,6 +280,18 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
 
     return writtenFiles, allMissedIntervals
 
+def updateLocation(location, database):
+    location = location.split(' ')
+    pairid = location[0]
+    vessel = location[1]
+    well = location[2]
+    if database.storePrimer(pairid,int(vessel),well):
+        print >> sys.stderr, 'Primer pair location updated'
+        return '%s location updated to %s : %s' %(pairid, vessel, well)
+    else:
+        print >> sys.stderr, 'Location already occupied' # Try and include statement of primer pair stored at location
+        return 'Location already occupied'
+
 # ==============================================================================
 # === CLI ======================================================================
 # ==============================================================================
@@ -384,13 +396,14 @@ def main():
                 print '\t'.join(map(str,row))
     elif options.which=='update':  #update location primer pairs are stored
         if options.location:
-            pairid = options.location[0]
-            vessel = options.location[1]
-            well = options.location[2]
-            if not db.storePrimer(pairid,vessel,well):
-                print >> sys.stderr, 'Location already occupied' # Try and include statement of primer pair stored at location
-            else:
-                print >> sys.stderr, 'Primer pair location updated'
+            updateLocation(options.location, db)
+            # pairid = options.location[0]
+            # vessel = options.location[1]
+            # well = options.location[2]
+            # if not db.storePrimer(pairid,vessel,well):
+            #     print >> sys.stderr, 'Location already occupied' # Try and include statement of primer pair stored at location
+            # else:
+            #     print >> sys.stderr, 'Primer pair location updated'
         if options.blacklist:
             db.blacklist(options.blacklist)
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)

@@ -6,7 +6,7 @@ from celery import Celery
 from werkzeug.utils import secure_filename
 import subprocess
 from app import app
-from zippy import zippyBatchQuery, zippyPrimerQuery
+from zippy import zippyBatchQuery, zippyPrimerQuery, updateLocation
 from zippylib import ascii_encode_dict
 from zippylib.database import PrimerDB
 import hashlib
@@ -57,6 +57,10 @@ def download_file(filename):
 @app.route('/adhoc_result')
 def adhoc_result(primerTable, resultList, missedIntervals):
     return render_template('file_uploaded.html', primerTable, resultList, missedIntervals)
+
+@app.route('/location_updated')
+def location_updated(status):
+    return render_template('location_updated.html', status)
 
 # @app.route('/upload/', methods=['POST'])
 # def upload():
@@ -132,6 +136,18 @@ def adhocdesign():
     # os.chdir('./app/')
     # print subprocess.call(['./zippy.py', 'get', locus, '--design', '--nostore'], shell=False)
     return render_template('/adhoc_result.html', primerTable=primerTable, resultList=resultList, missedIntervals=missedIntervalNames)
+
+@app.route('/update_location/', methods=['POST'])
+def update_Location():
+    location = request.form.get('location')
+    with open(app.config['CONFIG_FILE']) as conf:
+        config = json.load(conf, object_hook=ascii_encode_dict)
+        db = PrimerDB(config['database'])
+    print location
+    updateStatus = updateLocation(location, db)
+    print updateStatus
+    return render_template('location_updated.html', status=updateStatus)
+
 
 
 # @app.route('/upload/', methods=['POST'])
