@@ -48,11 +48,10 @@ class GenePred(IntervalList):
                     try:
                         assert len(ovpgenes) == 1
                     except:
-                        # MERGE 2 GENES
+                        # MERGE 2 GENES (there were non-overlapping transcripts in same gene locus!)
                         for i in range(1,len(ovpgenes)):
                             ovpgenes[0].merge(ovpgenes[i],subintervals=True)
                             genes[gene.name].remove(ovpgenes[i])  # remove merged
-
                     ovpgenes[0].addSubintervals(gene.subintervals)  # add exons from other transcript/gene
                     ovpgenes[0].flattenSubintervals()  # flatten intervals IntervalList
                 else:
@@ -62,13 +61,28 @@ class GenePred(IntervalList):
         for genename, genelist in genes.items():
             for g in genelist:
                 if combine:
-                    # combine near exons
-                    combinedExons = []
-                    for e in sorted(g.subintervals):
-                        if combinedExons and e.chromEnd - combinedExons[-1][0].chromStart < interval:
-                            combinedExons[-1].append(e)
+                    # iteratively combine closest exons
+                    combinedExons = [ [x] for x in sorted(g.subintervals) ]
+                    while True:
+                        # get distances
+                        distances = [ max([ x.chromEnd for x in combinedExons[i]]) - \
+                            min([ x.chromStart for x in combinedExons[i-1]]) \
+                            for i in range(1,len(combinedExons)) ]
+                        # combine smallest distance
+                        if any([ d < interval for d in distances ]):
+                            smallestIndex = distances.index(min(distances))
+                            recombinedExons = []
+                            for i,e in enumerate(combinedExons):
+                                if i > smallestIndex:  # merge with previous and add remainder
+                                    recombinedExons[-1] += e
+                                    if i+1 < len(combinedExons):
+                                        recombinedExons += combinedExons[i+1:]
+                                    break
+                                else:
+                                    recombinedExons.append(e)
+                            combinedExons = recombinedExons
                         else:
-                            combinedExons.append([e])
+                            break
                     # add exon numbers
                     i = 0
                     for e in combinedExons:
@@ -78,7 +92,7 @@ class GenePred(IntervalList):
                         if len(e)>1:  # combine exons
                             for j in range(1,len(e)):
                                 e[0].merge(e[j])
-                        e[0].name += '_{}'.format('+'.join(map(str,exonNumbers)))
+                        e[0].name += '_{}'.format('+'.join(map(str,sorted(exonNumbers))))
                         intervalindex[e[0].name].append(e[0])
                         i += len(e)
                 else:
@@ -91,15 +105,15 @@ class GenePred(IntervalList):
         for ivs in intervalindex.values():
             for iv in ivs:
                 if interval and overlap and interval < len(iv):
-                    assert '+' not in iv.name
+                    assert '+' not in iv.name  # paranoia
                     self += iv.tile(interval,overlap,len(f)>3)  # name with suffix if named interval
                 else:
                     self += [ iv ]
         # add flanks
         for e in self:
             e.extend(flank)
-        #     print repr(e)
-        # raise NotImplementedError
+            print repr(e)
+        raise NotImplementedError
         return
 
 '''bed parser with automatic segment numbering and tiling'''
