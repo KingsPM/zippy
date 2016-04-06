@@ -1,4 +1,12 @@
-#/usr/bin/env python
+#!/usr/bin/env python
+
+__doc__=="""Zippy"""
+__author__ = "David Brawand"
+__license__ = "MIT"
+__version__ = "1.2"
+__maintainer__ = "David Brawand"
+__email__ = "dbrawand@nhs.net"
+__status__ = "Production"
 
 import os
 from flask import Flask, render_template, request, redirect

@@ -3,7 +3,7 @@
 __doc__=="""SQLITE Database API"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "1.1"
+__version__ = "1.2"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -74,34 +74,30 @@ class PrimerDB(object):
         else:
             if add:
                 # get uniqueid from status table for pairid
-                # get list of pairs from pairs table with uniqueid
-                # add uniqueid to blacklist
-                # delete all those pairs from status table
                 blacklisttime = datetime.datetime.now()
                 cursor = self.db.cursor()
                 cursor.execute('PRAGMA foreign_keys = ON')
                 cursor.execute('''SELECT DISTINCT s.uniqueid
-                    FROM status AS s
-                    WHERE s.pairid = ?;''', (add,))
+                    FROM status AS s WHERE s.pairid = ?;''', (add,))
                 bl_uniqueid = [ row[0] for row in cursor.fetchall() ]
-
+                # get list of pairs from pairs table with uniqueid
                 second_cursor = self.db.cursor()
                 second_cursor.execute('PRAGMA foreign_keys = ON')
+                pairlist = []
                 for uid in bl_uniqueid:
+                    # add uniqueid to blacklist
                     second_cursor.execute('''INSERT INTO blacklist(uniqueid, blacklistdate) VALUES(?,?);''', \
-                        (uid, blacklisttime))
-
-                second_cursor.execute('''SELECT DISTINCT p.pairid
+                    (uid, blacklisttime))
+                    # get list of pairs to be deleted
+                    second_cursor.execute('''SELECT DISTINCT p.pairid
                     FROM pairs AS p
-                    WHERE p.uniqueid = ?;''', (bl_uniqueid))
-                pairlist = second_cursor.fetchall()
-
-                second_cursor.execute('''DELETE FROM status
-                    WHERE uniqueid = ?;''', (bl_uniqueid))
-
-                self.db.commit()
+                    WHERE p.uniqueid = ?;''', (uid,))
+                    pairlist += [ x[0] for x in second_cursor.fetchall() ]
+                    # delete all those pairs from status table
+                    second_cursor.execute('''DELETE FROM status
+                    WHERE uniqueid = ?;''', (uid,))
+                    self.db.commit()
                 return pairlist
-
             else: #return list of uniqueids from blacklist
                 cursor = self.db.cursor()
                 cursor.execute('''SELECT DISTINCT uniqueid FROM blacklist;''')

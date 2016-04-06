@@ -4,7 +4,7 @@
 __doc__=="""Primer3 Classes"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "1.1"
+__version__ = "1.2"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -341,9 +341,9 @@ class Primer3(object):
         return len(self.pairs)
 
     def design(self,name,pars):
-        print >> sys.stderr, '\n DESIGN REGION is', self.designregion, '\t SEQUENCE is', self.sequence
-        print >> sys.stderr, name, pars
-        print >> sys.stderr, 0, self.flank, len(self.sequence)-self.flank, self.flank
+        #print >> sys.stderr, '\n DESIGN REGION is', self.designregion, '\t SEQUENCE is', self.sequence
+        #print >> sys.stderr, name, pars
+        #print >> sys.stderr, 0, self.flank, len(self.sequence)-self.flank, self.flank
         # extract sequence with flanks
         # Sequence args
         seq = {

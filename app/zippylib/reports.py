@@ -4,20 +4,21 @@
 __doc__=="""Report Generator"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "1.1"
+__version__ = "1.2"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
 
 import os
 import sys
-import time
+import time, datetime
 from math import ceil
 from copy import deepcopy
 from random import shuffle
 import itertools
+from hashlib import sha1
 from collections import Counter
-from . import PlateError, char_range, imageDir
+from . import PlateError, char_range, imageDir, githash
 
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
@@ -28,12 +29,52 @@ from reportlab.lib.units import cm, inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
 from reportlab.rl_config import defaultPageSize
 
+# Page Settings
+PAGE_HEIGHT=defaultPageSize[1]; PAGE_WIDTH=defaultPageSize[0]
+leftMargin = rightMargin = 2.6*cm
+topMargin = 2*cm
+bottomMargin = 2*cm
+
+# barcode encoding for primer names
+barcode = lambda x: sha1(x).hexdigest()[:10]
+
+# MolPath version controlled document template
+class MolPathTemplate(canvas.Canvas):
+    def __init__(self, *args, **kwargs):
+        canvas.Canvas.__init__(self, *args, **kwargs)
+        self.pages = []
+
+    def showPage(self):
+        self.pages.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        page_count = len(self.pages)
+        for page in self.pages:
+            self.__dict__.update(page)
+            self.makePage(page_count)
+            canvas.Canvas.showPage(self)
+        canvas.Canvas.save(self)
+
+    def makePage(self, page_count):
+        self.setFont("Helvetica", 9)
+        # header
+        headerstring = "KINGS COLLEGE HOSPITAL, MOLECULAR PATHOLOGY"
+        self.drawRightString(PAGE_WIDTH-rightMargin, PAGE_HEIGHT-topMargin/2.0, headerstring)
+        # authorised by
+        authorised = "James Bond"
+        self.drawString(leftMargin, bottomMargin/2, "Authorised by %s" % authorised)
+        # version
+        self.drawCentredString(PAGE_WIDTH/2, bottomMargin/2, githash('zippy'))
+        # page number
+        page = "Page %s of %s" % (self._pageNumber, page_count)
+        self.drawRightString(PAGE_WIDTH-rightMargin, bottomMargin/2, page)
 
 class Report(object):
     def __init__(self,fi,title='This is the title',logo=None):
         # get document
         self.doc = SimpleDocTemplate(fi,pagesize=A4,
-                        rightMargin=2.54*cm,leftMargin=2.54*cm,
+                        rightMargin=rightMargin,leftMargin=leftMargin,
                         topMargin=2*cm,bottomMargin=cm)
         # style sheets
         self.styles = getSampleStyleSheet()
@@ -74,11 +115,6 @@ class Report(object):
         t.setStyle(TABLE_STYLE)
         self.elements.append(t)
         self.elements.append(Spacer(1, 12))
-
-
-        # Warning
-        # self.elements.append(Paragraph('<font size=14>Always double check everything!</font>', self.styles["Warning"]))
-        # self.elements.append(Spacer(1, 24))
 
     def plateLayouts(self,plates):
         PLATE_STYLE = TableStyle(
@@ -124,7 +160,6 @@ class Report(object):
             ('LINEABOVE', (3,1),(-1,1),1,colors.black),
             ('BOX', (3,0), (-1,len(p)), 1, colors.black),
             ])
-        p = sorted(p, key=lambda x: x[1])
         data = [[str(len(s)),'Samples','',str(len(p)),'Primer Pairs', 'Vessel', 'Well']]
         for i in range(max(len(s),len(p))):
             data.append([ '', s[i] if i<len(s) else '', '', ''] + \
@@ -158,7 +193,6 @@ class Report(object):
         self.elements.append(t)
         self.elements.append(Spacer(1, 12))
 
-
     def checkBoxes(self,titles):
         # right justified checkboxes with appropriate names
         TABLE_STYLE = TableStyle([
@@ -173,7 +207,7 @@ class Report(object):
 
         self.elements.append(Paragraph('Checks', self.styles["Heading4"]))
         self.elements.append(Spacer(1, 2))
-        data = [[ 'Task', 'Date', 'Checker']]
+        data = [[ 'Task', 'Date', 'Operator']]
         for i in range(len(titles)):
             data.append([ titles[i], '', '' ])
         t = Table(data, colWidths=[7.5*cm,4*cm,4*cm], rowHeights=0.6*cm)
@@ -181,9 +215,10 @@ class Report(object):
         self.elements.append(t)
         self.elements.append(Spacer(1, 12))
 
-
     def build(self):
-        self.doc.build(self.elements)
+        self.doc.build(self.elements, canvasmaker=MolPathTemplate)
+        #self.doc.build(self.elements, onFirstPage=myFirstPage, onLaterPages=myFirstPage)
+        # self.doc.build(self.elements)
 
 
 '''PCR test [PrimerPair X Sample] (multiple variants)'''
@@ -217,6 +252,7 @@ class Worksheet(list):
         list.__init__(self, [])
         self.plates = []
         self.name = name
+        self.date = datetime.datetime.now().isoformat()
         for i, e in enumerate(elements):
             data = dict(zip(fieldNames,e))
             t = Test(sample=data['sample'],primerpair=data['primerpair'], primerstorage=[data['vessel'],data['well']])
@@ -238,7 +274,7 @@ class Worksheet(list):
     '''print robot csv, (DestinationPlate,DestinationWell,SampleID,PrimerID)'''
     def robotCsv(self,fi,sep=','):
         with open(fi,'w') as fh:
-            print >> fh, sep.join(['DestinationPlate','DestinationWell','PrimerID','SampleID','Confirmations'])
+            print >> fh, sep.join(['DestinationPlate','DestinationWell','PrimerID','SampleID','Confirmations','PrimerName'])
             for n, p in enumerate(self.plates):
                 P = 'Plate'+str(n+1)
                 for i,row in enumerate(p.M):
@@ -246,10 +282,10 @@ class Worksheet(list):
                     for j,cell in enumerate(row):
                         C = str(j+1)
                         if cell:
-                            print >> fh, sep.join([P,R+C,cell.primerpair,cell.sample,str(len(cell.variants))])
+                            print >> fh, sep.join([P,R+C,barcode(cell.primerpair),cell.sample,str(len(cell.variants)),cell.primerpair])
 
     '''assign tests to plate (smart work better only for big test sets)'''
-    def fillPlates(self,size=[8,12],randomize=True,roworder='sample',includeSamples=True,includeControls=True):
+    def fillPlates(self,size=[8,12],randomize=True,roworder='primerpair',includeSamples=True,includeControls=True):
         if randomize:
             shuffle(self)  # shuffle filling
         else:
@@ -290,10 +326,12 @@ class Worksheet(list):
             samples += s
             primers += p
             plates.append(m)
-        # sample and primer list (samples in similar order to plate)
+        # sample and primer list (samples and primers similar to plate order)
         sampleOrder = { s: self.plates[0]._bestRows(Test(s,'dummy'),'sample')[0] for s in set(samples) }
         orderedSamples = [ x[0] for x in sorted(sampleOrder.items(), key=lambda x: x[1]) ]
-        r.samplePrimerLists(orderedSamples,list(set(primers)))
+        primerOrder = { p: self.plates[0]._bestRows(Test(s,'dummy'),'primerpair')[0] for p in set(primers) }
+        orderedPrimers = [ x[0] for x in sorted(primerOrder.items(), key=lambda x: x[1]) ]
+        r.samplePrimerLists(orderedSamples,orderedPrimers)
         # reaction volume list
         r.volumeLists(sum([len(p) for p in self.plates]),kwargs['volumes']['mastermix'],kwargs['volumes']['qsolution'],kwargs['volumes']['excess'])
         # add checkboxes
@@ -305,6 +343,31 @@ class Worksheet(list):
         r.plateLayouts(plates)
         # build pdf
         r.build()
+
+    def tubeLabels(self,fi='/dev/null',meta=''):
+        # detects collisions, run with empty output to validate
+        digests = {}  # digest -> name
+        with open(fi,'w') as fh:
+            print >> fh, '~SD30'  # darkness to maximum
+            for n, p in enumerate(self.plates):
+                for i,row in enumerate(p.M):
+                    for j,cell in enumerate(row):
+                        if cell:
+                            # generate barcode
+                            d = barcode(cell.primerpair)
+                            if d in digests.keys():
+                                try:
+                                    assert cell.primerpair == digests[d]
+                                except:
+                                    raise Exception('BarcodeCollision')
+                            else:
+                                digests[d] = cell.primerpair
+                            print >> fh, "^XA"  # start label
+                            print >> fh, "^FO20,25^AB^FD{}^FS".format(self.date[:self.date.rfind('.')])  # date to the second
+                            print >> fh, "^FO20,45^AB,25^FD{}^FS".format(cell.primerpair)  # primer name
+                            print >> fh, "^FO20,75^AB^FD{}^FS".format(meta)  # primer name
+                            print >> fh, "^FO20,95^BY1.5^BCN,80,Y,N,N^FD{}^FS".format(d)  # barcode digest
+                            print >> fh, "^XZ"  # end label
 
 
 class Plate(object):
@@ -371,16 +434,17 @@ class Plate(object):
 
     def compress(self,rvalue):
         # find maximum row count
-        maxColumn = int(len(self)/float(self.nrow))+1
-        # start with longest row (and only rows wich exceed maxColumns)
-        rowOrder = { i: r.count(None) for i,r in enumerate(self.M) if r.count(None) < self.ncol-maxColumn }
+        maxColumn = [ int(len(self)/self.nrow) + 1 if r < len(self) % self.nrow else int(len(self)/self.nrow) \
+            for r in range(self.nrow) ]
+        # start with longest row (and only rows which exceed maxColumns)
+        rowOrder = { i: r.count(None) for i,r in enumerate(self.M) if r.count(None) < self.ncol-maxColumn[i] }
         longRows = [ i for i,r in sorted(rowOrder.items(), key=lambda x: x[1], reverse=False) ]
         for r in longRows:
             # find best row (sum of empty and own)
-            for c in range(maxColumn,self.ncol):
+            for c in range(maxColumn[r],self.ncol):
                 if self.M[r][c] is not None:
                     bestRows = [ br for br in self._bestRows(self.M[r][c],rvalue) \
-                        if br!=r and self.M[br].count(None) > self.ncol-maxColumn ]
+                        if br!=r and self.M[br].count(None) > self.ncol-maxColumn[br] ]
                     # find leftmost free position
                     for bc in range(self.ncol):
                         if self.M[bestRows[0]][bc] is None:
