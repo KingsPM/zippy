@@ -298,6 +298,14 @@ def updateLocation(location, database):
         print >> sys.stderr, 'Location already occupied' # Try and include statement of primer pair stored at location
         return 'Location already occupied'
 
+def searchByName(searchName, db):
+    print searchName
+    primersInDB = db.queryName(searchName)
+    if primersInDB:
+        return primersInDB
+    else:
+        print >> sys.stderr, 'No primers were found'
+        return False
 
 # ==============================================================================
 # === CLI ======================================================================
@@ -337,6 +345,12 @@ def main():
     parser_retrieve.add_argument("--outfile", dest="outfile", default='', type=str, \
         help="Output file name")
     parser_retrieve.set_defaults(which='get')
+
+    ## query database for primers by name
+    parser_query = subparsers.add_parser('query', help='Query database for primers with specified sub-string in name')
+    parser_query.add_argument("subString", default=None, metavar="Sub-string within name", \
+        help="String found within primer name")
+    parser_query.set_defaults(which='query')
 
     ## batch
     parser_batch = subparsers.add_parser('batch', help='Batch design primers for sample list')
@@ -410,6 +424,8 @@ def main():
         zippyPrimerQuery(config, options.targets, options.design, options.outfile, db, options.store)
     elif options.which=='batch':
         print zippyBatchQuery(config, options.targets, True, options.outfile, db)
+    elif options.which=='query':
+        print searchByName(options.subString, db)
 
 if __name__=="__main__":
     main()

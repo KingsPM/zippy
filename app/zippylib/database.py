@@ -193,6 +193,35 @@ class PrimerDB(object):
             primerPairs.append(PrimerPair([leftPrimer, rightPrimer], location=row[6:8]))
         return primerPairs  # ordered by midpoint distance
 
+    def queryName(self, searchName):
+        '''query database for primers with sub-string in name'''
+        print searchName
+        subSearchName = '%'+searchName+'%'
+        print subSearchName
+        try:
+            self.db = sqlite3.connect(self.sqlite)
+        except:
+            raise
+        else:
+            cursor = self.db.cursor()
+            cursor.execute('''SELECT DISTINCT p.pairid, p.left, p.right, p.chrom, p.start, p.end, s.vessel, s.well
+                FROM pairs AS p, status AS s
+                WHERE p.pairid = s.pairid AND p.uniqueid = s.uniqueid
+                AND p.pairid like ?
+                ORDER BY p.pairid;''', \
+                (subSearchName,))
+            rows = cursor.fetchall()
+        finally:
+            self.db.close()
+        print rows
+        returnNames = []
+        for row in rows:
+            name = row[0]
+            leftSeq = row[1]
+            rightSeq = row[2]
+            returnNames.append(name)
+        return returnNames
+
     def storePrimer(self,pairid,vessel,well):
         '''updates the location in which primer pairs are stored in the status table'''
         try:

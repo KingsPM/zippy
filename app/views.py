@@ -128,5 +128,10 @@ def update_Location():
     print updateStatus
     return render_template('location_updated.html', status=updateStatus)
 
+@app.route('/search_by_name/', methods=['POST'])
+def searchByName():
+    searchName = request.form.get('searchName')
+    
+
 
 
