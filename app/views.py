@@ -6,7 +6,7 @@ from celery import Celery
 from werkzeug.utils import secure_filename
 import subprocess
 from app import app
-from zippy import zippyBatchQuery, zippyPrimerQuery, updateLocation
+from zippy import zippyBatchQuery, zippyPrimerQuery, updateLocation, searchByName
 from zippylib import ascii_encode_dict
 from zippylib.database import PrimerDB
 import hashlib
@@ -129,8 +129,17 @@ def update_Location():
     return render_template('location_updated.html', status=updateStatus)
 
 @app.route('/search_by_name/', methods=['POST'])
-def searchByName():
+def searchName():
     searchName = request.form.get('searchName')
+    with open(app.config['CONFIG_FILE']) as conf:
+        config = json.load(conf, object_hook=ascii_encode_dict)
+        db = PrimerDB(config['database'])
+        searchResult = searchByName(searchName, db)
+        for pairs in searchResult:
+            for result in pairs:
+                print result.name
+    return render_template('searchname_result.html', searchResult=searchResult, searchName=searchName)
+
     
 
 

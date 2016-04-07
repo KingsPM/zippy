@@ -9,7 +9,7 @@
             </form>
         </div>
         <div>
-            <br>
+            <br><br>
         </div>
         <div>
             <p>Or enter specific locus to design primer for in the form: <span class="pop">Chromosome:Start-End</span></p>
@@ -19,9 +19,19 @@
                 <input type="submit" value="Submit">
             </form>
         </div>
-    </div>
-    <br><br>
-    <div>
+        <div>
+            <br><br>
+        </div>
+        <div>
+            <p>Enter search string to query database for primers stored under a name containing this string</p>
+            <form action="/search_by_name/" method="post" enctype="multipart/form-data">
+                <input type="text" name="searchName"><br><br>
+                <input type="submit" value="Search">
+            </form>
+        </div>
+        <div>
+            <br><br>
+        </div>
         <div>
             <p>Update the storage location of a primer pair in the form: <span class="pop">PairID Vessel Well</span></p>
             <form action="/update_location/" method="post" enctype="multipart/form-data">

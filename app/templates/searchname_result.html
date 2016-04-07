@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+	<p>The following primer pairs were found in Zippy with <span class="pop">{{searchName}}</span> in their name: -</p>
+	{% if searchResult is not equalto [] %}
+		{% for pair in searchResult %}
+			{% set pairName = pair[0].name.split('_') %}
+			<b>{{pairName[:-1]|join('_')}}</b><hr>
+			{% for primer in pair %}
+				<i>{{primer.name}}</i>
+				<p>Sequence: {{primer.seq}}</p>
+				<p>Locus: {{primer.targetposition}}</p>
+			{% endfor %}
+				
+
+		{% endfor %}
+	{% endif %}
+
+
+{% endblock %}

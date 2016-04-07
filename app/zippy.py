@@ -98,6 +98,7 @@ def getPrimers(intervals, db, design, config):
             sys.stderr.write('\r'+progress.show(i))
             ivpairs[iv] = []
             primerpairs = db.query(iv)
+            print primerpairs[0].location
             if primerpairs:
                 for pair in primerpairs:
                     ivpairs[iv].append(pair)
@@ -299,14 +300,17 @@ def updateLocation(location, database):
         return 'Location already occupied'
 
 def searchByName(searchName, db):
-    print searchName
+    print >> sys.stderr, 'Searching database for primers with the sub-string "%s" in their name' %(searchName)
     primersInDB = db.queryName(searchName)
     if primersInDB:
-        return primersInDB
+        print >> sys.stderr, 'The following primers were found: -'
+        for eachPair in primersInDB:
+            for eachPrimer in eachPair:
+                print >> sys.stderr, eachPrimer.name
     else:
         print >> sys.stderr, 'No primers were found'
-        return False
-
+    return primersInDB
+    
 # ==============================================================================
 # === CLI ======================================================================
 # ==============================================================================
@@ -425,7 +429,7 @@ def main():
     elif options.which=='batch':
         print zippyBatchQuery(config, options.targets, True, options.outfile, db)
     elif options.which=='query':
-        print searchByName(options.subString, db)
+        searchByName(options.subString, db)
 
 if __name__=="__main__":
     main()

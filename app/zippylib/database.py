@@ -195,9 +195,7 @@ class PrimerDB(object):
 
     def queryName(self, searchName):
         '''query database for primers with sub-string in name'''
-        print searchName
         subSearchName = '%'+searchName+'%'
-        print subSearchName
         try:
             self.db = sqlite3.connect(self.sqlite)
         except:
@@ -213,14 +211,17 @@ class PrimerDB(object):
             rows = cursor.fetchall()
         finally:
             self.db.close()
-        print rows
-        returnNames = []
+        primerPairs = []
         for row in rows:
             name = row[0]
             leftSeq = row[1]
             rightSeq = row[2]
-            returnNames.append(name)
-        return returnNames
+            leftTargetposition = Locus(row[3], row[4], len(row[1]), False)
+            rightTargetposition = Locus(row[3], row[5]-len(row[2]), len(row[2]), True)
+            leftPrimer = Primer(name+'_left', leftSeq, leftTargetposition)
+            rightPrimer = Primer(name+'_right', rightSeq, rightTargetposition)
+            primerPairs.append(PrimerPair([leftPrimer, rightPrimer], location=row[6:8]))
+        return primerPairs # ordered by primer name
 
     def storePrimer(self,pairid,vessel,well):
         '''updates the location in which primer pairs are stored in the status table'''
