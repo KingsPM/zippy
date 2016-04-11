@@ -30,7 +30,7 @@ class PrimerDB(object):
         try:
             # TABLE
             cursor.execute('PRAGMA foreign_keys = ON')
-            cursor.execute('CREATE TABLE IF NOT EXISTS primer(name TEXT, seq TEXT, tag TEXT, tm REAL, gc REAL, vessel INT, well TEXT, dateadded TEXT, FOREIGN KEY(seq) REFERENCES target(seq), UNIQUE (name), UNIQUE (seq,tag), UNIQUE (vessel, well));')
+            cursor.execute('CREATE TABLE IF NOT EXISTS primer(name TEXT, seq TEXT, tag TEXT, tm REAL, gc REAL, vessel INT, well TEXT, dateadded TEXT, FOREIGN KEY(seq) REFERENCES target(seq), UNIQUE (name), UNIQUE (vessel, well));')
             cursor.execute('CREATE TABLE IF NOT EXISTS target(seq TEXT PRIMARY KEY, chrom TEXT, position INT, reverse BOOLEAN, FOREIGN KEY(seq) REFERENCES primer(seq));')
             cursor.execute('CREATE INDEX IF NOT EXISTS seq_index_in_target ON target(seq);')
             cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT, uniqueid TEXT, left TEXT, right TEXT, chrom TEXT, start INT, end INT, dateadded TEXT, FOREIGN KEY(left) REFERENCES primer(name), FOREIGN KEY(right) REFERENCES primer(name), FOREIGN KEY(pairid, uniqueid) REFERENCES status(pairid, uniqueid) ON DELETE CASCADE, UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);')
@@ -267,10 +267,15 @@ class PrimerDB(object):
                 raise
             else:
                 cursor = self.db.cursor()
-                # FWD strand
-                cursor.execute('''SELECT DISTINCT p.chrom, p.start, p.end, p.pairid
-                    FROM pairs AS p
-                    ORDER BY p.chrom, p.start;''')
+                if 'size' in kwargs.keys() and len(kwargs['size'])==2:
+                    cursor.execute('''SELECT DISTINCT p.chrom, p.start, p.end, p.pairid
+                        FROM pairs AS p
+                        WHERE p.end - p.start >= ? AND p.end - p.start <= ?
+                        ORDER BY p.chrom, p.start;''', (kwargs['size'][0],kwargs['size'][1]) )
+                else:
+                    cursor.execute('''SELECT DISTINCT p.chrom, p.start, p.end, p.pairid
+                        FROM pairs AS p
+                        ORDER BY p.chrom, p.start;''')
                 rows = cursor.fetchall()
             finally:
                 self.db.close()
@@ -285,15 +290,15 @@ class PrimerDB(object):
                 cursor = self.db.cursor()
                 # PAIRS
                 cursor.execute('''SELECT DISTINCT
-                    pp.pairid AS pairname, l.name AS primername, l.seq AS sequence, l.tag as seqtag, 'fwd' AS direction
-                    FROM pairs AS pp
+                    p.pairid AS pairname, l.name AS primername, l.seq AS sequence, l.tag as seqtag, 'fwd' AS direction
+                    FROM pairs AS p
                     LEFT JOIN primer as l ON p.left = l.name
                     WHERE l.well IS NULL AND l.vessel IS NULL
                     UNION
                     SELECT DISTINCT
-                    pp.pairid AS pairname, r.name AS primername, r.seq AS sequence, r.tag AS seqtag, 'rev' AS direction
-                    FROM pairs AS pp
-                    LEFT JOIN primer as r ON p.left = r.name
+                    p.pairid AS pairname, r.name AS primername, r.seq AS sequence, r.tag AS seqtag, 'rev' AS direction
+                    FROM pairs AS p
+                    LEFT JOIN primer as r ON p.right = r.name
                     WHERE r.well IS NULL AND r.vessel IS NULL
                     ORDER BY pairname, direction;''')
                 rows = cursor.fetchall()
@@ -302,12 +307,12 @@ class PrimerDB(object):
             # define columns
             columns = ['pairname','primername','sequence','seqtag','direction']
             # add tags and extra columns
-            if extra:
+            if 'extra' in kwargs.keys() and kwargs['extra']:
                 columns += [ c[0] for c in extra ]
                 for i in range(len(rows)):
-                    rows[i] = list(rows[i]) + [ c[1] for c in extra ]
+                    rows[i] = list(rows[i]) + [ c[1] for c in kwargs['extra'] ]
             # add sequence tag
-            if tags:
+            if 'tags' in kwargs.keys() and kwargs['tags']:
                 for row in rows:
                     # get correct tag
                     try:

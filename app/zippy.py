@@ -435,10 +435,12 @@ def main():
 
     ## dump specific datasets from database
     parser_dump = subparsers.add_parser('dump', help='Data dump')
-    parser_dump.add_argument("--amplicons", dest="amplicons", default='10-1000', type=str, \
-        help="Retrieve amplicons of given size [10-1000]")
+    parser_dump.add_argument("--amplicons", dest="amplicons", default='', type=str, \
+        help="Retrieve amplicons of given size (eg. 10-1000)")
     parser_dump.add_argument("--ordersheet", dest="ordersheet", default=False, action="store_true", \
         help="IDT order sheet (primer pairs with no status marker)")
+    parser_dump.add_argument("--locations", dest="locations", default=False, action="store_true", \
+        help="Primer locations")
     parser_dump.add_argument("--outfile", dest="outfile", default='', type=str, \
         help="Output file name")
     parser_dump.set_defaults(which='dump')
@@ -461,21 +463,22 @@ def main():
             db.addLocations(*locations.items())
             sys.stderr.write('Added {:2d} locations for imported primers\n'.format(len(locations)))
     elif options.which=='dump':  # data dump fucntions (`for bulk downloads`)
-        # dump amplicons fo given size to stdout
-        try:
-            l = options.amplicons.split('-')
-            assert len(l)==2
-            amplen = map(int,l)
-        except (AssertionError, ValueError):
-            raise ConfigError('must give amplicon size to retrieve')
-        except:
-            raise
-        else:
-            # get amplicons amplen
-            if options.ordersheet:
-                data,colnames = db.dump('ordersheet', **config['ordersheet'])
+        if options.amplicons:
+            try:
+                l = options.amplicons.split('-')
+                assert len(l)==2
+                amplen = map(int,l)
+            except (AssertionError, ValueError):
+                raise ConfigError('must give amplicon size to retrieve')
+            except:
+                raise
             else:
-                data,colnames = db.dump('amplicons',size=amplen)
+                # get amplicons amplen
+                data,colnames = db.dump('amplicons', size=amplen)
+        elif options.ordersheet:
+            data,colnames = db.dump('ordersheet', **config['ordersheet'])
+        elif options.locations:
+            data,colnames = db.dump('locations')
         # format data output
         if options.outfile:
             dump = Data(data,colnames)
