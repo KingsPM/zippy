@@ -493,10 +493,11 @@ def main():
                 print '\t'.join(map(str,row))
     elif options.which=='update':  #update location primer pairs are stored
         if options.location:
-            primer, vessel, well = options.location.split(' ')
-            updateLocation(primer, Location(vessel, well), db)
+            primer, vessel, well = options.location
+            print >> sys.stderr, updateLocation(primer, Location(vessel, well), db)
         if options.blacklist:
             db.blacklist(options.blacklist)
+            db.removeOrphans()
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
         zippyPrimerQuery(config, options.targets, options.design, options.outfile, db, options.store)
     elif options.which=='batch':

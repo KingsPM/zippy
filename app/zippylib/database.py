@@ -65,6 +65,27 @@ class PrimerDB(object):
             self.db.close()
         return "\n".join([ '{:<20} {:40} {:>20} {:<25} {:>20} {:<25} {:>8} {:>9d} {:>9d} {}'.format(*row) for row in rows ])
 
+
+    def removeOrphans(self):
+        try:
+            self.db = sqlite3.connect(self.sqlite)
+        except:
+            raise
+        else:
+            cursor = self.db.cursor()
+            cursor.execute('''
+            SELECT p.name FROM primer AS p WHERE NOT EXISTS (
+            SELECT left FROM pairs AS pp WHERE pp.left = p.name
+            UNION
+            SELECT right FROM pairs AS pp WHERE pp.right = p.name);''')
+            orphans = cursor.fetchall()
+            cursor.executemany('''DELETE FROM primer
+                WHERE name = ?''', (orphans))
+            self.db.commit()
+            return [ x[0] for x in orphans ]
+        finally:
+            self.db.close()
+
     '''show/update blacklist'''
     def blacklist(self,add=None):
         try:
@@ -77,8 +98,8 @@ class PrimerDB(object):
                 blacklisttime = datetime.datetime.now()
                 cursor = self.db.cursor()
                 cursor.execute('PRAGMA foreign_keys = ON')
-                cursor.execute('''SELECT DISTINCT s.uniqueid
-                    FROM status AS s WHERE s.pairid = ?;''', (add,))
+                cursor.execute('''SELECT DISTINCT p.uniqueid
+                    FROM pairs AS p WHERE p.pairid = ?;''', (add,))
                 bl_uniqueid = [ row[0] for row in cursor.fetchall() ]
                 # get list of pairs from pairs table with uniqueid
                 second_cursor = self.db.cursor()
@@ -96,6 +117,7 @@ class PrimerDB(object):
                     # delete all those pairs from pairs table
                     second_cursor.execute('''DELETE FROM pairs
                     WHERE uniqueid = ?;''', (uid,))
+                    # delete orphan primers
                     self.db.commit()
                 return pairlist
             else: #return list of uniqueids from blacklist
@@ -266,10 +288,10 @@ class PrimerDB(object):
                 raise
             # check if updated
             try:
-                cursor.execute('''SELECT DISTINCT vessel, well, pairid
-                    FROM status WHERE name = ?;''', (primerid,) )
+                cursor.execute('''SELECT DISTINCT vessel, well
+                    FROM primer WHERE name = ?;''', (primerid,) )
                 rows = cursor.fetchall()
-                assert len(rows)==1 and Location(rows[0][0],rows[0][1]) == loc
+                assert len(rows)==1 and Location(str(rows[0][0]),str(rows[0][1])) == loc
             except AssertionError:
                 return False
             except:
