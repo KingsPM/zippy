@@ -78,7 +78,7 @@ def importPrimerPairs(inputfile,config,primer3=True):
                         # remove tag from sequence
                         if l['tag']:
                             try:
-                                tagseqs = config['sequencetags'][l['tag']]['tags']
+                                tagseqs = config['ordersheet']['sequencetags'][l['tag']]['tags']
                             except:
                                 pass
                             else:
@@ -347,7 +347,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
             # order list
             writtenFiles.append(outfile+'.ordersheet.csv')
             print >> sys.stderr, "Writing primer order list to {}...".format(writtenFiles[-1])
-            ws.orderlist(writtenFiles[-1], tags=config['sequencetags'], \
+            ws.orderlist(writtenFiles[-1], tags=config['ordersheet']['sequencetags'], \
                 extra=config['ordersheet']['extracolumns'])
         # Batch PCR worksheet
         writtenFiles.append(outfile+'.pdf')

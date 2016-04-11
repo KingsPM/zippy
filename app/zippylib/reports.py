@@ -19,6 +19,7 @@ import itertools
 from hashlib import sha1
 from collections import Counter
 from . import PlateError, char_range, imageDir, githash
+from .primer import parsePrimerName
 
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors

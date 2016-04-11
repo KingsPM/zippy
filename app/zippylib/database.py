@@ -17,7 +17,7 @@ import fnmatch
 import copy
 from collections import defaultdict
 from . import flatten
-from .primer import Primer, Locus, PrimerPair, Location
+from .primer import Primer, Locus, PrimerPair, Location, parsePrimerName
 
 class PrimerDB(object):
     def __init__(self, database, user='unkown'):
@@ -327,21 +327,25 @@ class PrimerDB(object):
             # define columns
             columns = ['pairname','primername','sequence','seqtag','direction']
             # add tags and extra columns
-            if 'extra' in kwargs.keys() and kwargs['extra']:
-                columns += [ c[0] for c in extra ]
+            if 'extracolumns' in kwargs.keys() and kwargs['extracolumns']:
+                columns += [ c[0] for c in kwargs['extracolumns'] ]
                 for i in range(len(rows)):
-                    rows[i] = list(rows[i]) + [ c[1] for c in kwargs['extra'] ]
+                    rows[i] = list(rows[i]) + [ c[1] for c in kwargs['extracolumns'] ]
             # add sequence tag
-            if 'tags' in kwargs.keys() and kwargs['tags']:
+            if 'sequencetags' in kwargs.keys() and kwargs['sequencetags']:
                 for row in rows:
                     # get correct tag
                     try:
-                        if row[4] == 'fwd':
-                            prepend = tags[row[3]]['tags'][0]
-                        elif row[4] == 'rev':
-                            prepend = tags[row[3]]['tags'][1]
+                        p = parsePrimerName(row[1])
+                        if p[1] > 0:
+                            prepend = kwargs['sequencetags'][row[3]]['tags'][0]
+                        elif p[1] < 0:
+                            prepend = kwargs['sequencetags'][row[3]]['tags'][1]
                         else:
-                            prepend = tags[row[3]]
+                            raise Exception('PrimerNameParseError')
+                        print >> sys.stderr, prepend
+                    except AssertionError:
+                        raise
                     except:
                         row[2] = row[3] + '-' + row[2]  # prepend tag sequence
                     else:

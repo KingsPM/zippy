@@ -62,6 +62,7 @@ Primer tag tracking
 Primer table import
 Storage by Primer and storage validation
 Allows for same primer in multiple pairs
+added primer redundancy query
 
 
 ### FUTURE

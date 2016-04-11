@@ -17,6 +17,7 @@ import subprocess
 from collections import defaultdict, OrderedDict
 from .interval import Interval
 
+
 '''returns common prefix (substring)'''
 def commonPrefix(left,right,stripchars='-_ ',commonlength=3):
     matchingPositions = [ i+1 for i,j in enumerate([ i for i, x in enumerate(zip(left,right)) if len(set(x)) == 1]) if i==j]

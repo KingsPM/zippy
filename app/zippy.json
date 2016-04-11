@@ -57,20 +57,20 @@
             "excess": 0.1
         }
     },
-    "sequencetags" : {
-        "M13": {
-            "name": "M13(-21)/M13_pUC",
-            "tags": ["TGTAAAACGACGGCCAGT", "CAGGAAACAGCTATGACC"]
-        },
-        "NONE" : {
-            "name": "",
-            "tags": ["", ""]
-        }
-    },
     "ordersheet": {
         "extracolumns": [
             ["scale", "50nm"],
             ["purification", "desalt"]
-        ]
+        ],
+        "sequencetags" : {
+            "M13": {
+                "name": "M13(-21)/M13_pUC",
+                "tags": ["TGTAAAACGACGGCCAGT", "CAGGAAACAGCTATGACC"]
+            },
+            "NONE" : {
+                "name": "",
+                "tags": ["", ""]
+            }
+        }
     }
 }
