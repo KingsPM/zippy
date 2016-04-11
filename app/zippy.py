@@ -441,6 +441,8 @@ def main():
         help="IDT order sheet (primer pairs with no status marker)")
     parser_dump.add_argument("--locations", dest="locations", default=False, action="store_true", \
         help="Primer locations")
+    parser_dump.add_argument("--redundancies", dest="redundancies", default=False, action="store_true", \
+        help="Primers with same sequence and tag")
     parser_dump.add_argument("--outfile", dest="outfile", default='', type=str, \
         help="Output file name")
     parser_dump.set_defaults(which='dump')
@@ -479,6 +481,8 @@ def main():
             data,colnames = db.dump('ordersheet', **config['ordersheet'])
         elif options.locations:
             data,colnames = db.dump('locations')
+        elif options.redundancies:
+            data,colnames = db.getRedundantPrimers()
         # format data output
         if options.outfile:
             dump = Data(data,colnames)

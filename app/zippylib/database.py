@@ -33,7 +33,7 @@ class PrimerDB(object):
             cursor.execute('CREATE TABLE IF NOT EXISTS primer(name TEXT, seq TEXT, tag TEXT, tm REAL, gc REAL, vessel INT, well TEXT, dateadded TEXT, FOREIGN KEY(seq) REFERENCES target(seq), UNIQUE (name), UNIQUE (vessel, well));')
             cursor.execute('CREATE TABLE IF NOT EXISTS target(seq TEXT PRIMARY KEY, chrom TEXT, position INT, reverse BOOLEAN, FOREIGN KEY(seq) REFERENCES primer(seq));')
             cursor.execute('CREATE INDEX IF NOT EXISTS seq_index_in_target ON target(seq);')
-            cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT, uniqueid TEXT, left TEXT, right TEXT, chrom TEXT, start INT, end INT, dateadded TEXT, FOREIGN KEY(left) REFERENCES primer(name), FOREIGN KEY(right) REFERENCES primer(name), FOREIGN KEY(pairid, uniqueid) REFERENCES status(pairid, uniqueid) ON DELETE CASCADE, UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);')
+            cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT, uniqueid TEXT, left TEXT, right TEXT, chrom TEXT, start INT, end INT, dateadded TEXT, FOREIGN KEY(left) REFERENCES primer(name) ON UPDATE CASCADE, FOREIGN KEY(right) REFERENCES primer(name) ON UPDATE CASCADE, UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);')
             cursor.execute('CREATE TABLE IF NOT EXISTS blacklist(uniqueid TEXT PRIMARY KEY, blacklistdate TEXT );')
             self.db.commit()
         except:
@@ -201,9 +201,29 @@ class PrimerDB(object):
         except:
             raise
         else:
+            cursor = self.db.cursor()
             cursor.execute('''SELECT DISTINCT name FROM primer
                 WHERE vessel = ? AND well LIKE ?;''', (loc.vessel(),'%'+loc.well()+'%') )
             return [ x[0] for x in cursor.fetchall() ]
+        finally:
+            self.db.close()
+
+    def getRedundantPrimers(self):
+        '''returns redundant primer (same tag and sequence)'''
+        redundant = defaultdict(list)
+        try:
+            self.db = sqlite3.connect(self.sqlite)
+        except:
+            raise
+        else:
+            cursor = self.db.cursor()
+            cursor.execute('''SELECT p1.seq, p1.tag, p1.name
+            FROM primer AS p1 LEFT JOIN primer AS p2 ON p1.seq = p2.seq AND p1.tag = p2.tag
+            GROUP BY p1.name,p1.tag HAVING COUNT(p1.seq) > 1;''')
+            for l in cursor.fetchall():
+                redundant[(l[0],l[1])].append(l[2])
+            # return list of list
+            return [ [k[0], k[1], ','.join(v)] for k,v in redundant.items() ], ['seq','tag','synonyms']
         finally:
             self.db.close()
 
