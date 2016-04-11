@@ -17,7 +17,7 @@ import fnmatch
 import copy
 from collections import defaultdict
 from . import flatten
-from .primer import Primer, Locus, PrimerPair
+from .primer import Primer, Locus, PrimerPair, Location
 
 class PrimerDB(object):
     def __init__(self, database, user='unkown'):
@@ -30,11 +30,10 @@ class PrimerDB(object):
         try:
             # TABLE
             cursor.execute('PRAGMA foreign_keys = ON')
-            cursor.execute('CREATE TABLE IF NOT EXISTS primer(seq TEXT PRIMARY KEY, tm REAL, gc REAL, FOREIGN KEY(seq) REFERENCES target(seq));')
-            cursor.execute('CREATE TABLE IF NOT EXISTS target(seq TEXT, chrom TEXT, position INT, reverse BOOLEAN, FOREIGN KEY(seq) REFERENCES primer(seq));')
-            cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT, uniqueid TEXT, left TEXT, right TEXT, chrom TEXT, start INT, end INT, FOREIGN KEY(left) REFERENCES primer(seq), FOREIGN KEY(right) REFERENCES primer(seq), FOREIGN KEY(pairid, uniqueid) REFERENCES status(pairid, uniqueid) ON DELETE CASCADE, UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);')
-            cursor.execute('CREATE TABLE IF NOT EXISTS status(pairid TEXT NOT NULL, uniqueid TEXT NOT NULL, dateadded TEXT, vessel INT, well TEXT, PRIMARY KEY (pairid, uniqueid) ON CONFLICT REPLACE, UNIQUE (vessel, well));')
+            cursor.execute('CREATE TABLE IF NOT EXISTS primer(name TEXT, seq TEXT, tag TEXT, tm REAL, gc REAL, vessel INT, well TEXT, dateadded TEXT, FOREIGN KEY(seq) REFERENCES target(seq), UNIQUE (name), UNIQUE (seq,tag), UNIQUE (vessel, well));')
+            cursor.execute('CREATE TABLE IF NOT EXISTS target(seq TEXT PRIMARY KEY, chrom TEXT, position INT, reverse BOOLEAN, FOREIGN KEY(seq) REFERENCES primer(seq));')
             cursor.execute('CREATE INDEX IF NOT EXISTS seq_index_in_target ON target(seq);')
+            cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT, uniqueid TEXT, left TEXT, right TEXT, chrom TEXT, start INT, end INT, dateadded TEXT, FOREIGN KEY(left) REFERENCES primer(name), FOREIGN KEY(right) REFERENCES primer(name), FOREIGN KEY(pairid, uniqueid) REFERENCES status(pairid, uniqueid) ON DELETE CASCADE, UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);')
             cursor.execute('CREATE TABLE IF NOT EXISTS blacklist(uniqueid TEXT PRIMARY KEY, blacklistdate TEXT );')
             self.db.commit()
         except:
@@ -57,13 +56,14 @@ class PrimerDB(object):
         else:
             cursor = self.db.cursor()
             cursor.execute('''SELECT DISTINCT
-                p.pairid, p.uniqueid, p.left, p.right, p.chrom, p.start, p.end, s.dateadded
-                FROM pairs as p, status as s
-                WHERE p.pairid = s.pairid AND p.uniqueid = s.uniqueid;''')
+                p.pairid, p.uniqueid, p.left, l.seq, p.right, r.seq, p.chrom, p.start, p.end, p.dateadded
+                FROM pairs as p
+                LEFT JOIN primer as l ON l.name = p.left
+                LEFT JOIN primer as r ON r.name = p.right;''')
             rows = cursor.fetchall()
         finally:
             self.db.close()
-        return "\n".join([ '{:<20} {:40} {:<25} {:<25} {:<8} {:>9d} {:>9d} {}'.format(*row) for row in rows ])
+        return "\n".join([ '{:<20} {:40} {:>20} {:<25} {:>20} {:<25} {:>8} {:>9d} {:>9d} {}'.format(*row) for row in rows ])
 
     '''show/update blacklist'''
     def blacklist(self,add=None):
@@ -93,8 +93,8 @@ class PrimerDB(object):
                     FROM pairs AS p
                     WHERE p.uniqueid = ?;''', (uid,))
                     pairlist += [ x[0] for x in second_cursor.fetchall() ]
-                    # delete all those pairs from status table
-                    second_cursor.execute('''DELETE FROM status
+                    # delete all those pairs from pairs table
+                    second_cursor.execute('''DELETE FROM pairs
                     WHERE uniqueid = ?;''', (uid,))
                     self.db.commit()
                 return pairlist
@@ -113,10 +113,11 @@ class PrimerDB(object):
         except:
             raise
         else:
+            current_time = datetime.datetime.now()
             for p in primers:
                 cursor = self.db.cursor()
-                cursor.execute('''INSERT OR REPLACE INTO primer(seq,tm,gc) VALUES(?,?,?)''', \
-                    (p.seq, p.tm, p.gc))
+                cursor.execute('''INSERT OR REPLACE INTO primer(name,seq,tag,tm,gc,dateadded) VALUES(?,?,?,?,?,?)''', \
+                    (p.name, p.seq, p.tag, p.tm, p.gc, current_time))
                 for l in p.loci:
                     cursor.execute('''INSERT OR REPLACE INTO target(seq,chrom,position,reverse) VALUES(?,?,?,?)''', \
                         (p.seq, l.chrom, l.offset, l.reverse))
@@ -149,10 +150,8 @@ class PrimerDB(object):
                 chrom = left.targetposition.chrom
                 start = left.targetposition.offset
                 end = right.targetposition.offset+right.targetposition.length
-                cursor.execute('''INSERT OR REPLACE INTO pairs(pairid,uniqueid,left,right,chrom,start,end) VALUES(?,?,?,?,?,?,?)''', \
-                    (p.name(), p.uniqueid(), left.seq, right.seq, chrom, start, end))
-                cursor.execute('''INSERT OR IGNORE INTO status(pairid,uniqueid,dateadded) VALUES(?,?,?)''', \
-                    (p.name(), p.uniqueid(), current_time))
+                cursor.execute('''INSERT OR REPLACE INTO pairs(pairid,uniqueid,left,right,chrom,start,end,dateadded) VALUES(?,?,?,?,?,?,?,?)''', \
+                    (p.name, p.uniqueid(), left.name, right.name, chrom, start, end, current_time))
             self.db.commit()
         finally:
             self.db.close()
@@ -166,9 +165,11 @@ class PrimerDB(object):
             raise
         else:
             cursor = self.db.cursor()
-            cursor.execute('''SELECT DISTINCT p.pairid, p.left, p.right, p.chrom, p.start, p.end, s.vessel, s.well,
+            cursor.execute('''SELECT DISTINCT p.pairid, p.left, p.right, p.chrom, p.start, p.end, l.vessel, l.well, r.vessel, r.well,
                 abs(p.start+((p.end-p.start)/2) - ?) as midpointdistance
-                FROM pairs AS p, status AS s
+                FROM pairs AS p
+                LEFT JOIN primer as l ON p.left = l.name
+                LEFT JOIN primer as r ON p.right = r.name
                 WHERE p.pairid = s.pairid AND p.uniqueid = s.uniqueid
                 AND p.chrom = ?
                 AND p.start + length(p.left) <= ?
@@ -190,10 +191,43 @@ class PrimerDB(object):
             rightPrimer = Primer(name+'_right', rightSeq, rightTargetposition)
             leftPrimer.calcProperties()
             rightPrimer.calcProperties()
-            primerPairs.append(PrimerPair([leftPrimer, rightPrimer], location=row[6:8]))
+            primerPairs.append(PrimerPair([leftPrimer, rightPrimer], locations=[Location(row[6:8]),Location(row[8:10])]))
         return primerPairs  # ordered by midpoint distance
 
-    def storePrimer(self,pairid,vessel,well):
+    def getLocation(self,loc):
+        '''returns whats stored at location'''
+        try:
+            self.db = sqlite3.connect(self.sqlite)
+        except:
+            raise
+        else:
+            cursor.execute('''SELECT DISTINCT name FROM primer
+                WHERE vessel = ? AND well LIKE ?;''', (loc.vessel(),'%'+loc.well()+'%') )
+            return [ x[0] for x in cursor.fetchall() ]
+        finally:
+            self.db.close()
+
+    def addLocations(self, *locations):
+        '''updates location for a batch of primers'''
+        try:
+            self.db = sqlite3.connect(self.sqlite)
+        except:
+            raise
+        else:
+            # update
+            try:
+                cursor = self.db.cursor()
+                cursor.executemany('''UPDATE OR IGNORE primer
+                    SET vessel = ?, well = ? WHERE name = ?''', \
+                    ((loc.vessel(), loc.well(), primerid) for primerid, loc in locations))
+                self.db.commit()
+            except:
+                raise
+        finally:
+            self.db.close()
+        return
+
+    def storePrimer(self,primerid,loc):
         '''updates the location in which primer pairs are stored in the status table'''
         try:
             self.db = sqlite3.connect(self.sqlite)
@@ -203,8 +237,8 @@ class PrimerDB(object):
             # update
             try:
                 cursor = self.db.cursor()
-                cursor.execute('''UPDATE OR ABORT status SET vessel = ?, well = ?
-                    WHERE pairid = ?''', (vessel, well, pairid))
+                cursor.execute('''UPDATE OR ABORT primer SET vessel = ?, well = ?
+                    WHERE name = ?''', (loc.vessel(), loc.well(), primerid))
                 self.db.commit()
             except sqlite3.IntegrityError:
                 return False
@@ -213,9 +247,9 @@ class PrimerDB(object):
             # check if updated
             try:
                 cursor.execute('''SELECT DISTINCT vessel, well, pairid
-                    FROM status WHERE pairid = ?;''', (pairid,) )
+                    FROM status WHERE name = ?;''', (primerid,) )
                 rows = cursor.fetchall()
-                assert len(rows)==1 and rows[0][0] == vessel and rows[0][1] == well
+                assert len(rows)==1 and Location(rows[0][0],rows[0][1]) == loc
             except AssertionError:
                 return False
             except:
@@ -243,7 +277,6 @@ class PrimerDB(object):
             return rows, ('chrom','chromStart','chromEnd','name')  # rows and colnames
             # return [ '{}\t{}\t{}\t{}'.format(*row) for row in rows ]
         elif what=='ordersheet':
-            # dump pending orders
             try:
                 self.db = sqlite3.connect(self.sqlite)
             except:
@@ -251,34 +284,45 @@ class PrimerDB(object):
             else:
                 cursor = self.db.cursor()
                 # PAIRS
-                cursor.execute('''SELECT DISTINCT p.pairid, p.left, p.right
-                    FROM pairs AS p, status AS s
-                    WHERE p.pairid = s.pairid AND p.uniqueid = s.uniqueid
-                    AND s.well IS NULL AND s.vessel IS NULL
-                    ORDER BY s.dateadded, p.pairid;''')
+                cursor.execute('''SELECT DISTINCT
+                    pp.pairid AS pairname, l.name AS primername, l.seq AS sequence, l.tag as seqtag, 'fwd' AS direction
+                    FROM pairs AS pp
+                    LEFT JOIN primer as l ON p.left = l.name
+                    WHERE l.well IS NULL AND l.vessel IS NULL
+                    UNION
+                    SELECT DISTINCT
+                    pp.pairid AS pairname, r.name AS primername, r.seq AS sequence, r.tag AS seqtag, 'rev' AS direction
+                    FROM pairs AS pp
+                    LEFT JOIN primer as r ON p.left = r.name
+                    WHERE r.well IS NULL AND r.vessel IS NULL
+                    ORDER BY pairname, direction;''')
                 rows = cursor.fetchall()
             finally:
                 self.db.close()
             # define columns
-            columns = ['name','forward','reverse']
+            columns = ['pairname','primername','sequence','seqtag','direction']
             # add tags and extra columns
-            if "extracolumns" in kwargs.keys():
-                extracolumns = kwargs['extracolumns'].keys()
-                columns += extracolumns
+            if extra:
+                columns += [ c[0] for c in extra ]
                 for i in range(len(rows)):
-                    rows[i] = list(rows[i]) + [ kwargs['extracolumns'][c] for c in extracolumns ]
+                    rows[i] = list(rows[i]) + [ c[1] for c in extra ]
             # add sequence tag
-            if "sequencetags" in kwargs.keys():
+            if tags:
                 for row in rows:
-                    row[1] = kwargs['sequencetags']['left'] + row[1]
-                    row[2] = kwargs['sequencetags']['right'] + row[2]
-            # expand fwd reverse
-            expandedrows = []
-            columns = tuple(columns[:1] + [ 'sequence' ] + columns[3:])
-            for row in rows:
-                expandedrows.append([row[0]+'_fwd', row[1]] + row[3:])
-                expandedrows.append([row[0]+'_rev', row[2]] + row[3:])
-            return expandedrows, columns
+                    # get correct tag
+                    try:
+                        if row[4] == 'fwd':
+                            prepend = tags[row[3]]['tags'][0]
+                        elif row[4] == 'rev':
+                            prepend = tags[row[3]]['tags'][1]
+                        else:
+                            prepend = tags[row[3]]
+                    except:
+                        row[2] = row[3] + '-' + row[2]  # prepend tag sequence
+                    else:
+                        row[2] = prepend + row[2]  # prepend tag sequence
+            # return rows (list of list) and column names (headers)
+            return rows, columns
         elif what=='locations':
             # dump locations (all possible)
             try:
@@ -288,10 +332,14 @@ class PrimerDB(object):
             else:
                 cursor = self.db.cursor()
                 # PAIRS
-                cursor.execute('''SELECT DISTINCT p.pairid, s.vessel, s.well
-                    FROM pairs AS p, status AS s
-                    WHERE p.pairid = s.pairid AND p.uniqueid = s.uniqueid;''')
+                cursor.execute('''SELECT DISTINCT pp.pairid, p.name, p.vessel, p.well
+                        FROM pairs AS pp, primer as p
+                        WHERE pp.left = p.name
+                    UNION
+                    SELECT DISTINCT pp.pairid, p.name, p.vessel, p.well
+                        FROM pairs AS pp, primer as p
+                        WHERE pp.right = p.name;''')
                 rows = cursor.fetchall()
             finally:
                 self.db.close()
-            return rows, ['name','vesel','well']
+            return rows, ['pair','primer','vessel','well']

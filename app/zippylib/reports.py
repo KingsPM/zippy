@@ -271,6 +271,19 @@ class Worksheet(list):
     def count(self,attr,x):
         return len([ e for e in self if getattr(e,attr)==x ])
 
+    '''generates IDT orderlist for primers without assigned storage location'''
+    def orderCsv(self,fi,tags={},extra=[]):
+        # get dump of primers without locations
+        data, colnames = db.dump('ordersheet', **config['ordersheet'])
+        # get list of primerpairs used
+        testPrimerPairs = set([ t.primerpair for t in self ])
+        # filter and write list
+        # ['pairname','primername','sequence','seqtag','direction'] + extras
+        orderLines = ['\t'.join([ x[1], x[2] ] + x[5:]) for x in data if x[0] in testPrimerPairs ]
+        with open(fi,'w') as fh:
+            print >> fh, '\t'.join(colnames)
+            print >> fh, '\n'.join(orderLines)
+
     '''print robot csv, (DestinationPlate,DestinationWell,SampleID,PrimerID)'''
     def robotCsv(self,fi,sep=','):
         with open(fi,'w') as fh:

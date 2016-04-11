@@ -20,47 +20,131 @@ import re
 import sys
 import json
 import tempfile
+import hashlib
 from zippylib.files import VCF, BED, Interval, Data, readTargets, readBatch
-from zippylib.primer import MultiFasta, Primer3, Primer, PrimerPair
+from zippylib.primer import MultiFasta, Primer3, Primer, PrimerPair, Location, parsePrimerName
 from zippylib.database import PrimerDB
 from zippylib import ConfigError, Progressbar, banner
 from zippylib.reports import Worksheet
 from argparse import ArgumentParser
 from collections import defaultdict, Counter
 
-'''reads fasta fastafile, searches genome for targets, decides if valid pairs'''
-def importPrimerPairs(fastafile,config,primer3=True):
-    # read primers (fasta file)
-    primerfile = MultiFasta(fastafile)
+'''file MD5'''
+def fileMD5(fi, block_size=2**20):
+    md5 = hashlib.md5()
+    with open(fi,'rb') as fh:
+        while True:
+            data = fh.read(block_size)
+            if not data:
+                break
+            md5.update(data)
+    return md5.hexdigest()
+
+'''import primer locations from table'''
+def importPrimerLocations(inputfile):
+    primerlocs = {}
+    with open(inputfile) as infh:
+        for i,line in enumerate(infh):
+            if i == 0:
+                header = map(lambda x : x.lower(), line.rstrip().split('\t'))
+            else:
+                l = dict(zip(header,line.rstrip().split('\t')))
+                # store metadata and write fasta
+                if 'vessel' in l.keys() and 'well' in l.keys() and \
+                    l['vessel'] and l['well']:
+                    # store location
+                    loc = Location(l['vessel'],l['well'])
+                    if l['primername'] in primerlocs.keys():
+                        primerlocs[l['primername']].merge(loc)
+                    else:
+                        primerlocs[l['primername']] = loc
+    return primerlocs
+
+'''reads fasta/tab inputfile, searches genome for targets, decides if valid pairs'''
+def importPrimerPairs(inputfile,config,primer3=True):
+    # read table/fasta
+    primersets = defaultdict(list)  # pair primersets
+    primertags = {}  # primer tags from table
+    if not inputfile.split('.')[-1].startswith('fa'):  # ignores duplicate sequence
+        primerseqs = {}
+        fastafile = 'import_' + fileMD5(inputfile)[:8] + '.fasta'
+        with open(fastafile,'w') as outfh:
+            with open(inputfile) as infh:
+                for i,line in enumerate(infh):
+                    if i == 0:
+                        header = map(lambda x : x.lower(), line.rstrip().split('\t'))
+                    else:
+                        l = dict(zip(header,line.rstrip().split('\t')))
+                        # remove tag from sequence
+                        if l['tag']:
+                            try:
+                                tagseqs = config['sequencetags'][l['tag']]['tags']
+                            except:
+                                pass
+                            else:
+                                for t in tagseqs:
+                                    if l['sequence'].startswith(t):
+                                        l['sequence'] = l['sequence'][len(t):]
+                                        break
+                        # store metadata and write fasta
+                        if l['primername'] in primerseqs.keys():
+                            assert l['sequence'] == primerseqs[l['primername']]
+                            assert l['tag'] == primertags[l['primername']]
+                        else:
+                            print >> outfh, '>'+l['primername']
+                            print >> outfh, l['sequence']
+                        if l['primerset']:
+                            primersets[l['primername']].append(l['primerset'])
+                        primertags[l['primername']] = l['tag']
+                        primerseqs[l['primername']] = l['sequence']
+        primerfile = MultiFasta(fastafile)
+    else:
+        primerfile = MultiFasta(inputfile)
+        # set default tags for import
+        for r in primerfile.references:
+            primertags[r] = config['import']['tag']
     print >> sys.stderr, "Placing primers on genome..."
     # Align primers to genome and add Tm/GC
-    primers = primerfile.createPrimers(config['targeting']['bowtieindex'])  # places in genome
-    # add Tm/GC
-    for primer in primers:
-        primer.calcProperties()
-    print >> sys.stderr, "Calculated Tm/GC for {} primers".format(len(primers))
+    primers = primerfile.createPrimers(config['targeting']['bowtieindex'],delete=False,tags=primertags)  # places in genome
+    map(lambda x: x.calcProperties(), primers)  # add Tm/GC
     # pair primers
-    left_suffix, rite_suffix = ['F','f','L','l','5','left'],['R','r','3','right']
     pairs = {}
     for p in primers:
-        # get name and suffix
-        primername, primersuffix = '_'.join(p.name.split('_')[:-1]), p.name.split('_')[-1]
-        try:
-            pairs[primername]
-        except KeyError:
-            pairs[primername] = PrimerPair([None,None])
-        except:
-            raise
-        if primersuffix in left_suffix:
-            pairs[primername][0] = p
-        elif primersuffix in rite_suffix:
-            pairs[primername][1] = p
-        else:
-            raise Exception('PrimerNameError')
+        setnames = primersets[p.name] \
+            if p.name in primersets.keys() and len(primersets[p.name])>0 \
+            else [ parsePrimerName(p.name)[0] ]
+        for setname in setnames:
+            try:
+                pairs[setname]
+            except KeyError:
+                try:
+                    pairs[setname] = PrimerPair([None,None],name=setname)
+                except:
+                    print >> sys.stderr, '>>',primersets[p.name], '|', p.name, '|', setnames, '<'
+                    raise
+            except:
+                raise
+            ## check primer strand while adding (avoid overwriting)
+            try:
+                strand = parsePrimerName(p.name)[1]
+                if strand < 0:
+                    assert pairs[setname][1] is None
+                    pairs[setname][1] = p
+                elif strand > 0:
+                    assert pairs[setname][0] is None
+                    pairs[setname][0] = p
+                else:
+                    print >> sys.stderr, p.name, parsePrimerName(p.name)
+                    raise Exception('PrimerNameError')
+            except:
+                print >> sys.stderr, "ERROR: multiple primers on same strand in %s" % setname
+                raise
 
     # check if any unpaired primers
-    validPairs = [ p for p in pairs.values() if all(p) ]
-    assert len(validPairs) == len(pairs.values())
+    for k,v in pairs.items():
+        if not all(v):
+            print >> sys.stderr, "WARNING: primer set %s is incomplete and skipped" % k
+            del pairs[k]
 
     if primer3:  # prune ranks and read target
         for p in validPairs:
@@ -68,7 +152,7 @@ def importPrimerPairs(fastafile,config,primer3=True):
     else:  # guess target if not set
         acceptedPairs = []
         print >> sys.stderr, 'Identifying correct amplicons for unplaced primer pairs...'
-        for p in validPairs:
+        for p in pairs.values():
             if not p[0].targetposition or not p[1].targetposition:
                 if len(p.amplicons(config['import']['ampliconsize']))==1 or len(p.reverse().amplicons(config['import']['ampliconsize']))==1:
                     amplicons = p.amplicons(config['import']['ampliconsize'])
@@ -78,7 +162,7 @@ def importPrimerPairs(fastafile,config,primer3=True):
                 else:
                     if p.reversed:
                         p.reverse()
-                    print >> sys.stderr, 'WARNING: Primer {} does not produce a single, well-sized amplicon ({},{})'.format(p.name(),len(p[0].loci),len(p[1].loci))
+                    print >> sys.stderr, 'WARNING: Primer set {} does not produce a well-sized, unique amplicon ({},{})'.format(p.name,len(p[0].loci),len(p[1].loci))
                     #print >> sys.stderr, '\tFWD', ','.join([ str(l) for l in p[0].loci ])
                     #print >> sys.stderr, '\tREV', ','.join([ str(l) for l in p[1].loci ])
                     continue
@@ -160,10 +244,10 @@ def getPrimers(intervals, db, design, config):
             intervalprimers = { iv.name: set([ p.uniqueid() for p in ivpairs[iv] ]) for iv in intervals }
             for pair in pairs:
                 passed = 0
-                if pair.uniqueid() not in intervalprimers[pair.name()]:
+                if pair.uniqueid() not in intervalprimers[pair.name]:
                     if pair.check(config['designlimits']):
-                        ivpairs[intervalindex[pair.name()]].append(pair)
-                        intervalprimers[pair.name()].add(pair.uniqueid())
+                        ivpairs[intervalindex[pair.name]].append(pair)
+                        intervalprimers[pair.name].add(pair.uniqueid())
             # print failed primer designs
             for k,v in intervalprimers.items():
                 if len(v)==0:
@@ -261,15 +345,10 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
             print >> sys.stderr, "Writing Test CSV to {}...".format(writtenFiles[-1])
             ws.robotCsv(writtenFiles[-1], sep=',')
             # order list
-            testPrimerPairs = list(set([ l[2] for l in primerTestTable ]))
-            data,colnames = db.dump('ordersheet', **config['ordersheet'])
-            orderLines = ['\t'.join(x) for x in data if x[0][:x[0].rfind('_')] in testPrimerPairs ]
             writtenFiles.append(outfile+'.ordersheet.csv')
             print >> sys.stderr, "Writing primer order list to {}...".format(writtenFiles[-1])
-            with open(writtenFiles[-1],'w') as fh:
-                print >> fh, '\t'.join(colnames)
-                print >> fh, '\n'.join(orderLines)
-
+            ws.orderlist(writtenFiles[-1], tags=config['sequencetags'], \
+                extra=config['ordersheet']['extracolumns'])
         # Batch PCR worksheet
         writtenFiles.append(outfile+'.pdf')
         print >> sys.stderr, "Writing worksheet to {}...".format(writtenFiles[-1])
@@ -277,7 +356,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
         ws.addControls()  # add controls
         ws.fillPlates(size=config['report']['platesize'],randomize=True)
         ws.createWorkSheet(writtenFiles[-1],**config['report'])
-        # validate primer tube labels
+        # validate primer tube labels (checks for hash substring collisions)
         ws.tubeLabels()
         # robot csv
         writtenFiles.append(outfile+'.csv')
@@ -286,17 +365,15 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
 
     return writtenFiles, allMissedIntervals
 
-def updateLocation(location, database):
-    location = location.split(' ')
-    pairid = location[0]
-    vessel = location[1]
-    well = location[2]
-    if database.storePrimer(pairid,int(vessel),well):
-        print >> sys.stderr, 'Primer pair location updated'
-        return '%s location updated to %s : %s' %(pairid, vessel, well)
+def updateLocation(primername, location, database):
+    occupied = database.getLocation(location)
+    if not occupied:
+        if database.storePrimer(primername,location):
+            return '%s location sucessfully set to %s' % (primername, repr(location))
+        else:
+            return 'WARNING: %s location update to %s failed' % (primername, repr(location))
     else:
-        print >> sys.stderr, 'Location already occupied' # Try and include statement of primer pair stored at location
-        return 'Location already occupied'
+        return 'Location already occupied by %s' % (' and '.join(occupied))
 
 
 # ==============================================================================
@@ -374,9 +451,15 @@ def main():
     db = PrimerDB(config['database'])
 
     if options.which=='add':  # read primers and add to database
+        # import primer pairs
         pairs = importPrimerPairs(options.primers, config, primer3=False)  # import and locate primer pairs
         db.addPair(*pairs)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
         sys.stderr.write('Added {} primer pairs to database\n'.format(len(pairs)))
+        # store locations if table
+        if not options.primers.split('.')[-1].startswith('fa'):  # assume table format
+            locations = importPrimerLocations(options.primers)
+            db.addLocations(*locations.items())
+            sys.stderr.write('Added {:2d} locations for imported primers\n'.format(len(locations)))
     elif options.which=='dump':  # data dump fucntions (`for bulk downloads`)
         # dump amplicons fo given size to stdout
         try:
@@ -390,7 +473,7 @@ def main():
         else:
             # get amplicons amplen
             if options.ordersheet:
-                data,colnames = db.dump('ordersheet',size=amplen, **config['ordersheet'])
+                data,colnames = db.dump('ordersheet', **config['ordersheet'])
             else:
                 data,colnames = db.dump('amplicons',size=amplen)
         # format data output
@@ -403,7 +486,8 @@ def main():
                 print '\t'.join(map(str,row))
     elif options.which=='update':  #update location primer pairs are stored
         if options.location:
-            updateLocation(options.location, db)
+            primer, vessel, well = options.location.split(' ')
+            updateLocation(primer, Location(vessel, well), db)
         if options.blacklist:
             db.blacklist(options.blacklist)
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)

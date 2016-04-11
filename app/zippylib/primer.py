@@ -25,17 +25,34 @@ def commonPrefix(left,right,stripchars='-_ ',commonlength=3):
     else:
         return None
 
+'''return -1,0,1'''
+def parsePrimerName(x):
+    left_suffix, rite_suffix = ['f','fwd','L','l','5\'','left'], ['r','rev','3\'','right']
+    if x[0:2] in ['3\'','5\'']:  # prefix case
+        if x.startswith('5'):
+            return (x[2:], 1)
+        elif x.startswith('3'):
+            return (x[2:], -1)
+    else:  # suffix case
+        pre, suf = x[:x.replace('-','_').rfind('_')], x[x.replace('-','_').rfind('_')+1:].lower()
+        if suf in left_suffix or re.match(r'f\d+',suf):
+            return (pre, 1)
+        elif suf in rite_suffix or re.match(r'r\d+',suf):
+            return (pre, -1)
+    return (x,0)
+
 '''just a wrapper for pysam'''
 class MultiFasta(object):
-    def __init__(self,file):
-        self.file = file
+    def __init__(self,fi):
+        self.file = fi
         # check sequence uniqueness
         with pysam.FastaFile(self.file) as fasta:
+            self.references = fasta.references
             if len(set(fasta.references))!=len(fasta.references):
                 print >> sys.stderr, self.file
                 raise Exception('DuplicateSequenceNames')
 
-    def createPrimers(self,db,bowtie='bowtie2'):
+    def createPrimers(self,db,bowtie='bowtie2',delete=True, tags={}):
         # run bowtie (max 1000 alignments, allow for one gap/mismatch?)
         mapfile = self.file+'.sam'
         if not os.path.exists(mapfile):
@@ -56,23 +73,31 @@ class MultiFasta(object):
                 primername = s
                 targetLocus = None
             else:
-                reverse = True if primername.split('_')[-1].startswith("r") else False
+                # guess FWD/REV from NAME and create target locus
+                reverse = True if guessStrandFromName(primername) < 0 else False
                 targetLocus = Locus(reTargetposition.group(1), int(reTargetposition.group(2)), int(reTargetposition.group(3))-int(reTargetposition.group(2)), reverse)
             # create primer (with target locus)
-            primers[primername] = Primer(primername,fasta.fetch(s),targetLocus)
+            primertag = tags[primername] if primername in tags.keys() else None
+            primers[primername] = Primer(primername,fasta.fetch(s),targetLocus,tag=primertag)
 
         # read SAM OUTPUT
         mappings = pysam.Samfile(mapfile,'r')
         for aln in mappings:
+            if aln.is_unmapped:
+                continue
             primername = aln.qname.split('|')[0]
             # add full matching loci
-            if not any(zip(*aln.cigar)[0]): # all matches (full length)
-                primers[primername].addTarget(mappings.getrname(aln.reference_id), aln.pos, aln.is_reverse)
-            # add other significant matches (1 mismatch/gap)
-            elif zip(*aln.cigar)[0].count(0) >= len(aln.seq)-1:
-                primers[primername].sigmatch += 1
-
-        ##os.unlink(self.file+'.sam') # delete mapping FILE
+            try:
+                if not any(zip(*aln.cigar)[0]):  # all matches (full length)
+                    primers[primername].addTarget(mappings.getrname(aln.reference_id), aln.pos, aln.is_reverse)
+                # add other significant matches (1 mismatch/gap)
+                elif zip(*aln.cigar)[0].count(0) >= len(aln.seq)-1:
+                    primers[primername].sigmatch += 1
+            except:
+                print >> sys.stderr, aln
+                raise
+        if delete:
+            os.unlink(self.file+'.sam') # delete mapping FILE
         return primers.values()
 
 
@@ -80,14 +105,48 @@ class MultiFasta(object):
 class BoundExceedError(Exception):
     pass
 
+'''storage location class'''
+class Location(object):
+    def __init__(self, vessel, well):
+        # store vessel
+        try:
+            m = re.search(r'(\d+)',vessel)  # get number from vessel
+            assert m
+        except:
+            raise
+        else:
+            self.vesselnumber = m.group(1)
+        # store wells
+        self.wells = set(well.split(','))
+
+    def __repr__(self):
+        return '|'.join([str(self.vessel()),self.well()])
+
+    def __eq__(self,other):
+        return self.vesselnumber == other.vesselnumber and len(self.wells.symmetric_difference(other.wells)) == 0
+
+    def merge(self,other):
+        try:
+            assert self.vesselnumber == other.vesselnumber
+        except:
+            raise
+        else:
+            self.wells.update(other.wells)
+
+    def vessel(self):
+        return int(self.vesselnumber)
+
+    def well(self):
+        return ','.join(sorted(list(self.wells)))
 
 '''primer pair (list)'''
 class PrimerPair(list):
-    def __init__(self, elements, length=2, location=()):
+    def __init__(self, elements, length=2, locations=[], name=None):
         list.__init__(self, elements)
         self.length = length  # pair of primers by default
         self.reversed = False
-        self.location = location if any(location) else ('','')
+        self.locations = locations
+        self.name = name if name else commonPrefix(self[0].name, self[1].name)  # overrides commonPrefix function
 
     def _check_item_bound(self):
         if self.length and len(self) >= self.length:
@@ -139,9 +198,9 @@ class PrimerPair(list):
         return self.sortvalues() < other.sortvalues()
 
     def __repr__(self):
-        return '{}\t{}\t{}\t{}\t{:.1f}\t{:.1f}\t{}\t{:.1f}\t{:.1f}\t{}\t{}\t{}'.format(self.name(), \
-            self.location[0] if len(self.location)>0 else '',
-            self.location[1] if len(self.location)>1 else '',
+        return '{}\t{}\t{}\t{}\t{:.1f}\t{:.1f}\t{}\t{:.1f}\t{:.1f}\t{}\t{}\t{}'.format(self.name, \
+            repr(self.locations[0]) if len(self.locations)>0 else '',
+            repr(self.locations[1]) if len(self.locations)>1 else '',
             self[0].seq, self[0].tm, self[0].gc, \
             self[1].seq, self[1].tm, self[1].gc, \
             self[0].targetposition.chrom if self[0].targetposition else 'NA',
@@ -158,10 +217,6 @@ class PrimerPair(list):
                     seq=p.seq, snps=str(len(self[0].snp)-threeprimesnps)+'+'+str(threeprimesnps), misprime=len(p.loci)-1)
         return
 
-
-    def name(self):
-        return commonPrefix(self[0].name, self[1].name)
-
     def pruneRanks(self):
         # set and prune ranks from name
         try:
@@ -171,15 +226,14 @@ class PrimerPair(list):
         except:
             raise Exception('RankError')
         else:
-            pairname = self.name()
             ranksuffix = '_'+str(self[0].rank)
             try:
-                assert pairname.endswith(ranksuffix)
+                assert self.name.endswith(ranksuffix)
             except:
                 raise
             else:
-                self[0].name = pairname[:-len(ranksuffix)] + self[0].name[len(pairname):]
-                self[1].name = pairname[:-len(ranksuffix)] + self[1].name[len(pairname):]
+                self[0].name = self.name[:-len(ranksuffix)] + self[0].name[len(self.name):]
+                self[1].name = self.name[:-len(ranksuffix)] + self[1].name[len(self.name):]
         return
 
     def sortvalues(self):
@@ -193,7 +247,7 @@ class PrimerPair(list):
                 if m.chrom == n.chrom:
                     amplen = n.offset + n.length - m.offset
                     if (not sizeRange) or (amplen >= sizeRange[0] and amplen <= sizeRange[1]):
-                        amp = (m, n, Interval(m.chrom,m.offset,n.offset + n.length,self.name()))
+                        amp = (m, n, Interval(m.chrom,m.offset,n.offset + n.length,self.name))
                         amplicons.append(amp)
         return amplicons
 
@@ -225,7 +279,7 @@ class PrimerPair(list):
         return True
 
     def uniqueid(self):
-        return sha1(','.join([self[0].seq,self[1].seq])).hexdigest()
+        return sha1(','.join([str(self[0].tag)+'-'+self[0].seq,str(self[1].tag)+'-'+self[1].seq])).hexdigest()
 
     def __hash__(self):
         return hash(self[0]) ^ hash(self[1])
@@ -233,10 +287,11 @@ class PrimerPair(list):
 
 '''fasta/primer'''
 class Primer(object):
-    def __init__(self,name,seq,targetposition=None,tm=None,gc=None,loci=[]):
+    def __init__(self,name,seq,targetposition=None,tag=None,tm=None,gc=None,loci=[]):
         self.rank = -1
         self.name = name
         self.seq = str(seq.upper())
+        self.tag = tag
         self.tm = tm
         self.gc = gc
         self.loci = []  # genome matches
@@ -248,10 +303,10 @@ class Primer(object):
             pass
 
     def __str__(self):
-        return '<Primer ('+self.name+'):'+self.seq+' Mappings:'+str(len(self.loci))+' Target:'+str(self.targetposition)+'>'
+        return '<Primer ('+self.name+'):'+str(self.tag)+'-'+self.seq+' Mappings:'+str(len(self.loci))+' Target:'+str(self.targetposition)+'>'
 
     def __repr__(self):
-        return '{:<20} {:<24} {:<}'.format(self.name,self.seq,str(self.targetposition))
+        return '{:<20} {:<24} {:<8} {:<}'.format(self.name,self.seq,str(self.tag),str(self.targetposition))
 
     def __len__(self):
         return len(self.seq)

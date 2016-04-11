@@ -28,7 +28,8 @@
         }
     },
     "import": {
-        "ampliconsize": [100,2000]
+        "ampliconsize": [100,2000],
+        "tag": "M13"
     },
     "targeting": {
         "COMMENT":"INDEX FOR ALTERNATIVE AMPLIFICATION TARGETS",
@@ -56,15 +57,20 @@
             "excess": 0.1
         }
     },
-    "ordersheet": {
-        "extracolumns": {
-            "scale": "50nm",
-            "purification": "desalt"
-        },
-        "sequencetags": {
+    "sequencetags" : {
+        "M13": {
             "name": "M13(-21)/M13_pUC",
-            "left": "TGTAAAACGACGGCCAGT",
-            "right": "CAGGAAACAGCTATGACC"
+            "tags": ["TGTAAAACGACGGCCAGT", "CAGGAAACAGCTATGACC"]
+        },
+        "NONE" : {
+            "name": "",
+            "tags": ["", ""]
         }
+    },
+    "ordersheet": {
+        "extracolumns": [
+            ["scale", "50nm"],
+            ["purification", "desalt"]
+        ]
     }
 }
