@@ -106,7 +106,6 @@ def importPrimerPairs(inputfile,config,primer3=True):
     print >> sys.stderr, "Placing primers on genome..."
     # Align primers to genome and add Tm/GC
     primers = primerfile.createPrimers(config['targeting']['bowtieindex'],delete=False,tags=primertags)  # places in genome
-    map(lambda x: x.calcProperties(), primers)  # add Tm/GC
     # pair primers
     pairs = {}
     for p in primers:
@@ -146,7 +145,7 @@ def importPrimerPairs(inputfile,config,primer3=True):
             print >> sys.stderr, "WARNING: primer set %s is incomplete and skipped" % k
             del pairs[k]
 
-    if primer3:  # prune ranks and read target
+    if primer3:  # prune ranks (renames pair)
         for p in pairs.values():
             p.pruneRanks()
         validPairs = pairs.values()

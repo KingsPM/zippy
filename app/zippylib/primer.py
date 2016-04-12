@@ -20,7 +20,7 @@ from .interval import Interval
 
 '''returns common prefix (substring)'''
 def commonPrefix(left,right,stripchars='-_ ',commonlength=3):
-    if all(left,right):
+    if left and right:
         matchingPositions = [ i+1 for i,j in enumerate([ i for i, x in enumerate(zip(left,right)) if len(set(x)) == 1]) if i==j]
         if matchingPositions and max(matchingPositions) >= commonlength:
             return left[:max(matchingPositions)].rstrip(stripchars)
@@ -142,11 +142,10 @@ class Location(object):
 
 '''primer pair (list)'''
 class PrimerPair(list):
-    def __init__(self, elements, length=2, locations=[], name=None):
+    def __init__(self, elements, length=2, name=None):
         list.__init__(self, elements)
         self.length = length  # pair of primers by default
         self.reversed = False
-        self.locations = locations
         self.name = name
         if not name and all(self):
             commonPrefix(self[0].name, self[1].name)
@@ -202,10 +201,10 @@ class PrimerPair(list):
 
     def __repr__(self):
         return '{}\t{}\t{}\t{}\t{:.1f}\t{:.1f}\t{}\t{:.1f}\t{:.1f}\t{}\t{}\t{}'.format(self.name, \
-            repr(self.locations[0]) if len(self.locations)>0 else '',
-            repr(self.locations[1]) if len(self.locations)>1 else '',
-            self[0].seq, self[0].tm, self[0].gc, \
-            self[1].seq, self[1].tm, self[1].gc, \
+            repr(self[0].location) if self[0].location else '',
+            repr(self[1].location) if self[1].location else '',
+            str(self[0].tag)+'-'+self[0].seq, self[0].tm, self[0].gc, \
+            str(self[1].tag)+'-'+self[1].seq, self[1].tm, self[1].gc, \
             self[0].targetposition.chrom if self[0].targetposition else 'NA',
             self[0].targetposition.offset+self[0].targetposition.length if self[0].targetposition else 'NA',
             self[1].targetposition.offset if self[1].targetposition else 'NA')
@@ -237,6 +236,9 @@ class PrimerPair(list):
             else:
                 self[0].name = self.name[:-len(ranksuffix)] + self[0].name[len(self.name):]
                 self[1].name = self.name[:-len(ranksuffix)] + self[1].name[len(self.name):]
+        # update own name if needed
+        if self.name not in self[0].name or self.name not in self[1].name:
+            self.name = commonPrefix(self[0].name, self[1].name)
         return
 
     def sortvalues(self):
@@ -290,18 +292,19 @@ class PrimerPair(list):
 
 '''fasta/primer'''
 class Primer(object):
-    def __init__(self,name,seq,targetposition=None,tag=None,tm=None,gc=None,loci=[]):
+    def __init__(self,name,seq,targetposition=None,tag=None,loci=[],location=None):
         self.rank = -1
         self.name = name
         self.seq = str(seq.upper())
         self.tag = tag
-        self.tm = tm
-        self.gc = gc
+        self.tm = primer3.calcTm(self.seq)
+        self.gc = (self.seq.count('G') + self.seq.count('C')) / float(len(self.seq))
         self.loci = []  # genome matches
         self.snp = []  # same order as loci attribute
         self.meta = {}  # metadata
         self.sigmatch = 0  # significant other matches (just counted)
         self.targetposition = targetposition
+        self.location = location  # storage location
         if loci:
             pass
 
@@ -309,7 +312,8 @@ class Primer(object):
         return '<Primer ('+self.name+'):'+str(self.tag)+'-'+self.seq+' Mappings:'+str(len(self.loci))+' Target:'+str(self.targetposition)+'>'
 
     def __repr__(self):
-        return '{:<20} {:<24} {:<8} {:<}'.format(self.name,self.seq,str(self.tag),str(self.targetposition))
+        return '{:<20}\t{:>}-{:<}\t{:>}\t{:.2f}\t{:.1f}\t{:<}'.format(\
+            self.name, str(self.tag), self.seq, repr(self.location), self.tm, self.gc, str(self.targetposition))
 
     def __len__(self):
         return len(self.seq)
@@ -328,13 +332,6 @@ class Primer(object):
 
     def addTarget(self, chrom, pos, reverse):
         self.loci.append(Locus(chrom,pos,len(self),reverse))
-        return
-
-    def calcProperties(self):
-        # get Tm via primer3
-        self.tm = primer3.calcTm(self.seq)
-        # calc GC
-        self.gc = (self.seq.count('G') + self.seq.count('C')) / float(len(self.seq))
         return
 
     def snpCheckPrimer(self,vcf):
@@ -433,8 +430,6 @@ class Primer3(object):
             # k primername # v dict of metadata
             if 'SEQUENCE' not in designedPrimers.keys():
                 designedPrimers[v['SEQUENCE']] = Primer(k,v['SEQUENCE'])
-                designedPrimers[v['SEQUENCE']].calcProperties()
-
                 m = re.search(r'(\d+)_(LEFT|RIGHT)',k)
                 # store pairs (reference primers)
                 if int(m.group(1)) not in designedPairs.keys():

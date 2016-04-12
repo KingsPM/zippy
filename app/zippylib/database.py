@@ -187,7 +187,8 @@ class PrimerDB(object):
             raise
         else:
             cursor = self.db.cursor()
-            cursor.execute('''SELECT DISTINCT p.pairid, p.left, p.right, p.chrom, p.start, p.end, l.vessel, l.well, r.vessel, r.well,
+            cursor.execute('''SELECT DISTINCT p.pairid, l.tag, r.tag, l.seq, r.seq, p.left, p.right,
+                p.chrom, p.start, p.end, l.vessel, l.well, r.vessel, r.well,
                 abs(p.start+((p.end-p.start)/2) - ?) as midpointdistance
                 FROM pairs AS p
                 LEFT JOIN primer as l ON p.left = l.name
@@ -203,16 +204,17 @@ class PrimerDB(object):
         # return primer pairs that would match
         primerPairs = []
         for row in rows:
-            name = row[0]
-            leftSeq = row[1]
-            rightSeq = row[2]
-            leftTargetposition = Locus(row[3], row[4], len(row[1]), False)
-            rightTargetposition = Locus(row[3], row[5]-len(row[2]), len(row[2]), True)
-            leftPrimer = Primer(name+'_left', leftSeq, leftTargetposition)
-            rightPrimer = Primer(name+'_right', rightSeq, rightTargetposition)
-            leftPrimer.calcProperties()
-            rightPrimer.calcProperties()
-            primerPairs.append(PrimerPair([leftPrimer, rightPrimer], locations=[Location(row[6:8]),Location(row[8:10])]))
+            # build targets
+            leftTargetposition = Locus(row[7], row[8], len(row[3]), False)
+            rightTargetposition = Locus(row[7], row[9]-len(row[4]), len(row[4]), True)
+            # build storage locations (if available)
+            leftLocation = Location(*row[10:12]) if all(row[10:12]) else Location('100','Z9')
+            rightLocation = Location(*row[12:14]) if all(row[12:14]) else None
+            # Build primers
+            leftPrimer = Primer(row[5], row[3], targetposition=leftTargetposition, tag=row[1], location=leftLocation)
+            rightPrimer = Primer(row[6], row[4], targetposition=rightTargetposition, tag=row[2], location=rightLocation)
+            # Build pair
+            primerPairs.append(PrimerPair([leftPrimer, rightPrimer],name=row[0]))
         return primerPairs  # ordered by midpoint distance
 
     def getLocation(self,loc):
