@@ -367,7 +367,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
         print >> sys.stderr, "Writing robot CSV to {}...".format(writtenFiles[-1])
         ws.robotCsv(writtenFiles[-1], sep=',')
 
-    return writtenFiles, allMissedIntervals
+    return
 
 def updateLocation(primername, location, database):
     occupied = database.getLocation(location)
@@ -423,8 +423,8 @@ def main():
     parser_batch = subparsers.add_parser('batch', help='Batch design primers for sample list')
     parser_batch.add_argument("targets", default=None, metavar="SNPpy result table", \
         help="SNPpy result table")
-    parser_batch.add_argument("--design", dest="design", default=True, action="store_true", \
-        help="Design primers if not in database [TRUE]")
+    parser_batch.add_argument("--nodesign", dest="design", default=True, action="store_false", \
+        help="Skip primer design if not in database [FALSE]")
     parser_batch.add_argument("--outfile", dest="outfile", default='', type=str, \
         help="Create worksheet PDF, order and robot CSV")
     parser_batch.set_defaults(which='batch')
@@ -505,7 +505,7 @@ def main():
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
         zippyPrimerQuery(config, options.targets, options.design, options.outfile, db, options.store)
     elif options.which=='batch':
-        print zippyBatchQuery(config, options.targets, True, options.outfile, db)
+        zippyBatchQuery(config, options.targets, options.design, options.outfile, db)
 
 if __name__=="__main__":
     main()

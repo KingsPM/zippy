@@ -33,7 +33,7 @@ class PrimerDB(object):
             cursor.execute('CREATE TABLE IF NOT EXISTS primer(name TEXT, seq TEXT, tag TEXT, tm REAL, gc REAL, vessel INT, well TEXT, dateadded TEXT, FOREIGN KEY(seq) REFERENCES target(seq), UNIQUE (name), UNIQUE (vessel, well));')
             cursor.execute('CREATE TABLE IF NOT EXISTS target(seq TEXT PRIMARY KEY, chrom TEXT, position INT, reverse BOOLEAN, FOREIGN KEY(seq) REFERENCES primer(seq));')
             cursor.execute('CREATE INDEX IF NOT EXISTS seq_index_in_target ON target(seq);')
-            cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT, uniqueid TEXT, left TEXT, right TEXT, chrom TEXT, start INT, end INT, dateadded TEXT, FOREIGN KEY(left) REFERENCES primer(name) ON UPDATE CASCADE, FOREIGN KEY(right) REFERENCES primer(name) ON UPDATE CASCADE, UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);')
+            cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT PRIMARY KEY, uniqueid TEXT, left TEXT, right TEXT, chrom TEXT, start INT, end INT, dateadded TEXT, FOREIGN KEY(left) REFERENCES primer(name) ON UPDATE CASCADE, FOREIGN KEY(right) REFERENCES primer(name) ON UPDATE CASCADE, UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);')
             cursor.execute('CREATE TABLE IF NOT EXISTS blacklist(uniqueid TEXT PRIMARY KEY, blacklistdate TEXT );')
             self.db.commit()
         except:
@@ -194,8 +194,8 @@ class PrimerDB(object):
                 LEFT JOIN primer as l ON p.left = l.name
                 LEFT JOIN primer as r ON p.right = r.name
                 WHERE p.chrom = ?
-                AND p.start + length(p.left) <= ?
-                AND p.end - length(p.right) >= ?
+                AND p.start + length(l.seq) <= ?
+                AND p.end - length(r.seq) >= ?
                 ORDER BY midpointdistance;''', \
                 (int(variant.chromStart+int(variant.chromEnd-variant.chromStart)/2.0), variant.chrom, variant.chromStart, variant.chromEnd))
             rows = cursor.fetchall()
@@ -208,7 +208,7 @@ class PrimerDB(object):
             leftTargetposition = Locus(row[7], row[8], len(row[3]), False)
             rightTargetposition = Locus(row[7], row[9]-len(row[4]), len(row[4]), True)
             # build storage locations (if available)
-            leftLocation = Location(*row[10:12]) if all(row[10:12]) else Location('100','Z9')
+            leftLocation = Location(*row[10:12]) if all(row[10:12]) else None
             rightLocation = Location(*row[12:14]) if all(row[12:14]) else None
             # Build primers
             leftPrimer = Primer(row[5], row[3], targetposition=leftTargetposition, tag=row[1], location=leftLocation)

@@ -119,6 +119,10 @@ class Location(object):
             self.vesselnumber = m.group(1)
         # store wells
         self.wells = set(well.split(','))
+        try:
+            assert all(map(lambda x: re.match(r'\w\d',x),list(self.wells)))
+        except:
+            raise Exception('InvalidWell')
 
     def __repr__(self):
         return '|'.join([str(self.vessel()),self.well()])

@@ -22,6 +22,9 @@ class Interval(object):
         self.subintervals = IntervalList([])
         return
 
+    def midpoint(self):
+        return int(self.chromStart + (self.chromEnd - self.chromStart)/2.0)
+
     def locus(self):
         '''returns interval of variant'''
         return ( self.chrom, self.chromStart, self.chromEnd )
