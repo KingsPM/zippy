@@ -105,7 +105,7 @@ def importPrimerPairs(inputfile,config,primer3=True):
             primertags[r] = config['import']['tag']
     print >> sys.stderr, "Placing primers on genome..."
     # Align primers to genome and add Tm/GC
-    primers = primerfile.createPrimers(config['targeting']['bowtieindex'],delete=False,tags=primertags)  # places in genome
+    primers = primerfile.createPrimers(config['design']['bowtieindex'],delete=False,tags=primertags)  # places in genome
     # pair primers
     pairs = {}
     for p in primers:
@@ -198,8 +198,8 @@ def getPrimers(intervals, db, design, config):
         for i,iv in enumerate(intervals):
             sys.stderr.write('\r'+progress.show(i))
             if iv not in ivpairs.keys() or config['report']['pairs']>len(ivpairs[iv]):  # not in database or not enough primer pairs for interval
-                p3 = Primer3(config['primer3']['genome'], iv.locus(), 300)  # genome and target region (plusminus)
-                p3.design(iv.name, config['primer3']['settings'])
+                p3 = Primer3(config['design']['genome'], iv.locus(), 300)  # genome and target region (plusminus)
+                p3.design(iv.name, config['design']['primer3'])
                 if p3.pairs:
                     designedPairs[iv] = p3.pairs
                 else:
@@ -239,25 +239,19 @@ def getPrimers(intervals, db, design, config):
                     p.snpCheckPrimer(config['snpcheck']['common'])
             sys.stderr.write('\r'+progress.show(len(pairs))+'\n')
 
-            # assign designed primer pairs to intervals (and remove ranks)
+            # assign designed primer pairs to intervals (remove ranks and tag)
             intervalindex = { iv.name: iv for iv in intervals }
             intervalprimers = { iv.name: set([ p.uniqueid() for p in ivpairs[iv] ]) for iv in intervals }
             for pair in pairs:
                 passed = 0
-                try:
-                    if pair.uniqueid() not in intervalprimers[pair.name]:
-                        if pair.check(config['designlimits']):
-                            ivpairs[intervalindex[pair.name]].append(pair)
-                            intervalprimers[pair.name].add(pair.uniqueid())
-                except:
-                    print >> sys.stderr, intervalprimers.keys()
-                    for k,v in intervalprimers.items():
-                        print >> sys.stderr, k, v
-                    print >> sys.stderr, intervalindex
-                    print >> sys.stderr, intervalprimers
-                    print >> sys.stderr, ivpairs
-                    print >> sys.stderr, pairs
-                    raise
+                if pair.uniqueid() not in intervalprimers[pair.name]:
+                    if pair.check(config['designlimits']):
+                        # add default tag
+                        for primer in pair:
+                            primer.tag = config['design']['tag']
+                        # assign to interval
+                        ivpairs[intervalindex[pair.name]].append(pair)
+                        intervalprimers[pair.name].add(pair.uniqueid())
             # print failed primer designs
             for k,v in intervalprimers.items():
                 if len(v)==0:
