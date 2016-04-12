@@ -147,8 +147,9 @@ def importPrimerPairs(inputfile,config,primer3=True):
             del pairs[k]
 
     if primer3:  # prune ranks and read target
-        for p in validPairs:
+        for p in pairs.values():
             p.pruneRanks()
+        validPairs = pairs.values()
     else:  # guess target if not set
         acceptedPairs = []
         print >> sys.stderr, 'Identifying correct amplicons for unplaced primer pairs...'
@@ -244,10 +245,20 @@ def getPrimers(intervals, db, design, config):
             intervalprimers = { iv.name: set([ p.uniqueid() for p in ivpairs[iv] ]) for iv in intervals }
             for pair in pairs:
                 passed = 0
-                if pair.uniqueid() not in intervalprimers[pair.name]:
-                    if pair.check(config['designlimits']):
-                        ivpairs[intervalindex[pair.name]].append(pair)
-                        intervalprimers[pair.name].add(pair.uniqueid())
+                try:
+                    if pair.uniqueid() not in intervalprimers[pair.name]:
+                        if pair.check(config['designlimits']):
+                            ivpairs[intervalindex[pair.name]].append(pair)
+                            intervalprimers[pair.name].add(pair.uniqueid())
+                except:
+                    print >> sys.stderr, intervalprimers.keys()
+                    for k,v in intervalprimers.items():
+                        print >> sys.stderr, k, v
+                    print >> sys.stderr, intervalindex
+                    print >> sys.stderr, intervalprimers
+                    print >> sys.stderr, ivpairs
+                    print >> sys.stderr, pairs
+                    raise
             # print failed primer designs
             for k,v in intervalprimers.items():
                 if len(v)==0:
@@ -496,8 +507,8 @@ def main():
             primer, vessel, well = options.location
             print >> sys.stderr, updateLocation(primer, Location(vessel, well), db)
         if options.blacklist:
-            db.blacklist(options.blacklist)
-            db.removeOrphans()
+            print >> sys.stderr, 'BLACKLISTED PAIRS: {}'.format(','.join(db.blacklist(options.blacklist)))
+            print >> sys.stderr, 'REMOVED ORPHANS:   {}'.format(','.join(db.removeOrphans()))
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
         zippyPrimerQuery(config, options.targets, options.design, options.outfile, db, options.store)
     elif options.which=='batch':

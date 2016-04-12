@@ -20,11 +20,11 @@ from .interval import Interval
 
 '''returns common prefix (substring)'''
 def commonPrefix(left,right,stripchars='-_ ',commonlength=3):
-    matchingPositions = [ i+1 for i,j in enumerate([ i for i, x in enumerate(zip(left,right)) if len(set(x)) == 1]) if i==j]
-    if matchingPositions and max(matchingPositions) >= commonlength:
-        return left[:max(matchingPositions)].rstrip(stripchars)
-    else:
-        return None
+    if all(left,right):
+        matchingPositions = [ i+1 for i,j in enumerate([ i for i, x in enumerate(zip(left,right)) if len(set(x)) == 1]) if i==j]
+        if matchingPositions and max(matchingPositions) >= commonlength:
+            return left[:max(matchingPositions)].rstrip(stripchars)
+    return None
 
 '''return -1,0,1'''
 def parsePrimerName(x):
@@ -75,7 +75,7 @@ class MultiFasta(object):
                 targetLocus = None
             else:
                 # guess FWD/REV from NAME and create target locus
-                reverse = True if guessStrandFromName(primername) < 0 else False
+                reverse = True if parsePrimerName(primername)[1] < 0 else False
                 targetLocus = Locus(reTargetposition.group(1), int(reTargetposition.group(2)), int(reTargetposition.group(3))-int(reTargetposition.group(2)), reverse)
             # create primer (with target locus)
             primertag = tags[primername] if primername in tags.keys() else None
@@ -147,7 +147,9 @@ class PrimerPair(list):
         self.length = length  # pair of primers by default
         self.reversed = False
         self.locations = locations
-        self.name = name if name else commonPrefix(self[0].name, self[1].name)  # overrides commonPrefix function
+        self.name = name
+        if not name and all(self):
+            commonPrefix(self[0].name, self[1].name)
 
     def _check_item_bound(self):
         if self.length and len(self) >= self.length:

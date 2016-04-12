@@ -192,8 +192,7 @@ class PrimerDB(object):
                 FROM pairs AS p
                 LEFT JOIN primer as l ON p.left = l.name
                 LEFT JOIN primer as r ON p.right = r.name
-                WHERE p.pairid = s.pairid AND p.uniqueid = s.uniqueid
-                AND p.chrom = ?
+                WHERE p.chrom = ?
                 AND p.start + length(p.left) <= ?
                 AND p.end - length(p.right) >= ?
                 ORDER BY midpointdistance;''', \
