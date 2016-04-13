@@ -23,6 +23,7 @@ import tempfile
 import hashlib
 from zippylib.files import VCF, BED, Interval, Data, readTargets, readBatch
 from zippylib.primer import MultiFasta, Primer3, Primer, PrimerPair, Location, parsePrimerName
+from zippylib.reports import Test
 from zippylib.database import PrimerDB
 from zippylib import ConfigError, Progressbar, banner
 from zippylib.reports import Worksheet
@@ -278,7 +279,7 @@ def getPrimers(intervals, db, design, config):
             resultList.append(p)
             if p.designrank() >= 0:
                 p.log(config['logfile'])
-            primerTable.append([iv.name] + repr(p).split('\t'))
+            primerTable.append([iv.name] + str(p).split('\t'))
     return primerTable, resultList, missedIntervals
 
 # ==============================================================================
@@ -373,9 +374,9 @@ def updateLocation(primername, location, database):
     occupied = database.getLocation(location)
     if not occupied:
         if database.storePrimer(primername,location):
-            return '%s location sucessfully set to %s' % (primername, repr(location))
+            return '%s location sucessfully set to %s' % (primername, str(location))
         else:
-            return 'WARNING: %s location update to %s failed' % (primername, repr(location))
+            return 'WARNING: %s location update to %s failed' % (primername, str(location))
     else:
         return 'Location already occupied by %s' % (' and '.join(occupied))
 

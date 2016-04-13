@@ -111,7 +111,7 @@ class Location(object):
     def __init__(self, vessel, well):
         # store vessel
         try:
-            m = re.search(r'(\d+)',vessel)  # get number from vessel
+            m = re.search(r'(\d+)',str(vessel))  # get number from vessel
             assert m
         except:
             raise
@@ -125,6 +125,9 @@ class Location(object):
             raise Exception('InvalidWell')
 
     def __repr__(self):
+        return "%s(%r)" % (self.__class__, self.__dict__)
+
+    def __str__(self):
         return '|'.join([str(self.vessel()),self.well()])
 
     def __eq__(self,other):
@@ -204,14 +207,20 @@ class PrimerPair(list):
         return self.sortvalues() < other.sortvalues()
 
     def __repr__(self):
+        return "%s(%r)" % (self.__class__, self.__dict__)
+
+    def __str__(self):
         return '{}\t{}\t{}\t{}\t{:.1f}\t{:.1f}\t{}\t{:.1f}\t{:.1f}\t{}\t{}\t{}'.format(self.name, \
-            repr(self[0].location) if self[0].location else '',
-            repr(self[1].location) if self[1].location else '',
+            str(self[0].location) if self[0].location else '',
+            str(self[1].location) if self[1].location else '',
             str(self[0].tag)+'-'+self[0].seq, self[0].tm, self[0].gc, \
             str(self[1].tag)+'-'+self[1].seq, self[1].tm, self[1].gc, \
             self[0].targetposition.chrom if self[0].targetposition else 'NA',
             self[0].targetposition.offset+self[0].targetposition.length if self[0].targetposition else 'NA',
             self[1].targetposition.offset if self[1].targetposition else 'NA')
+
+    def locations(self):
+        return [ str(self[0].location) if self[0] else None, str(self[1].location) if self[1] else None ]
 
     def log(self,logfile):
         timestamp = datetime.datetime.now().isoformat()
@@ -312,12 +321,13 @@ class Primer(object):
         if loci:
             pass
 
-    def __str__(self):
-        return '<Primer ('+self.name+'):'+str(self.tag)+'-'+self.seq+' Mappings:'+str(len(self.loci))+' Target:'+str(self.targetposition)+'>'
-
     def __repr__(self):
+        return '<Primer ('+self.name+'):'+str(self.tag)+'-'+self.seq+' Mappings:'+str(len(self.loci))+' Target:'+str(self.targetposition)+'>'
+        #return "%s(%r)" % (self.__class__, self.__dict__)
+
+    def __str__(self):
         return '{:<20}\t{:>}-{:<}\t{:>}\t{:.2f}\t{:.1f}\t{:<}'.format(\
-            self.name, str(self.tag), self.seq, repr(self.location), self.tm, self.gc, str(self.targetposition))
+            self.name, str(self.tag), self.seq, str(self.location), self.tm, self.gc, str(self.targetposition))
 
     def __len__(self):
         return len(self.seq)
