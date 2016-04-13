@@ -29,12 +29,19 @@ class PrimerDB(object):
         cursor = self.db.cursor()
         try:
             # TABLE
-            cursor.execute('PRAGMA foreign_keys = ON')
-            cursor.execute('CREATE TABLE IF NOT EXISTS primer(name TEXT, seq TEXT, tag TEXT, tm REAL, gc REAL, vessel INT, well TEXT, dateadded TEXT, FOREIGN KEY(seq) REFERENCES target(seq), UNIQUE (name), UNIQUE (vessel, well));')
-            cursor.execute('CREATE TABLE IF NOT EXISTS target(seq TEXT PRIMARY KEY, chrom TEXT, position INT, reverse BOOLEAN, FOREIGN KEY(seq) REFERENCES primer(seq));')
-            cursor.execute('CREATE INDEX IF NOT EXISTS seq_index_in_target ON target(seq);')
-            cursor.execute('CREATE TABLE IF NOT EXISTS pairs(pairid TEXT PRIMARY KEY, uniqueid TEXT, left TEXT, right TEXT, chrom TEXT, start INT, end INT, dateadded TEXT, FOREIGN KEY(left) REFERENCES primer(name) ON UPDATE CASCADE, FOREIGN KEY(right) REFERENCES primer(name) ON UPDATE CASCADE, UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);')
-            cursor.execute('CREATE TABLE IF NOT EXISTS blacklist(uniqueid TEXT PRIMARY KEY, blacklistdate TEXT );')
+            cursor.execute('''PRAGMA foreign_keys = ON''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS primer(name TEXT, seq TEXT, tag TEXT, tm REAL, gc REAL, vessel INT, well TEXT, dateadded TEXT,
+                FOREIGN KEY(seq) REFERENCES target(seq),
+                UNIQUE (name,seq,tag),
+                UNIQUE (vessel, well));''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS pairs(pairid TEXT PRIMARY KEY, uniqueid TEXT, left TEXT, right TEXT, chrom TEXT, start INT, end INT, dateadded TEXT,
+                FOREIGN KEY(left) REFERENCES primer(name) ON UPDATE CASCADE,
+                FOREIGN KEY(right) REFERENCES primer(name) ON UPDATE CASCADE,
+                UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS target(seq TEXT PRIMARY KEY, chrom TEXT, position INT, reverse BOOLEAN,
+                FOREIGN KEY(seq) REFERENCES primer(seq));''')
+            cursor.execute('''CREATE INDEX IF NOT EXISTS seq_index_in_target ON target(seq);''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS blacklist(uniqueid TEXT PRIMARY KEY, blacklistdate TEXT);''')
             self.db.commit()
         except:
             print >> sys.stderr, self.sqlite
@@ -138,10 +145,10 @@ class PrimerDB(object):
             current_time = datetime.datetime.now()
             for p in primers:
                 cursor = self.db.cursor()
-                cursor.execute('''INSERT OR REPLACE INTO primer(name,seq,tag,tm,gc,dateadded) VALUES(?,?,?,?,?,?)''', \
+                cursor.execute('''INSERT OR IGNORE INTO primer(name,seq,tag,tm,gc,dateadded) VALUES(?,?,?,?,?,?)''', \
                     (p.name, p.seq, p.tag, p.tm, p.gc, current_time))
                 for l in p.loci:
-                    cursor.execute('''INSERT OR REPLACE INTO target(seq,chrom,position,reverse) VALUES(?,?,?,?)''', \
+                    cursor.execute('''INSERT OR IGNORE INTO target(seq,chrom,position,reverse) VALUES(?,?,?,?)''', \
                         (p.seq, l.chrom, l.offset, l.reverse))
             self.db.commit()
         finally:
