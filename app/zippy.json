@@ -64,10 +64,6 @@
             "M13": {
                 "name": "M13(-21)/M13_pUC",
                 "tags": ["TGTAAAACGACGGCCAGT", "CAGGAAACAGCTATGACC"]
-            },
-            "NONE" : {
-                "name": "",
-                "tags": ["", ""]
             }
         }
     }

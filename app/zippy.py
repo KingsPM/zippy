@@ -107,7 +107,7 @@ def importPrimerPairs(inputfile,config,primer3=True):
     print >> sys.stderr, "Placing primers on genome..."
     # Align primers to genome and add Tm/GC
     primers = primerfile.createPrimers(config['design']['bowtieindex'],delete=False,tags=primertags)  # places in genome
-    # pair primers
+    # pair primers (by name or by primerset)
     pairs = {}
     for p in primers:
         setnames = primersets[p.name] \
@@ -139,7 +139,6 @@ def importPrimerPairs(inputfile,config,primer3=True):
             except:
                 print >> sys.stderr, "ERROR: multiple primers on same strand in %s" % setname
                 raise
-
     # check if any unpaired primers
     for k,v in pairs.items():
         if not all(v):
@@ -207,13 +206,13 @@ def getPrimers(intervals, db, design, config):
                     print >> sys.stderr, '\n' +'\n'.join(p3.explain)
         sys.stderr.write('\r'+progress.show(len(intervals))+'\n')
 
+        ## import designed primer pairs
         if designedPairs:
-            ## place primer pairs
             with tempfile.NamedTemporaryFile(suffix='.fa',prefix="primers_",delete=False) as fh:
                 for k,v in designedPairs.items():
                     for pairnumber, pair in enumerate(v):
-                        print >> fh, pair[0].fasta('_'.join([ k.name, str(pairnumber), "left" ]))
-                        print >> fh, pair[1].fasta('_'.join([ k.name, str(pairnumber), "right" ]))
+                        print >> fh, pair[0].fasta('_'.join([ k.name, str(pairnumber), 'rev' if k.strand < 0 else 'fwd' ]))
+                        print >> fh, pair[1].fasta('_'.join([ k.name, str(pairnumber), 'fwd' if k.strand < 0 else 'rev' ]))
             pairs = importPrimerPairs(fh.name, config, primer3=True)
             os.unlink(fh.name)  # remove fasta file
 
@@ -311,6 +310,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
     # for each sample design
     primerTableConcat = []
     allMissedIntervals = []
+    tests = []  # tests to run
     for sample, intervals in sorted(sampleVariants.items(),key=lambda x: x[0]):
         print >> sys.stderr, "Getting primers for {} variants in sample {}".format(len(intervals),sample)
         # get/design primers
@@ -321,6 +321,9 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
         # store primers
         if db:
             db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
+        # Build Tests
+        for primerpair in resultList:
+            tests.append(Test(primerpair,sample))
     ## print primerTable
     writtenFiles = []
     if not outfile:
@@ -332,19 +335,17 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
         with open(writtenFiles[-1],'w') as fh:
             print >> fh, '\n'.join([ '\t'.join(l) for l in primerTableConcat ])
         # Primer Test Worksheet
-        primerTestTable = [ x for x in primerTableConcat if not all(x[3:5]) ]
-        if primerTestTable:
+        print tests[0].primerpairobject.locations()
+        print str(tests[0])
+        primerTests = [ t for t in tests if not any(t.primerpairobject.locations()) ]
+        if primerTests:
             writtenFiles.append(outfile+'.primertest.pdf')
             print >> sys.stderr, "Writing Test Worksheet to {}...".format(writtenFiles[-1])
-            ws = Worksheet(primerTestTable,name="Primer Test PCR")  # load worksheet
+            ws = Worksheet(primerTests,name="Primer Test PCR")  # load worksheet
             ws.addControls(control='Normal')  # add positive controls
             ws.fillPlates(size=config['report']['platesize'],randomize=True,\
                 includeSamples=False, includeControls=True)  # only include controls
-            ws.createWorkSheet(writtenFiles[-1],**config['report'])
-            # tube labels
-            writtenFiles.append(outfile+'.tubelabels.txt')
-            print >> sys.stderr, "Writing tube labels to {}...".format(writtenFiles[-1])
-            ws.tubeLabels(writtenFiles[-1],meta=config['ordersheet']['sequencetags']['name'])
+            ws.createWorkSheet(writtenFiles[-1], primertest=True, **config['report'])
             # robot csv
             writtenFiles.append(outfile+'.primertest.csv')
             print >> sys.stderr, "Writing Test CSV to {}...".format(writtenFiles[-1])
@@ -352,12 +353,11 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
             # order list
             writtenFiles.append(outfile+'.ordersheet.csv')
             print >> sys.stderr, "Writing primer order list to {}...".format(writtenFiles[-1])
-            ws.orderlist(writtenFiles[-1], tags=config['ordersheet']['sequencetags'], \
-                extra=config['ordersheet']['extracolumns'])
+            ws.orderCsv(writtenFiles[-1], config=config['ordersheet'])
         # Batch PCR worksheet
         writtenFiles.append(outfile+'.pdf')
         print >> sys.stderr, "Writing worksheet to {}...".format(writtenFiles[-1])
-        ws = Worksheet(primerTableConcat,name='Validation batch PCR')  # load worksheet
+        ws = Worksheet(tests,name='Validation batch PCR')  # load worksheet
         ws.addControls()  # add controls
         ws.fillPlates(size=config['report']['platesize'],randomize=True)
         ws.createWorkSheet(writtenFiles[-1],**config['report'])
@@ -367,7 +367,10 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
         writtenFiles.append(outfile+'.csv')
         print >> sys.stderr, "Writing robot CSV to {}...".format(writtenFiles[-1])
         ws.robotCsv(writtenFiles[-1], sep=',')
-
+        # tube labels
+        writtenFiles.append(outfile+'.tubelabels.txt')
+        print >> sys.stderr, "Writing tube labels to {}...".format(writtenFiles[-1])
+        ws.tubeLabels(writtenFiles[-1],tags=config['ordersheet']['sequencetags'])
     return
 
 def updateLocation(primername, location, database):

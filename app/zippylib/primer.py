@@ -17,7 +17,6 @@ import subprocess
 from collections import defaultdict, OrderedDict
 from .interval import Interval
 
-
 '''returns common prefix (substring)'''
 def commonPrefix(left,right,stripchars='-_ ',commonlength=3):
     if left and right:
@@ -28,7 +27,7 @@ def commonPrefix(left,right,stripchars='-_ ',commonlength=3):
 
 '''return -1,0,1'''
 def parsePrimerName(x):
-    left_suffix, rite_suffix = ['f','fwd','L','l','5\'','left'], ['r','rev','3\'','right']
+    fwd_suffix, rev_suffix = ['f','fwd','5\''], ['r','rev','3\'']
     if x[0:2] in ['3\'','5\'']:  # prefix case
         if x.startswith('5'):
             return (x[2:], 1)
@@ -36,9 +35,9 @@ def parsePrimerName(x):
             return (x[2:], -1)
     else:  # suffix case
         pre, suf = x[:x.replace('-','_').rfind('_')], x[x.replace('-','_').rfind('_')+1:].lower()
-        if suf in left_suffix or re.match(r'f\d+',suf):
+        if suf in fwd_suffix or re.match(r'f\d+',suf):
             return (pre, 1)
-        elif suf in rite_suffix or re.match(r'r\d+',suf):
+        elif suf in rev_suffix or re.match(r'r\d+',suf):
             return (pre, -1)
     return (x,0)
 
@@ -101,7 +100,6 @@ class MultiFasta(object):
             os.unlink(self.file+'.sam') # delete mapping FILE
         return primers.values()
 
-
 '''Boundary exceeded exception (max list size)'''
 class BoundExceedError(Exception):
     pass
@@ -128,9 +126,11 @@ class Location(object):
         return "%s(%r)" % (self.__class__, self.__dict__)
 
     def __str__(self):
-        return '|'.join([str(self.vessel()),self.well()])
+        return '-'.join([str(self.vessel()),self.well()])
 
     def __eq__(self,other):
+        if other is None:
+            return False
         return self.vesselnumber == other.vesselnumber and len(self.wells.symmetric_difference(other.wells)) == 0
 
     def merge(self,other):
@@ -149,10 +149,10 @@ class Location(object):
 
 '''primer pair (list)'''
 class PrimerPair(list):
-    def __init__(self, elements, length=2, name=None):
+    def __init__(self, elements, length=2, name=None, reverse=False):
         list.__init__(self, elements)
         self.length = length  # pair of primers by default
-        self.reversed = False
+        self.reversed = reverse
         self.name = name
         if not name and all(self):
             commonPrefix(self[0].name, self[1].name)
@@ -167,7 +167,7 @@ class PrimerPair(list):
 
     def reverse(self):
         super(PrimerPair, self).reverse()
-        self.reversed =  not self.reversed
+        self.reversed = not self.reversed
         return self
 
     def append(self, x):
@@ -181,6 +181,12 @@ class PrimerPair(list):
     def insert(self, i, x):
         self._check_item_bound()
         return super(PrimerPair, self).insert(i, x)
+
+    def __hash__(self):
+        return hash(self.__repr__())
+
+    def __eq__(self,other):
+        return self.name == other.name
 
     def __add__(self, L):
         self._check_list_bound(L)
@@ -220,7 +226,7 @@ class PrimerPair(list):
             self[1].targetposition.offset if self[1].targetposition else 'NA')
 
     def locations(self):
-        return [ str(self[0].location) if self[0] else None, str(self[1].location) if self[1] else None ]
+        return [ self[0].location if self[0] else None, self[1].location if self[1] else None ]
 
     def log(self,logfile):
         timestamp = datetime.datetime.now().isoformat()
@@ -299,9 +305,17 @@ class PrimerPair(list):
     def uniqueid(self):
         return sha1(','.join([str(self[0].tag)+'-'+self[0].seq,str(self[1].tag)+'-'+self[1].seq])).hexdigest()
 
-    def __hash__(self):
-        return hash(self[0]) ^ hash(self[1])
-
+    '''returns primer suffixes'''
+    def primerSuffixes(self):
+        suffixes = []
+        for p in self:
+            try:
+                suffix1 = '...'+p.name[len(self.name):] if p.name.startswith(self.name) else p.name
+            except:
+                suffixes.append('NA')
+            else:
+                suffixes.append(suffix1)
+        return tuple(suffixes)
 
 '''fasta/primer'''
 class Primer(object):
@@ -320,6 +334,9 @@ class Primer(object):
         self.location = location  # storage location
         if loci:
             pass
+
+    def __hash__(self):
+        return hash(self.name) ^ hash(self.seq) ^ hash(self.tag)
 
     def __repr__(self):
         return '<Primer ('+self.name+'):'+str(self.tag)+'-'+self.seq+' Mappings:'+str(len(self.loci))+' Target:'+str(self.targetposition)+'>'
@@ -360,7 +377,6 @@ class Primer(object):
                         return True
         return False
 
-
 '''Locus'''
 class Locus(object):
     def __init__(self,chrom,offset,length,reverse):
@@ -392,7 +408,6 @@ class Locus(object):
             snpLength = max(map(len,[ f[3] ] + f[4].split(',')))
             snp_positions.append( (f[0],snpOffset,snpLength,f[2]) )
         return snp_positions
-
 
 '''primer3 wrapper class'''
 class Primer3(object):

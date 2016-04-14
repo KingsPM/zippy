@@ -38,9 +38,8 @@ class PrimerDB(object):
                 FOREIGN KEY(left) REFERENCES primer(name) ON UPDATE CASCADE,
                 FOREIGN KEY(right) REFERENCES primer(name) ON UPDATE CASCADE,
                 UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);''')
-            cursor.execute('''CREATE TABLE IF NOT EXISTS target(seq TEXT PRIMARY KEY, chrom TEXT, position INT, reverse BOOLEAN,
-                FOREIGN KEY(seq) REFERENCES primer(seq));''')
-            cursor.execute('''CREATE INDEX IF NOT EXISTS seq_index_in_target ON target(seq);''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS target(seq TEXT, chrom TEXT, position INT, reverse BOOLEAN,
+                FOREIGN KEY(seq) REFERENCES primer(seq) ON DELETE CASCADE);''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS blacklist(uniqueid TEXT PRIMARY KEY, blacklistdate TEXT);''')
             self.db.commit()
         except:
@@ -220,8 +219,21 @@ class PrimerDB(object):
             # Build primers
             leftPrimer = Primer(row[5], row[3], targetposition=leftTargetposition, tag=row[1], location=leftLocation)
             rightPrimer = Primer(row[6], row[4], targetposition=rightTargetposition, tag=row[2], location=rightLocation)
+            # get reverse status
+            orientations = [ x[1] for x in map(parsePrimerName,row[5:7]) ]
+            if not any(orientations) or len(set(orientations))==1:
+                print >> sys.stderr, '\rWARNING: {} orientation is ambiguous ({},{}){}\r'.format(row[0],\
+                    '???' if orientations[0]==0 else 'rev' if orientations[0]<0 else 'fwd', \
+                    '???' if orientations[0]==0 else 'rev' if orientations[1]<0 else 'fwd'," "*20)
+                reverse = False
+            elif orientations[0]>0 or orientations[1]<0:
+                reverse = False
+            elif orientations[1]>0 or orientations[0]<0:
+                reverse = True
+            else:
+                raise Exception('PrimerPairStrandError')
             # Build pair
-            primerPairs.append(PrimerPair([leftPrimer, rightPrimer],name=row[0]))
+            primerPairs.append(PrimerPair([leftPrimer, rightPrimer],name=row[0],reverse=reverse))
         return primerPairs  # ordered by midpoint distance
 
     def getLocation(self,loc):
