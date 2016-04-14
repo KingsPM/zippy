@@ -12,15 +12,19 @@ import sys
 from math import ceil
 
 class Interval(object):
-    def __init__(self,chrom,chromStart,chromEnd,name=None,reverse=False,sample=None):
+    def __init__(self,chrom,chromStart,chromEnd,name=None,reverse=None,sample=None):
         self.chrom = chrom
         self.chromStart = int(chromStart)
         self.chromEnd = int(chromEnd)
+        assert self.chromStart <= self.chromEnd  # make sure its on the forward genomic strand
         self.name = name if name else chrom+':'+str(chromStart)+'-'+str(chromEnd)
-        self.strand = -1 if reverse else 1
+        self.strand = 0 if reverse is None else -1 if reverse else 1
         self.sample = sample
         self.subintervals = IntervalList([])
         return
+
+    def midpoint(self):
+        return int(self.chromStart + (self.chromEnd - self.chromStart)/2.0)
 
     def locus(self):
         '''returns interval of variant'''

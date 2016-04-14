@@ -56,10 +56,20 @@ Tube Label Generation
 Fixed Plate filling
 GenePred input for design
 
-### v1.3 (FUTURE)
+### v2.0
+New database schema to allow for primer collections
+Primer tag tracking
+Primer table import
+Storage by Primer and storage validation
+Allows for same primer in multiple pairs
+added primer redundancy query
+
+
+### FUTURE
 Asynchronous Design process
 Primer metadata adding
 Web GUI extensions
+
 
 ## Reference Genome
 Primers are designed from the unmasked 1kg reference genome while ignoring simple repeat regions.

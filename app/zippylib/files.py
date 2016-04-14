@@ -199,8 +199,8 @@ class SNPpy(IntervalList):
                         variantName = '_'.join([row['geneID'],row['transcriptID'],row['HGVS_c']]).replace('>','to')
                     iv = Interval(chrom,chromStart,chromEnd,name=variantName,sample=row['sampleID'])
                 except:
-                    print line
-                    print row
+                    print >> sys.stderr, line
+                    print >> sys.stderr, row
                     raise
                 else:
                     self.append(iv)
@@ -208,7 +208,6 @@ class SNPpy(IntervalList):
         for e in self:
             e.extend(flank)
         return
-
 
 '''generic data class with formatted output'''
 class Data(object):
@@ -246,7 +245,7 @@ class Data(object):
 def readTargets(targets,tiling):
     if os.path.isfile(targets):
         with open(targets) as fh:
-            if targets.endswith('vcf'):  # VCF files
+            if targets.endswith('vcf'):  # VCF files (strand 0)
                 intervals = VCF(fh,**tiling)
             elif targets.endswith('bed'):  # BED files (BED3 with automatic names)
                 intervals = BED(fh,**tiling)
@@ -255,8 +254,9 @@ def readTargets(targets,tiling):
             else:
                 raise Exception('UnknownFileExtension')
     elif re.match('\w+:\d+-\d+',targets):  # single interval
-        m = re.match('(\w+):(\d+)-(\d+)',targets)
-        intervals = [ Interval(*m.groups()) ]
+        m = re.match('(\w+):(\d+)-(\d+):?([+-])?',targets)
+        rev = None if m.group(4) is None else True if m.group(4) == '-' else False
+        intervals = [ Interval(m.group(1),m.group(2),m.group(3),reverse=rev) ]
     else:
         Exception('FileNotFound')
     return intervals
