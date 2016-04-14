@@ -9,6 +9,7 @@
     "design": {
         "COMMENT": "DESIGN GENOME AND PRIMER3 CONFIG",
         "genome": "/home/vagrant/dev/zippy/zippy_resources/human_g1k_v37.fasta",
+        "annotation": "/home/vagrant/dev/zippy/zippy_resources/refGene",
         "bowtieindex": "/home/vagrant/dev/zippy/zippy_resources/human_g1k_v37.bowtie",
         "tag": "M13",
         "primer3": {

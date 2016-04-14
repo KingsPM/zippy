@@ -42,11 +42,11 @@ class Interval(object):
     def __lt__(self,other):
         return (self.chrom, self.chromStart, self.chromEnd) < (other.chrom, other.chromStart, other.chromEnd)
 
-    def __str__(self):
+    def __repr__(self):
         return "<Interval ("+self.name+") "+self.chrom+":"+str(self.chromStart)+'-'+str(self.chromEnd)+ \
             " ["+str(self.strand)+"] len:"+str(len(self))+">"
 
-    def __repr__(self):
+    def __str__(self):
         return "\t".join(map(str,[self.chrom, self.chromStart, self.chromEnd, self.name]))
 
     def tile(self,i,o,suffix=True):  # interval, overlap
@@ -111,4 +111,7 @@ class IntervalList(list):
         self.source = source  # source of intervals
 
     def __str__(self):
+        return "<IntervalList (%s) %d elements> " % (self.source, len(self))
+
+    def __repr__(self):
         return "<IntervalList (%s) %d elements> " % (self.source, len(self))

@@ -21,7 +21,7 @@ import sys
 import json
 import tempfile
 import hashlib
-from zippylib.files import VCF, BED, Interval, Data, readTargets, readBatch
+from zippylib.files import VCF, BED, GenePred, Interval, Data, readTargets, readBatch
 from zippylib.primer import MultiFasta, Primer3, Primer, PrimerPair, Location, parsePrimerName
 from zippylib.reports import Test
 from zippylib.database import PrimerDB
@@ -283,10 +283,6 @@ def getPrimers(intervals, db, design, config):
 
 def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=False):
     intervals = readTargets(targets, config['tiling'])  # get intervals from file or commandline
-
-    for i in intervals:
-        print i
-
     # get/design primer pairs
     primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config)
     ## print primerTable
@@ -302,11 +298,21 @@ def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=
         print >> sys.stderr, "Primer designs stored in database"
     return primerTable, resultList, missedIntervals
 
-def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
+def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesign=False):
     print >> sys.stderr, 'Reading batch file {}...'.format(targets)
-    sampleVariants = readBatch(targets, config['tiling'])
+    sampleVariants, genes = readBatch(targets, config['tiling'])
     print >> sys.stderr, '\n'.join([ '{:<20} {:>2d}'.format(sample,len(variants)) \
         for sample,variants in sorted(sampleVariants.items(),key=lambda x: x[0]) ])
+    # predesign
+    if predesign and genes and db:
+        print >> sys.stderr, "Designing primers for {} genes..".format(str(len(genes)))
+        # parse gene intervals from refGene
+        with open(config['design']['annotation']) as fh:
+            intervals = GenePred(fh,getgenes=genes,**config['tiling'])  # get intervals from file or commandline
+        # predesign and store
+        primerTable, resultList, missedIntervals = getPrimers(intervals,db,predesign,config)
+        if db:
+            db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
     # for each sample design
     primerTableConcat = []
     allMissedIntervals = []
@@ -335,8 +341,6 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):
         with open(writtenFiles[-1],'w') as fh:
             print >> fh, '\n'.join([ '\t'.join(l) for l in primerTableConcat ])
         # Primer Test Worksheet
-        print tests[0].primerpairobject.locations()
-        print str(tests[0])
         primerTests = [ t for t in tests if not any(t.primerpairobject.locations()) ]
         if primerTests:
             writtenFiles.append(outfile+'.primertest.pdf')
@@ -427,8 +431,10 @@ def main():
     parser_batch = subparsers.add_parser('batch', help='Batch design primers for sample list')
     parser_batch.add_argument("targets", default=None, metavar="SNPpy result table", \
         help="SNPpy result table")
+    parser_batch.add_argument("--predesign", dest="predesign", default=False, action="store_true", \
+        help="Design primers for all genes in batch")
     parser_batch.add_argument("--nodesign", dest="design", default=True, action="store_false", \
-        help="Skip primer design if not in database [FALSE]")
+        help="Skip primer design if not in database")
     parser_batch.add_argument("--outfile", dest="outfile", default='', type=str, \
         help="Create worksheet PDF, order and robot CSV")
     parser_batch.set_defaults(which='batch')
@@ -509,7 +515,7 @@ def main():
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
         zippyPrimerQuery(config, options.targets, options.design, options.outfile, db, options.store)
     elif options.which=='batch':
-        zippyBatchQuery(config, options.targets, options.design, options.outfile, db)
+        zippyBatchQuery(config, options.targets, options.design, options.outfile, db, options.predesign)
 
 if __name__=="__main__":
     main()
