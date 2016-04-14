@@ -67,14 +67,13 @@ class MultiFasta(object):
             # parse target locus from fasta file
             try:
                 primername, targetposition = s.split('|')
-                reTargetposition = re.match(r'(\w+):(\d+)-(\d+)',targetposition)
+                reTargetposition = re.match(r'(\w+):(\d+)-(\d+):([+-])',targetposition)
             except:
-                #raise Exception('PrimerNameError')
                 primername = s
                 targetLocus = None
             else:
-                # guess FWD/REV from NAME and create target locus
-                reverse = True if parsePrimerName(primername)[1] < 0 else False
+                # create stranded targetlocus
+                reverse = True if reTargetposition.group(4)=='-' else False
                 targetLocus = Locus(reTargetposition.group(1), int(reTargetposition.group(2)), int(reTargetposition.group(3))-int(reTargetposition.group(2)), reverse)
             # create primer (with target locus)
             primertag = tags[primername] if primername in tags.keys() else None
@@ -357,8 +356,9 @@ class Primer(object):
     def fasta(self,seqname=None):
         if not seqname:
             seqname = self.name
-        if 'POSITION' in self.meta.keys():
-            seqname += '|'+self.meta['POSITION'][0]+':'+"-".join(map(str,self.meta['POSITION'][1:]))
+        if 'POSITION' in self.meta.keys():  # append locus
+            strand = "-" if self.name.endswith('RIGHT') else '+'
+            seqname += '|'+self.meta['POSITION'][0]+':'+"-".join(map(str,self.meta['POSITION'][1:]))+':'+strand
         return "\n".join([ ">"+seqname, self.seq ])
 
     def addTarget(self, chrom, pos, reverse):
@@ -425,10 +425,6 @@ class Primer3(object):
         return len(self.pairs)
 
     def design(self,name,pars):
-        #print >> sys.stderr, '\n DESIGN REGION is', self.designregion, '\t SEQUENCE is', self.sequence
-        #print >> sys.stderr, name, pars
-        #print >> sys.stderr, 0, self.flank, len(self.sequence)-self.flank, self.flank
-        # extract sequence with flanks
         # Sequence args
         seq = {
             'SEQUENCE_ID': str(name),

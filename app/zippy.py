@@ -105,7 +105,7 @@ def importPrimerPairs(inputfile,config,primer3=True):
         for r in primerfile.references:
             primertags[r] = config['import']['tag']
     print >> sys.stderr, "Placing primers on genome..."
-    # Align primers to genome and add Tm/GC
+    # Align primers to genome
     primers = primerfile.createPrimers(config['design']['bowtieindex'],delete=False,tags=primertags)  # places in genome
     # pair primers (by name or by primerset)
     pairs = {}
@@ -124,29 +124,27 @@ def importPrimerPairs(inputfile,config,primer3=True):
                     raise
             except:
                 raise
-            ## check primer strand while adding (avoid overwriting)
+            # get primer orientation (might be wrong if guesses from name, will correct after)
+            ## this basically just makes sure primers get paired (one fwd, one reverse)
+            reverse = p.targetposition.reverse if p.targetposition else parsePrimerName(p.name)[1] < 0
             try:
-                strand = parsePrimerName(p.name)[1]
-                if strand < 0:
+                if p.targetposition.reverse:
                     assert pairs[setname][1] is None
                     pairs[setname][1] = p
-                elif strand > 0:
+                else:
                     assert pairs[setname][0] is None
                     pairs[setname][0] = p
-                else:
-                    print >> sys.stderr, p.name, parsePrimerName(p.name)
-                    raise Exception('PrimerNameError')
             except:
-                print >> sys.stderr, "ERROR: multiple primers on same strand in %s" % setname
-                raise
+                raise Exception('PrimerPairStrandError')
     # check if any unpaired primers
     for k,v in pairs.items():
         if not all(v):
             print >> sys.stderr, "WARNING: primer set %s is incomplete and skipped" % k
             del pairs[k]
-
-    if primer3:  # prune ranks (renames pair)
+    # prune ranks in primer3 mode (renames pair)
+    if primer3:
         for p in pairs.values():
+            assert p[0].targetposition and p[1].targetposition  # make sure target postiions are set
             p.pruneRanks()
         validPairs = pairs.values()
     else:  # guess target if not set
@@ -155,16 +153,14 @@ def importPrimerPairs(inputfile,config,primer3=True):
         for p in pairs.values():
             if not p[0].targetposition or not p[1].targetposition:
                 if len(p.amplicons(config['import']['ampliconsize']))==1 or len(p.reverse().amplicons(config['import']['ampliconsize']))==1:
+                    # automatically reverses primers if no amplicons are found
                     amplicons = p.amplicons(config['import']['ampliconsize'])
                     p[0].targetposition = amplicons[0][0]  # m
                     p[1].targetposition = amplicons[0][1]  # n
                     acceptedPairs.append(p)
                 else:
-                    if p.reversed:
-                        p.reverse()
+                    if p.reversed: p.reverse()  # just revert (thanks OCP)
                     print >> sys.stderr, 'WARNING: Primer set {} does not produce a well-sized, unique amplicon ({},{})'.format(p.name,len(p[0].loci),len(p[1].loci))
-                    #print >> sys.stderr, '\tFWD', ','.join([ str(l) for l in p[0].loci ])
-                    #print >> sys.stderr, '\tREV', ','.join([ str(l) for l in p[1].loci ])
                     continue
             else:
                 acceptedPairs.append(p)
@@ -263,7 +259,7 @@ def getPrimers(intervals, db, design, config):
     print >> sys.stderr, '{:<20} {:9} {:<10}'.format('INTERVAL', 'AMPLICONS', 'STATUS')
     print >> sys.stderr, '-'*41
     for iv,p in sorted(ivpairs.items(),key=lambda x:x[0].name):
-        print >> sys.stderr, '{:<20} {:9} {:<10}'.format(iv.name, len(p), "!!" if len(p)<config['report']['pairs'] else "")
+        print >> sys.stderr, '{:<20} {:9} {:<10}'.format(iv.name, len(p), "FAIL" if len(p)<config['report']['pairs'] else "OK")
 
     ## get best primer pairs
     ##### PRIORITISE AND ALWAYS PRINT DATABASE PRIMERS
@@ -287,19 +283,23 @@ def getPrimers(intervals, db, design, config):
 
 def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=False):
     intervals = readTargets(targets, config['tiling'])  # get intervals from file or commandline
+
+    for i in intervals:
+        print i
+
     # get/design primer pairs
     primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config)
     ## print primerTable
     if outfile:
         with open(outfile,'w') as fh:
-            print >> fh, '\n'.join([ '\t'.join(l) for l in primerTable ])
+            print >> fh, '\n'.join([ '\t'.join(map(str,l)) for l in primerTable ])
     else:
-        print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTable ])
+        print >> sys.stdout, '\n'.join([ '\t'.join(map(str,l)) for l in primerTable ])
     ## print and store primer pairs
     # if db:
     if store and db and design:
         db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
-        print >> sys.stderr, "Primers added to database"
+        print >> sys.stderr, "Primer designs stored in database"
     return primerTable, resultList, missedIntervals
 
 def zippyBatchQuery(config, targets, design=True, outfile=None, db=None):

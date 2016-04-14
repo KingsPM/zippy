@@ -173,13 +173,12 @@ class PrimerDB(object):
             cursor = self.db.cursor()
             # add pairs
             for p in pairs:
-                left, right = p[0],p[1]
                 # find common substring in name for automatic naming
-                chrom = left.targetposition.chrom
-                start = left.targetposition.offset
-                end = right.targetposition.offset+right.targetposition.length
+                chrom = p[0].targetposition.chrom
+                start = p[0].targetposition.offset
+                end = p[1].targetposition.offset+p[1].targetposition.length
                 cursor.execute('''INSERT OR REPLACE INTO pairs(pairid,uniqueid,left,right,chrom,start,end,dateadded) VALUES(?,?,?,?,?,?,?,?)''', \
-                    (p.name, p.uniqueid(), left.name, right.name, chrom, start, end, current_time))
+                    (p.name, p.uniqueid(), p[0].name, p[1].name, chrom, start, end, current_time))
             self.db.commit()
         finally:
             self.db.close()
@@ -219,7 +218,7 @@ class PrimerDB(object):
             # Build primers
             leftPrimer = Primer(row[5], row[3], targetposition=leftTargetposition, tag=row[1], location=leftLocation)
             rightPrimer = Primer(row[6], row[4], targetposition=rightTargetposition, tag=row[2], location=rightLocation)
-            # get reverse status
+            # get reverse status (from name)
             orientations = [ x[1] for x in map(parsePrimerName,row[5:7]) ]
             if not any(orientations) or len(set(orientations))==1:
                 print >> sys.stderr, '\rWARNING: {} orientation is ambiguous ({},{}){}\r'.format(row[0],\
