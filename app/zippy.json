@@ -6,10 +6,13 @@
         "overlap": 10,
         "flank" : 15
     },
-    "primer3": {
+    "design": {
         "COMMENT": "DESIGN GENOME AND PRIMER3 CONFIG",
         "genome": "/home/vagrant/dev/zippy/zippy_resources/human_g1k_v37.fasta",
-        "settings": {
+        "annotation": "/home/vagrant/dev/zippy/zippy_resources/refGene",
+        "bowtieindex": "/home/vagrant/dev/zippy/zippy_resources/human_g1k_v37.bowtie",
+        "tag": "M13",
+        "primer3": {
             "PRIMER_TASK": "generic",
             "PRIMER_MIN_SIZE": 18,
             "PRIMER_OPT_SIZE": 20,
@@ -28,11 +31,8 @@
         }
     },
     "import": {
-        "ampliconsize": [100,2000]
-    },
-    "targeting": {
-        "COMMENT":"INDEX FOR ALTERNATIVE AMPLIFICATION TARGETS",
-        "bowtieindex": "/home/vagrant/dev/zippy/zippy_resources/human_g1k_v37.bowtie"
+        "ampliconsize": [100,2000],
+        "tag": "M13"
     },
     "snpcheck": {
         "common": "/home/vagrant/dev/zippy/zippy_resources/dbsnp_138.b37.G5A.vcf.gz",
@@ -57,14 +57,15 @@
         }
     },
     "ordersheet": {
-        "extracolumns": {
-            "scale": "50nm",
-            "purification": "desalt"
-        },
-        "sequencetags": {
-            "name": "M13(-21)/M13_pUC",
-            "left": "TGTAAAACGACGGCCAGT",
-            "right": "CAGGAAACAGCTATGACC"
+        "extracolumns": [
+            ["scale", "50nm"],
+            ["purification", "desalt"]
+        ],
+        "sequencetags" : {
+            "M13": {
+                "name": "M13(-21)/M13_pUC",
+                "tags": ["TGTAAAACGACGGCCAGT", "CAGGAAACAGCTATGACC"]
+            }
         }
     }
 }

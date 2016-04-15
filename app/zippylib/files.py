@@ -20,7 +20,7 @@ from .interval import *
 
 '''GenePred parser with automatic segment numbering and tiling'''
 class GenePred(IntervalList):
-    def __init__(self,fh,interval=None,overlap=None,flank=0,combine=True):
+    def __init__(self,fh,getgenes=None,interval=None,overlap=None,flank=0,combine=True):
         IntervalList.__init__(self, [], source='GenePred')
         counter = Counter()
         intervalindex = defaultdict(list)
@@ -33,6 +33,8 @@ class GenePred(IntervalList):
                 # create gene and add exons
                 f = line.split()
                 assert f[3] in ['+','-']
+                if getgenes and (f[12] not in getgenes or int(f[6])==int(f[7])):  # ignore non-coding transcripts
+                    continue
                 reverse = f[3].startswith('-')
                 gene = Interval(f[2],int(f[4]),int(f[5]),f[12],reverse)
                 for e in zip(f[9].split(','),f[10].split(',')):
@@ -180,27 +182,38 @@ class SNPpy(IntervalList):
         IntervalList.__init__(self, [], source='VCF')
         self.header = []
         self.samples = []
+        self.data = {}
         commentcount = 0
         for i, line in enumerate(fh):
             if line.startswith('#'):
                 commentcount += 1
             elif i-commentcount == 0:
                 self.header = line.rstrip().split(delim)
+                self.data = { h:[] for h in self.header }
             else:
                 try:
                     f = line.rstrip().split(delim)
                     row = dict(zip(self.header,f))
+                    for k,v in row.items():
+                        try:
+                            self.data[k].append(v)
+                        except:
+                            raise Exception('UnknownColumn')
                     chrom = row['chromosome'][3:] if row['chromosome'].startswith('chr') else row['chromosome']
-                    chromStart = int(row['position'])
-                    chromEnd = chromStart+hgvsLength(row['HGVS_c'])
-                    try:
-                        variantName = '_'.join([row['geneID'],row['rank'].split('/')[0]])  # use exon number
-                    except:
-                        variantName = '_'.join([row['geneID'],row['transcriptID'],row['HGVS_c']]).replace('>','to')
+                    if '-' in row['position']:  # interval
+                        chromStart, chromEnd = map(int,row['position'].split('-'))
+                        variantName = '_'.join([row['geneID'],row['position']])  # use exon number
+                    else:  # variant
+                        chromStart = int(row['position'])
+                        chromEnd = chromStart+hgvsLength(row['HGVS_c'])
+                        try:
+                            variantName = '_'.join([row['geneID'],row['rank'].split('/')[0]])  # use exon number
+                        except:
+                            variantName = '_'.join([row['geneID'],row['transcriptID'],row['HGVS_c']]).replace('>','to')
                     iv = Interval(chrom,chromStart,chromEnd,name=variantName,sample=row['sampleID'])
                 except:
-                    print line
-                    print row
+                    print >> sys.stderr, line
+                    print >> sys.stderr, row
                     raise
                 else:
                     self.append(iv)
@@ -208,7 +221,6 @@ class SNPpy(IntervalList):
         for e in self:
             e.extend(flank)
         return
-
 
 '''generic data class with formatted output'''
 class Data(object):
@@ -246,7 +258,7 @@ class Data(object):
 def readTargets(targets,tiling):
     if os.path.isfile(targets):
         with open(targets) as fh:
-            if targets.endswith('vcf'):  # VCF files
+            if targets.endswith('vcf'):  # VCF files (strand 0)
                 intervals = VCF(fh,**tiling)
             elif targets.endswith('bed'):  # BED files (BED3 with automatic names)
                 intervals = BED(fh,**tiling)
@@ -255,8 +267,9 @@ def readTargets(targets,tiling):
             else:
                 raise Exception('UnknownFileExtension')
     elif re.match('\w+:\d+-\d+',targets):  # single interval
-        m = re.match('(\w+):(\d+)-(\d+)',targets)
-        intervals = [ Interval(*m.groups()) ]
+        m = re.match('(\w+):(\d+)-(\d+):?([+-])?',targets)
+        rev = None if m.group(4) is None else True if m.group(4) == '-' else False
+        intervals = [ Interval(m.group(1),m.group(2),m.group(3),reverse=rev) ]
     else:
         Exception('FileNotFound')
     return intervals
@@ -279,7 +292,8 @@ def readBatch(fi,tiling):
             sampleVariants[iv.sample] = IntervalList([iv],source='SNPpy')
         except:
             raise
-    return sampleVariants
+    # extract gene names
+    return sampleVariants, sorted(list(set(intervals.data['geneID'])))
 
 
 '''return length of variant from hgvs.c notation'''
