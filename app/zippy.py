@@ -49,7 +49,8 @@ def importPrimerLocations(inputfile):
             if i == 0:
                 header = map(lambda x : x.lower(), line.rstrip().split('\t'))
             else:
-                l = dict(zip(header,line.rstrip().split('\t')))
+                f = map(lambda x: x.strip('"'), line.rstrip().split('\t'))
+                l = dict(zip(header,f))
                 # store metadata and write fasta
                 if 'vessel' in l.keys() and 'well' in l.keys() and \
                     l['vessel'] and l['well']:
@@ -73,9 +74,16 @@ def importPrimerPairs(inputfile,config,primer3=True):
             with open(inputfile) as infh:
                 for i,line in enumerate(infh):
                     if i == 0:
+                        minimalHeader = set(['primername','primerset','tag','sequence','vessel','well'])
                         header = map(lambda x : x.lower(), line.rstrip().split('\t'))
+                        try:
+                            assert not minimalHeader.difference(set(header))
+                        except:
+                            print >> sys.stderr, 'ERROR: Missing columns (%s)' % ','.join(list(minimalHeader.difference(set(header))))
+                            raise Exception('FileHeaderError')
                     else:
-                        l = dict(zip(header,line.rstrip().split('\t')))
+                        f = map(lambda x: x.strip('"'), line.rstrip().split('\t'))
+                        l = dict(zip(header,f))
                         # remove tag from sequence
                         if l['tag']:
                             try:
@@ -89,8 +97,14 @@ def importPrimerPairs(inputfile,config,primer3=True):
                                         break
                         # store metadata and write fasta
                         if l['primername'] in primerseqs.keys():
-                            assert l['sequence'] == primerseqs[l['primername']]
-                            assert l['tag'] == primertags[l['primername']]
+                            try:
+                                assert l['sequence'] == primerseqs[l['primername']]
+                                assert l['tag'] == primertags[l['primername']]
+                            except:
+                                print >> sys.stderr, l['primername']
+                                print >> sys.stderr, primerseqs[l['primername']]
+                                print >> sys.stderr, primertags[l['primername']]
+                                raise Exception('ImportFormattingError')
                         else:
                             print >> outfh, '>'+l['primername']
                             print >> outfh, l['sequence']
@@ -128,14 +142,23 @@ def importPrimerPairs(inputfile,config,primer3=True):
             ## this basically just makes sure primers get paired (one fwd, one reverse)
             reverse = p.targetposition.reverse if p.targetposition else parsePrimerName(p.name)[1] < 0
             try:
-                if p.targetposition.reverse:
-                    assert pairs[setname][1] is None
+                if reverse and pairs[setname][1] is None:
                     pairs[setname][1] = p
                 else:
-                    assert pairs[setname][0] is None
-                    pairs[setname][0] = p
+                    if pairs[setname][0] is None:
+                        pairs[setname][0] = p
+                    else:
+                        assert pairs[setname][1] is None
+                        pairs[setname][1] = p
             except:
-                raise Exception('PrimerPairStrandError')
+                print >> sys.stderr, "ERROR: Primer pair strand conflict?"
+                print >> sys.stderr, "PRIMER0", pairs[setname][0]
+                print >> sys.stderr, "PRIMER1", pairs[setname][1]
+                print >> sys.stderr, "REVERSE", reverse
+                print >> sys.stderr, "SETNAME", setname
+                print >> sys.stderr, "PRIMER", p.name, parsePrimerName(p.name)
+                print >> sys.stderr, "PAIRS", pairs[setname]
+                raise
     # check if any unpaired primers
     for k,v in pairs.items():
         if not all(v):

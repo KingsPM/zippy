@@ -27,7 +27,7 @@ def commonPrefix(left,right,stripchars='-_ ',commonlength=3):
 
 '''return -1,0,1'''
 def parsePrimerName(x):
-    fwd_suffix, rev_suffix = ['f','fwd','5\''], ['r','rev','3\'']
+    fwd_suffix, rev_suffix = ['f','fwd','5\'','left'], ['r','rev','3\'','right']
     if x[0:2] in ['3\'','5\'']:  # prefix case
         if x.startswith('5'):
             return (x[2:], 1)
@@ -215,14 +215,19 @@ class PrimerPair(list):
         return "%s(%r)" % (self.__class__, self.__dict__)
 
     def __str__(self):
-        return '{}\t{}\t{}\t{}\t{:.1f}\t{:.1f}\t{}\t{:.1f}\t{:.1f}\t{}\t{}\t{}'.format(self.name, \
-            str(self[0].location) if self[0].location else '',
-            str(self[1].location) if self[1].location else '',
-            str(self[0].tag)+'-'+self[0].seq, self[0].tm, self[0].gc, \
-            str(self[1].tag)+'-'+self[1].seq, self[1].tm, self[1].gc, \
-            self[0].targetposition.chrom if self[0].targetposition else 'NA',
-            self[0].targetposition.offset+self[0].targetposition.length if self[0].targetposition else 'NA',
-            self[1].targetposition.offset if self[1].targetposition else 'NA')
+        return '{}\t{}\t{}\t{}\t{:.1f}\t{:.1f}\t{}\t{:.1f}\t{:.1f}\t{}\t{}\t{}'.format(
+            self.name,
+            str(self[0].location) if self[0] and self[0].location else '',
+            str(self[1].location) if self[1] and self[1].location else '',
+            str(self[0].tag)+'-'+self[0].seq if self[0] else 'NO_SEQUENCE',
+            self[0].tm if self[0] else 0,
+            self[0].gc if self[0] else 0,
+            str(self[1].tag)+'-'+self[1].seq if self[1] else 'NO_SEQUENCE',
+            self[1].tm if self[1] else 0,
+            self[1].gc if self[1] else 0,
+            self[0].targetposition.chrom if self[0] and self[1] and self[0].targetposition else '',
+            self[0].targetposition.offset+self[0].targetposition.length if self[0] and self[1] and self[0].targetposition else '',
+            self[1].targetposition.offset if self[0] and self[1] and self[1].targetposition else '')
 
     def locations(self):
         return [ self[0].location if self[0] else None, self[1].location if self[1] else None ]
