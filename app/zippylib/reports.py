@@ -293,9 +293,7 @@ class Worksheet(list):
                     if plate.M[r][c] is not None:
                         primerpairs.add(plate.M[r][c].primerpairobject)
         # print CSV with extra columns
-        colnames = ['name', 'sequence'] + [ x[0] for x in config['extracolumns'] ]
         with open(fi,'w') as fh:
-            print >> fh, '\t'.join(colnames)
             for pp in sorted(list(primerpairs),key=lambda x: x.name):
                 # add tag according to primername (check 1 fwd and 1 rev)
                 tagorder = [1,0] if pp.reversed else [0,1]
@@ -304,7 +302,7 @@ class Worksheet(list):
                         tagseq = config['sequencetags'][p.tag]['tags'][tagorder[i]]
                     except:
                         tagseq = '' if not p.tag else p.tag+'-'
-                    print >> fh, '\t'.join([ p.name, tagseq+p.seq ] + [ x[1] for x in config['extracolumns'] ])
+                    print >> fh, '\t'.join([ p.name, tagseq+p.seq ] + config['extracolumns'])
 
     '''print robot csv, (DestinationPlate,DestinationWell,SampleID,PrimerID)'''
     def robotCsv(self,fi,sep=','):

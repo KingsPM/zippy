@@ -58,8 +58,8 @@
     },
     "ordersheet": {
         "extracolumns": [
-            ["scale", "50nm"],
-            ["purification", "desalt"]
+            "25nm",
+            "STD"
         ],
         "sequencetags" : {
             "M13": {
