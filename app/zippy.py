@@ -338,13 +338,14 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
             db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
     # for each sample design
     primerTableConcat = []
-    allMissedIntervals = []
+    allMissedIntervals = {}
     tests = []  # tests to run
     for sample, intervals in sorted(sampleVariants.items(),key=lambda x: x[0]):
         print >> sys.stderr, "Getting primers for {} variants in sample {}".format(len(intervals),sample)
         # get/design primers
         primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config)
-        allMissedIntervals += [missedIntervals]
+        if missedIntervals:
+            allMissedIntervals[sample] = missedIntervals
         # store result list
         primerTableConcat += [ [sample]+l for l in primerTable ]
         # store primers
@@ -398,6 +399,14 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
         writtenFiles.append(outfile+'.tubelabels.txt')
         print >> sys.stderr, "Writing tube labels to {}...".format(writtenFiles[-1])
         ws.tubeLabels(writtenFiles[-1],tags=config['ordersheet']['sequencetags'])
+        # write missed intervals
+        if allMissedIntervals:
+            writtenFiles.append(outfile+'.failed.txt')
+            print >> sys.stderr, "Writing failed designs {}...".format(writtenFiles[-1])
+            with open(writtenFiles[-1],'w') as fh:
+                print >> fh, '\t'.join(['sample','variant'])
+                for sample, missed in sorted(allMissedIntervals.items()):
+                    print >> fh, '\n'.join([ '\t'.join([sample,i.name]) for i in missed ])
     return
 
 def updateLocation(primername, location, database):
