@@ -98,7 +98,6 @@ def getPrimers(intervals, db, design, config):
             sys.stderr.write('\r'+progress.show(i))
             ivpairs[iv] = []
             primerpairs = db.query(iv)
-            print primerpairs[0].location
             if primerpairs:
                 for pair in primerpairs:
                     ivpairs[iv].append(pair)

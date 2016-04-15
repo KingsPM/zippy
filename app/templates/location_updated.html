@@ -1,4 +1,17 @@
 {% extends "base.html" %}
 {% block content %}
-	<p>{{status}}</p>
+	{% if status is equalto None %}
+		<div>
+			<p>Update location not given in correct format.</p>
+		</div>
+		<div>
+            <p>Update the storage location of a primer pair in the form: <span class="pop">PairID Vessel Well</span></p>
+            <form action="/update_location/" method="post" enctype="multipart/form-data">
+                <input type="text" name="location"><br><br>
+                <input type="submit" id="revButton" value="Update">
+            </form>
+        </div>
+    {% else %}
+    	<p>{{status}}</p>
+    {% endif %}
 {% endblock %}

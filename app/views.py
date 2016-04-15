@@ -103,30 +103,39 @@ def upload():
 @app.route('/adhoc_design/', methods=['POST'])
 def adhocdesign():
     locus = request.form.get('locus')
-    print locus
-    store = request.form.get('store')
-    print store
-    with open(app.config['CONFIG_FILE']) as conf:
-        config = json.load(conf, object_hook=ascii_encode_dict)
-        db = PrimerDB(config['database'])
-    # zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=False)
-    primerTable, resultList, missedIntervals = zippyPrimerQuery(config, locus, True, None, db, store)
-    missedIntervalNames = []
-    for interval in missedIntervals:
-        missedIntervalNames.append(interval.name)
-    # os.chdir('./app/')
-    # print subprocess.call(['./zippy.py', 'get', locus, '--design', '--nostore'], shell=False)
-    return render_template('/adhoc_result.html', primerTable=primerTable, resultList=resultList, missedIntervals=missedIntervalNames)
+    # if locus:
+    if re.match('\w{1,2}:\d+-\d+',locus):
+        print locus
+        store = request.form.get('store')
+        print store
+        with open(app.config['CONFIG_FILE']) as conf:
+            config = json.load(conf, object_hook=ascii_encode_dict)
+            db = PrimerDB(config['database'])
+        # zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=False)
+        primerTable, resultList, missedIntervals = zippyPrimerQuery(config, locus, True, None, db, store)
+        missedIntervalNames = []
+        for interval in missedIntervals:
+            missedIntervalNames.append(interval.name)
+        # os.chdir('./app/')
+        # print subprocess.call(['./zippy.py', 'get', locus, '--design', '--nostore'], shell=False)
+        return render_template('/adhoc_result.html', primerTable=primerTable, resultList=resultList, missedIntervals=missedIntervalNames)
+    else:
+        print "locus not given"
+        return render_template('/adhoc_result.html', primerTable=[], resultList=[], missedIntervals=[])
 
 @app.route('/update_location/', methods=['POST'])
 def update_Location():
     location = request.form.get('location')
-    with open(app.config['CONFIG_FILE']) as conf:
-        config = json.load(conf, object_hook=ascii_encode_dict)
-        db = PrimerDB(config['database'])
-    updateStatus = updateLocation(location, db)
-    print updateStatus
-    return render_template('location_updated.html', status=updateStatus)
+    if re.match('\w+\s\w+\s\w',location):
+        with open(app.config['CONFIG_FILE']) as conf:
+            config = json.load(conf, object_hook=ascii_encode_dict)
+            db = PrimerDB(config['database'])
+        updateStatus = updateLocation(location, db)
+        print updateStatus
+        return render_template('location_updated.html', status=updateStatus)
+    else:
+        print 'update location not given in correct format'
+        return render_template('location_updated.html', status=None)
 
 @app.route('/search_by_name/', methods=['POST'])
 def searchName():

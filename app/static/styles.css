@@ -2,6 +2,7 @@ body {
     background-color: #FFFFFF;
     margin: 40px;
     font-family: helvetica;
+    text-align: left;
 }
 
 header {
@@ -12,7 +13,7 @@ header {
 	margin-left: -50px;
 	/*margin-bottom: 10px;*/
 	top:0;
-	font-size: 35px;
+	font-size: 30px;
 	text-align: center;
 	position: fixed;
 	height: 40px;
@@ -22,14 +23,23 @@ header {
 	margin-top: 80px;
 }
 
+#indexPage {
+    text-align: center;
+}
+
 #left {
 	float: left;
 	width: 50%;
+	height: 200px;
+    padding-right: 0%;
+    text-align: center;
 }
 
 #right {
 	float: right;
 	width: 50%;
+	height: 200px;
+	text-align: center;
 }
 
 h1 {
@@ -42,9 +52,21 @@ h1 {
 	margin-left: -10px;
 }
 
+input[type=file] {
+    cursor: pointer;
+}
+
+hr {
+	height: 2px;
+	color: #009933;
+	background-color: #009933;
+	border: none;
+}
+
 input[type=submit] {
 	background-color: #009933;
-    border: hidden;
+    border: 2px solid;
+	border-color: #009933;
     border-radius: 4px;
     color: white;
     padding: 20px;
@@ -53,8 +75,42 @@ input[type=submit] {
     width: 100px;
 }
 
-input[type=file] {
+input[type=submit]:hover {
+	background-color: white;
+	color: #009933;
+	font-weight: bold;	
+}
+
+input[type=submit]:active {
+	background-color: white;
+	color: #009933;
+	font-weight: bold;
+	box-shadow: inset 0 0 5px 2px #009933;	
+}
+
+#revButton {
+	background-color: white;
+	border: 2px solid;
+    border-radius: 4px;
+	border-color: #009933;
+	color: #009933;
+    padding: 20px;
+    text-decoration: none;
     cursor: pointer;
+    width: 100px;
+}
+
+#revButton:hover {
+	background-color: #009933;
+	color: white;
+	font-weight: bold;
+}
+
+#revButton:active {
+	background-color: white;
+	color: #009933;
+	font-weight: bold;
+	box-shadow: inset 0 0 5px 2px #009933;
 }
 
 .pop {
@@ -62,3 +118,4 @@ input[type=file] {
 	font-weight: bold;
 	font-style: italic;
 }
+
