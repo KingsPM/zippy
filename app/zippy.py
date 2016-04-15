@@ -497,6 +497,9 @@ def main():
             data,colnames = db.dump('locations')
         elif options.redundancies:
             data,colnames = db.getRedundantPrimers()
+        else:
+            print >> sys.stderr, "What to dump stranger?"
+            sys.exit(1)
         # format data output
         if options.outfile:
             dump = Data(data,colnames)

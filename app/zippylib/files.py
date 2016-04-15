@@ -202,7 +202,7 @@ class SNPpy(IntervalList):
                     chrom = row['chromosome'][3:] if row['chromosome'].startswith('chr') else row['chromosome']
                     if '-' in row['position']:  # interval
                         chromStart, chromEnd = map(int,row['position'].split('-'))
-                        variantName = '_'.join([row['geneID'],row['position']])  # use exon number
+                        variantName = '_'.join([row['geneID'],row['chromosome'],row['position']])  # use exon number
                     else:  # variant
                         chromStart = int(row['position'])
                         chromEnd = chromStart+hgvsLength(row['HGVS_c'])
