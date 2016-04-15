@@ -44,8 +44,9 @@ genome: genome-download genome-index
 
 genome-download:
 	mkdir -p zippy_resources && cd zippy_resources && \
-	wget https://s3-eu-west-1.amazonaws.com/ngseasy.data/reference_genomes_b37/human_g1k_v37.fasta && \
-	wget https://s3-eu-west-1.amazonaws.com/ngseasy.data/reference_genomes_b37/human_g1k_v37.fasta.fai
+	wget ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/human_g1k_v37.fasta.gz && \
+	wget ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/human_g1k_v37.fasta.fai && \
+	gunzip human_g1k_v37.fasta.gz
 
 genome-index:
 	cd zippy_resources && \
