@@ -52,6 +52,28 @@ h1 {
 	margin-left: -10px;
 }
 
+table {
+	text-align: left;
+	border-spacing: 0px;
+}
+
+th {
+	padding: 5px;
+	background-color: #009933;
+	color: white;
+	height: 40px;
+}
+
+td {
+	padding: 5px;
+	border-bottom: 1px solid;
+	border-color: #009933;
+}
+
+tr:hover {
+	background-color: #edf7f0;
+}
+
 input[type=file] {
     cursor: pointer;
 }

@@ -2,16 +2,28 @@
 {% block content %}
 	<p>The following primer pairs were found in Zippy with <span class="pop">{{searchName}}</span> in their name: -</p>
 	{% if searchResult is not equalto [] %}
-		{% for pair in searchResult %}
-			{% set pairName = pair[0].name.split('_') %}
-			<b>{{pairName[:-1]|join('_')}}</b>
-			{% for primer in pair %}
-				<p><i>{{primer.name}}</i></p>
-				<p>Sequence: {{primer.seq}}</p>
-				<p>Locus: {{primer.targetposition}}</p>
+		<table>
+  			<tr>
+  				<th>Pair name</th>
+  				<th>Left Primer</th>
+  				<th>Left Sequence</th>
+  				<th>Left Locus</th>
+  				<th>Right Primer</th>
+  				<th>Right Sequence</th>
+  				<th>Right Locus</th>
+  			</tr>
+			{% for pair in searchResult %}
+				{% set pairName = pair[0].name.split('_') %}
+  				<tr>
+					<td><b>{{pairName[:-1]|join('_')}}</b></td>
+					{% for primer in pair %}
+						<td><i>{{primer.name}}</i></td>
+						<td>{{primer.seq}}</td>
+						<td>{{primer.targetposition}}</td>
+					{% endfor %}
+  				</tr>
 			{% endfor %}
-			<hr>
-		{% endfor %}
+		</table>
 	{% endif %}
 
 
