@@ -435,14 +435,7 @@ class Primer3(object):
         primers = primer3.bindings.designPrimers(seq,pars)
         # parse primer
         primerdata, explain = defaultdict(dict), []
-
-        from collections import Counter
-        productSize = Counter()
         for k,v in primers.items():
-            if k.endswith('PRODUCT_SIZE'):
-                # print k, v
-                productSize[int(float(v)/100.0)] += 1
-            # print self. designregion
             m = re.match(r'PRIMER_(RIGHT|LEFT)_(\d+)(.*)',k)
             if m:
                 primername = name+"_"+str(m.group(2))+'_'+m.group(1)
@@ -454,9 +447,6 @@ class Primer3(object):
                     primerdata[primername]['POSITION'] = (self.designregion[0], absoluteStart, absoluteEnd)
             elif k.endswith('EXPLAIN'):
                 self.explain.append(v)
-
-        print '\n', self.target, name, productSize
-
         designedPrimers, designedPairs = {}, {}
         for k,v in sorted(primerdata.items()):
             # k primername # v dict of metadata

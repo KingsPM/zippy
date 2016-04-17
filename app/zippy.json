@@ -2,7 +2,7 @@
     "database": "zippy.sqlite",
     "logfile": "zippy.log",
     "tiling": {
-        "interval": 3000,
+        "interval": 500,
         "overlap": 10,
         "flank" : 15
     },
@@ -25,9 +25,9 @@
                 "PRIMER_OPT_GC": 50.0,
                 "PRIMER_MAX_GC": 65.0,
                 "PRIMER_MAX_POLY_X": 4,
-                "PRIMER_PRODUCT_SIZE_RANGE": [[100,550],[550,1200]],
+                "PRIMER_PRODUCT_SIZE_RANGE": [[100,550],[550,1100]],
                 "PRIMER_GC_CLAMP": 1,
-                "PRIMER_NUM_RETURN": 200,
+                "PRIMER_NUM_RETURN": 100,
                 "PRIMER_MISPRIMING_LIBRARY":"/home/vagrant/dev/zippy/zippy_resources/human_repeat_simple.fa"
             },
             {
@@ -37,14 +37,14 @@
                 "PRIMER_MAX_SIZE": 25,
                 "PRIMER_MIN_TM": 57.0,
                 "PRIMER_OPT_TM": 62.0,
-                "PRIMER_MAX_TM": 66.0,
+                "PRIMER_MAX_TM": 65.0,
                 "PRIMER_MIN_GC": 30.0,
                 "PRIMER_OPT_GC": 50.0,
                 "PRIMER_MAX_GC": 70.0,
                 "PRIMER_MAX_POLY_X": 5,
                 "PRIMER_PRODUCT_SIZE_RANGE": [[100,1200]],
                 "PRIMER_GC_CLAMP": 1,
-                "PRIMER_NUM_RETURN": 1000,
+                "PRIMER_NUM_RETURN": 200,
                 "PRIMER_MISPRIMING_LIBRARY":"/home/vagrant/dev/zippy/zippy_resources/human_repeat_simple.fa"
             }
         ]
