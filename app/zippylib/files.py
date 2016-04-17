@@ -202,7 +202,7 @@ class SNPpy(IntervalList):
                     chrom = row['chromosome'][3:] if row['chromosome'].startswith('chr') else row['chromosome']
                     if '-' in row['position']:  # interval
                         chromStart, chromEnd = map(int,row['position'].split('-'))
-                        variantName = '_'.join([row['geneID'],row['position']])  # use exon number
+                        variantName = '_'.join([row['geneID'],row['chromosome'],row['position']])  # use exon number
                     else:  # variant
                         chromStart = int(row['position'])
                         chromEnd = chromStart+hgvsLength(row['HGVS_c'])
@@ -299,18 +299,18 @@ def readBatch(fi,tiling):
 '''return length of variant from hgvs.c notation'''
 def hgvsLength(hgvs,default=10):
     try:
-        m = re.match('c.\d+(\D+)(>|ins|del|dup)(\w+)$',hgvs)
+        m = re.match('c.\d+.+(>|ins|del|dup)(\w+)$',hgvs)
         assert m
     except:
         try:
             l = int(hgvs)
         except:
-            print >> sys.stderr, "WARNING: could not find length of variant, assuming %s" % str(default)
+            print >> sys.stderr, "WARNING: could not find length of variant (%s), assuming %s" % (hgvs,str(default))
             return default
         else:
             return l
     else:
-        return len(m.group(3))
+        return len(m.group(2))
 
 
 if __name__=="__main__":

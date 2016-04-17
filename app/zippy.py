@@ -29,6 +29,9 @@ from zippylib import ConfigError, Progressbar, banner
 from zippylib.reports import Worksheet
 from argparse import ArgumentParser
 from collections import defaultdict, Counter
+import cPickle as pickle
+
+blacklistCacheFile = '.blacklist.cache'
 
 '''file MD5'''
 def fileMD5(fi, block_size=2**20):
@@ -191,9 +194,13 @@ def importPrimerPairs(inputfile,config,primer3=True):
     return validPairs
 
 '''get primers from intervals'''
-def getPrimers(intervals, db, design, config):
+def getPrimers(intervals, db, design, config, deep=True):
     ivpairs = defaultdict(list)  # found/designed primer pairs (from database or design)
     blacklist = db.blacklist() if db else []
+    try:
+        blacklist += pickle.load(open(blacklistCacheFile,'rb'))
+    except:
+        pass
     # primer searching in database by default
     if db:
         progress = Progressbar(len(intervals),'Querying database')
@@ -212,69 +219,88 @@ def getPrimers(intervals, db, design, config):
 
     # designing
     if design:
-        designedPairs = {}
-        progress = Progressbar(len(intervals),'Designing primers')
-        for i,iv in enumerate(intervals):
-            sys.stderr.write('\r'+progress.show(i))
-            if iv not in ivpairs.keys() or config['report']['pairs']>len(ivpairs[iv]):  # not in database or not enough primer pairs for interval
-                p3 = Primer3(config['design']['genome'], iv.locus(), 300)  # genome and target region (plusminus)
-                p3.design(iv.name, config['design']['primer3'])
+        maxTier = len(config['design']['primer3']) if deep else 1  # only search first tier unless deep
+        for tier in range(maxTier):
+            # get intervals which do not satisfy minimum amplicon number
+            insufficentAmpliconIntervals = [ iv for iv in intervals if config['report']['pairs']>len(ivpairs[iv]) ]
+            if not insufficentAmpliconIntervals:
+                break  # end design process
+            print >> sys.stderr, "Round #{} ({} intervals)".format(tier+1, len(insufficentAmpliconIntervals))
+            # Primer3 design
+            designedPairs = {}
+            progress = Progressbar(len(insufficentAmpliconIntervals),'Designing primers')
+            for i,iv in enumerate(insufficentAmpliconIntervals):
+                sys.stderr.write('\r'+progress.show(i))
+                try:
+                    designIntervalOversize = max([ max(x) for x in config['design']['primer3'][tier]['PRIMER_PRODUCT_SIZE_RANGE'] ])
+                except:
+                    print >> sys.stderr, "WARNING: could not determine maximum amplicon size, default setting applied"
+                    designIntervalOversize = 2000
+                p3 = Primer3(config['design']['genome'], iv.locus(), designIntervalOversize)
+                p3.design(iv.name, config['design']['primer3'][tier])
                 if p3.pairs:
                     designedPairs[iv] = p3.pairs
-                else:
-                    print >> sys.stderr, '\n' +'\n'.join(p3.explain)
-        sys.stderr.write('\r'+progress.show(len(intervals))+'\n')
+                #else: print >> sys.stderr, '\n' +'\n'.join(p3.explain)
+            sys.stderr.write('\r'+progress.show(len(insufficentAmpliconIntervals))+'\n')
+            if designedPairs:
+                ## import designed primer pairs (place on genome and get amplicons)
+                with tempfile.NamedTemporaryFile(suffix='.fa',prefix="primers_",delete=False) as fh:
+                    for k,v in designedPairs.items():
+                        for pairnumber, pair in enumerate(v):
+                            print >> fh, pair[0].fasta('_'.join([ k.name, str(pairnumber), 'rev' if k.strand < 0 else 'fwd' ]))
+                            print >> fh, pair[1].fasta('_'.join([ k.name, str(pairnumber), 'fwd' if k.strand < 0 else 'rev' ]))
+                pairs = importPrimerPairs(fh.name, config, primer3=True)
+                os.unlink(fh.name)  # remove fasta file
 
-        ## import designed primer pairs
-        if designedPairs:
-            with tempfile.NamedTemporaryFile(suffix='.fa',prefix="primers_",delete=False) as fh:
-                for k,v in designedPairs.items():
-                    for pairnumber, pair in enumerate(v):
-                        print >> fh, pair[0].fasta('_'.join([ k.name, str(pairnumber), 'rev' if k.strand < 0 else 'fwd' ]))
-                        print >> fh, pair[1].fasta('_'.join([ k.name, str(pairnumber), 'fwd' if k.strand < 0 else 'rev' ]))
-            pairs = importPrimerPairs(fh.name, config, primer3=True)
-            os.unlink(fh.name)  # remove fasta file
+                ## Remove non-specific and blacklisted primer pairs
+                specificPrimerPairs = []
+                blacklisted = 0
+                for i, pair in enumerate(pairs):
+                    if pair.uniqueid() in blacklist:
+                        blacklisted += 1
+                    elif all([pair[0].checkTarget(), pair[1].checkTarget()]):
+                        specificPrimerPairs.append(pair)
+                if blacklisted:
+                    sys.stderr.write('Removed '+str(blacklisted)+' blacklisted primer pairs\n')
+                if len(pairs) != len(specificPrimerPairs):
+                    sys.stderr.write('Removed '+str(len(pairs)-len(specificPrimerPairs))+' non-specific primer pairs\n')
+                pairs = specificPrimerPairs
 
-            ## Remove non-specific and blacklisted primer pairs
-            specificPrimerPairs = []
-            blacklisted = 0
-            for i, pair in enumerate(pairs):
-                if pair.uniqueid() in blacklist:
-                    blacklisted += 1
-                elif all([pair[0].checkTarget(), pair[1].checkTarget()]):
-                    specificPrimerPairs.append(pair)
-            if blacklisted:
-                sys.stderr.write('Removed '+str(blacklisted)+' blacklisted primer pairs\n')
-            if len(pairs) != len(specificPrimerPairs):
-                sys.stderr.write('Removed '+str(len(pairs)-len(specificPrimerPairs))+' non-specific primer pairs\n')
-            pairs = specificPrimerPairs
+                ## add SNPinfo (SNPcheck) for main target
+                progress = Progressbar(len(pairs),'SNPcheck')
+                for i, pair in enumerate(pairs):
+                    sys.stderr.write('\r'+progress.show(i))
+                    for p in pair:
+                        p.snpCheckPrimer(config['snpcheck']['common'])
+                sys.stderr.write('\r'+progress.show(len(pairs))+'\n')
 
-            ## add SNPinfo (SNPcheck) for main target
-            progress = Progressbar(len(pairs),'SNPcheck')
-            checkedPairs = []  # checked primer pairs (with correct target)
-            for i, pair in enumerate(pairs):
-                sys.stderr.write('\r'+progress.show(i))
-                for p in pair:
-                    p.snpCheckPrimer(config['snpcheck']['common'])
-            sys.stderr.write('\r'+progress.show(len(pairs))+'\n')
+                # assign designed primer pairs to intervals (remove ranks and tag)
+                intervalindex = { iv.name: iv for iv in intervals }
+                intervalprimers = { iv.name: set([ p.uniqueid() for p in ivpairs[iv] ]) for iv in intervals }
+                failCount = 0
+                for pair in pairs:
+                    passed = 0
+                    if pair.uniqueid() not in intervalprimers[pair.name]:
+                        if pair.check(config['designlimits']):
+                            # add default tag
+                            for primer in pair:
+                                primer.tag = config['design']['tag']
+                            # assign to interval
+                            ivpairs[intervalindex[pair.name]].append(pair)
+                            intervalprimers[pair.name].add(pair.uniqueid())
+                        else:
+                            # add to blacklist if design limits fail
+                            blacklist.append(pair.uniqueid())
+                            failCount += 1
+                if failCount:
+                    print >> sys.stderr, 'INFO: {:2d} pairs violated design limits and were blacklisted ({} total)'.format(failCount,str(len(blacklist)))
+                # print failed primer designs
+                for k,v in intervalprimers.items():
+                    if len(v)==0:
+                        print >> sys.stderr, 'WARNING: Target {} failed on designlimits'.format(k)
 
-            # assign designed primer pairs to intervals (remove ranks and tag)
-            intervalindex = { iv.name: iv for iv in intervals }
-            intervalprimers = { iv.name: set([ p.uniqueid() for p in ivpairs[iv] ]) for iv in intervals }
-            for pair in pairs:
-                passed = 0
-                if pair.uniqueid() not in intervalprimers[pair.name]:
-                    if pair.check(config['designlimits']):
-                        # add default tag
-                        for primer in pair:
-                            primer.tag = config['design']['tag']
-                        # assign to interval
-                        ivpairs[intervalindex[pair.name]].append(pair)
-                        intervalprimers[pair.name].add(pair.uniqueid())
-            # print failed primer designs
-            for k,v in intervalprimers.items():
-                if len(v)==0:
-                    print >> sys.stderr, 'Primer {} failed on designlimits'.format(k)
+    # save blacklist cache
+    pickle.dump(list(set(blacklist)),open(blacklistCacheFile,'wb'))
 
     # print primer pair count and build database table
     failure = [ iv.name for iv,p in ivpairs.items() if config['report']['pairs']>len(p) ]
@@ -304,10 +330,10 @@ def getPrimers(intervals, db, design, config):
 # === convenience functions ====================================================
 # ==============================================================================
 
-def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=False):
+def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=False, deep=True):
     intervals = readTargets(targets, config['tiling'])  # get intervals from file or commandline
     # get/design primer pairs
-    primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config)
+    primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config,deep)
     ## print primerTable
     if outfile:
         with open(outfile,'w') as fh:
@@ -321,7 +347,7 @@ def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=
         print >> sys.stderr, "Primer designs stored in database"
     return primerTable, resultList, missedIntervals
 
-def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesign=False):
+def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesign=False, deep=True):
     print >> sys.stderr, 'Reading batch file {}...'.format(targets)
     sampleVariants, genes = readBatch(targets, config['tiling'])
     print >> sys.stderr, '\n'.join([ '{:<20} {:>2d}'.format(sample,len(variants)) \
@@ -333,7 +359,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
         with open(config['design']['annotation']) as fh:
             intervals = GenePred(fh,getgenes=genes,**config['tiling'])  # get intervals from file or commandline
         # predesign and store
-        primerTable, resultList, missedIntervals = getPrimers(intervals,db,predesign,config)
+        primerTable, resultList, missedIntervals = getPrimers(intervals,db,predesign,config,deep)
         if db:
             db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
     # for each sample design
@@ -343,7 +369,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
     for sample, intervals in sorted(sampleVariants.items(),key=lambda x: x[0]):
         print >> sys.stderr, "Getting primers for {} variants in sample {}".format(len(intervals),sample)
         # get/design primers
-        primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config)
+        primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config,deep)
         if missedIntervals:
             allMissedIntervals[sample] = missedIntervals
         # store result list
@@ -453,6 +479,8 @@ def main():
         help="File with intervals of interest or chr:start-end")
     parser_retrieve.add_argument("--design", dest="design", default=False, action="store_true", \
         help="Design primers if not in database")
+    parser_retrieve.add_argument("--nodeep", dest="deep", default=True, action='store_false', \
+        help="Skip deep search for primers")
     parser_retrieve.add_argument("--nostore", dest="store", default=True, action='store_false', \
         help="Do not store result in database")
     parser_retrieve.add_argument("--outfile", dest="outfile", default='', type=str, \
@@ -467,6 +495,8 @@ def main():
         help="Design primers for all genes in batch")
     parser_batch.add_argument("--nodesign", dest="design", default=True, action="store_false", \
         help="Skip primer design if not in database")
+    parser_batch.add_argument("--nodeep", dest="deep", default=True, action='store_false', \
+        help="Skip deep search for primers")
     parser_batch.add_argument("--outfile", dest="outfile", default='', type=str, \
         help="Create worksheet PDF, order and robot CSV")
     parser_batch.set_defaults(which='batch')
@@ -529,6 +559,9 @@ def main():
             data,colnames = db.dump('locations')
         elif options.redundancies:
             data,colnames = db.getRedundantPrimers()
+        else:
+            print >> sys.stderr, "What to dump stranger?"
+            sys.exit(1)
         # format data output
         if options.outfile:
             dump = Data(data,colnames)
@@ -545,9 +578,9 @@ def main():
             print >> sys.stderr, 'BLACKLISTED PAIRS: {}'.format(','.join(db.blacklist(options.blacklist)))
             print >> sys.stderr, 'REMOVED ORPHANS:   {}'.format(','.join(db.removeOrphans()))
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
-        zippyPrimerQuery(config, options.targets, options.design, options.outfile, db, options.store)
+        zippyPrimerQuery(config, options.targets, options.design, options.outfile, db, options.store, options.deep)
     elif options.which=='batch':
-        zippyBatchQuery(config, options.targets, options.design, options.outfile, db, options.predesign)
+        zippyBatchQuery(config, options.targets, options.design, options.outfile, db, options.predesign, options.deep)
 
 if __name__=="__main__":
     main()

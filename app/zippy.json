@@ -12,23 +12,42 @@
         "annotation": "/home/vagrant/dev/zippy/zippy_resources/refGene",
         "bowtieindex": "/home/vagrant/dev/zippy/zippy_resources/human_g1k_v37.bowtie",
         "tag": "M13",
-        "primer3": {
-            "PRIMER_TASK": "generic",
-            "PRIMER_MIN_SIZE": 18,
-            "PRIMER_OPT_SIZE": 20,
-            "PRIMER_MAX_SIZE": 23,
-            "PRIMER_OPT_TM": 62.0,
-            "PRIMER_MIN_TM": 58.0,
-            "PRIMER_MAX_TM": 64.0,
-            "PRIMER_MIN_GC": 40.0,
-            "PRIMER_OPT_GC": 50.0,
-            "PRIMER_MAX_GC": 60.0,
-            "PRIMER_MAX_POLY_X": 4,
-            "PRIMER_PRODUCT_SIZE_RANGE": [[100,600]],
-            "PRIMER_GC_CLAMP": 1,
-            "PRIMER_NUM_RETURN": 10,
-            "PRIMER_MISPRIMING_LIBRARY":"/home/vagrant/dev/zippy/zippy_resources/human_repeat_simple.fa"
-        }
+        "primer3": [
+            {
+                "PRIMER_TASK": "generic",
+                "PRIMER_MIN_SIZE": 18,
+                "PRIMER_OPT_SIZE": 20,
+                "PRIMER_MAX_SIZE": 24,
+                "PRIMER_MIN_TM": 58.0,
+                "PRIMER_OPT_TM": 62.0,
+                "PRIMER_MAX_TM": 64.0,
+                "PRIMER_MIN_GC": 35.0,
+                "PRIMER_OPT_GC": 50.0,
+                "PRIMER_MAX_GC": 65.0,
+                "PRIMER_MAX_POLY_X": 4,
+                "PRIMER_PRODUCT_SIZE_RANGE": [[100,550],[550,1100]],
+                "PRIMER_GC_CLAMP": 1,
+                "PRIMER_NUM_RETURN": 100,
+                "PRIMER_MISPRIMING_LIBRARY":"/home/vagrant/dev/zippy/zippy_resources/human_repeat_simple.fa"
+            },
+            {
+                "PRIMER_TASK": "generic",
+                "PRIMER_MIN_SIZE": 17,
+                "PRIMER_OPT_SIZE": 20,
+                "PRIMER_MAX_SIZE": 25,
+                "PRIMER_MIN_TM": 57.0,
+                "PRIMER_OPT_TM": 62.0,
+                "PRIMER_MAX_TM": 65.0,
+                "PRIMER_MIN_GC": 30.0,
+                "PRIMER_OPT_GC": 50.0,
+                "PRIMER_MAX_GC": 70.0,
+                "PRIMER_MAX_POLY_X": 5,
+                "PRIMER_PRODUCT_SIZE_RANGE": [[100,1200]],
+                "PRIMER_GC_CLAMP": 1,
+                "PRIMER_NUM_RETURN": 200,
+                "PRIMER_MISPRIMING_LIBRARY":"/home/vagrant/dev/zippy/zippy_resources/human_repeat_simple.fa"
+            }
+        ]
     },
     "import": {
         "ampliconsize": [100,2000],
