@@ -29,6 +29,9 @@ from zippylib import ConfigError, Progressbar, banner
 from zippylib.reports import Worksheet
 from argparse import ArgumentParser
 from collections import defaultdict, Counter
+import cPickle as pickle
+
+blacklistCacheFile = '.blacklist.cache'
 
 '''file MD5'''
 def fileMD5(fi, block_size=2**20):
@@ -171,6 +174,10 @@ def importPrimerPairs(inputfile,config,primer3=True):
 def getPrimers(intervals, db, design, config, deep=True):
     ivpairs = defaultdict(list)  # found/designed primer pairs (from database or design)
     blacklist = db.blacklist() if db else []
+    try:
+        blacklist += pickle.load(open(blacklistCacheFile,'rb'))
+    except:
+        pass
     # primer searching in database by default
     if db:
         progress = Progressbar(len(intervals),'Querying database')
@@ -195,7 +202,7 @@ def getPrimers(intervals, db, design, config, deep=True):
             insufficentAmpliconIntervals = [ iv for iv in intervals if config['report']['pairs']>len(ivpairs[iv]) ]
             if not insufficentAmpliconIntervals:
                 break  # end design process
-            print >> sys.stderr, "Parameter set #{} ({} intervals)".format(tier+1, len(insufficentAmpliconIntervals))
+            print >> sys.stderr, "Round #{} ({} intervals)".format(tier+1, len(insufficentAmpliconIntervals))
             # Primer3 design
             designedPairs = {}
             progress = Progressbar(len(insufficentAmpliconIntervals),'Designing primers')
@@ -238,7 +245,6 @@ def getPrimers(intervals, db, design, config, deep=True):
 
                 ## add SNPinfo (SNPcheck) for main target
                 progress = Progressbar(len(pairs),'SNPcheck')
-                checkedPairs = []  # checked primer pairs (with correct target)
                 for i, pair in enumerate(pairs):
                     sys.stderr.write('\r'+progress.show(i))
                     for p in pair:
@@ -248,9 +254,7 @@ def getPrimers(intervals, db, design, config, deep=True):
                 # assign designed primer pairs to intervals (remove ranks and tag)
                 intervalindex = { iv.name: iv for iv in intervals }
                 intervalprimers = { iv.name: set([ p.uniqueid() for p in ivpairs[iv] ]) for iv in intervals }
-
                 failCount = 0
-
                 for pair in pairs:
                     passed = 0
                     if pair.uniqueid() not in intervalprimers[pair.name]:
@@ -271,6 +275,9 @@ def getPrimers(intervals, db, design, config, deep=True):
                 for k,v in intervalprimers.items():
                     if len(v)==0:
                         print >> sys.stderr, 'WARNING: Target {} failed on designlimits'.format(k)
+
+    # save blacklist cache
+    pickle.dump(list(set(blacklist)),open(blacklistCacheFile,'wb'))
 
     # print primer pair count and build database table
     failure = [ iv.name for iv,p in ivpairs.items() if config['report']['pairs']>len(p) ]
