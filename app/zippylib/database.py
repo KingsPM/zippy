@@ -30,17 +30,23 @@ class PrimerDB(object):
         try:
             # TABLE
             cursor.execute('''PRAGMA foreign_keys = ON''')
-            cursor.execute('''CREATE TABLE IF NOT EXISTS primer(name TEXT, seq TEXT, tag TEXT, tm REAL, gc REAL, vessel INT, well TEXT, dateadded TEXT,
+            cursor.execute('''CREATE TABLE IF NOT EXISTS primer(
+                name TEXT, seq TEXT, tag TEXT, tm REAL, gc REAL, vessel INT,
+                well TEXT, dateadded TEXT,
                 FOREIGN KEY(seq) REFERENCES target(seq),
                 UNIQUE (name,seq,tag),
                 UNIQUE (vessel, well));''')
-            cursor.execute('''CREATE TABLE IF NOT EXISTS pairs(pairid TEXT PRIMARY KEY, uniqueid TEXT, left TEXT, right TEXT, chrom TEXT, start INT, end INT, dateadded TEXT,
+            cursor.execute('''CREATE TABLE IF NOT EXISTS pairs(
+                pairid TEXT PRIMARY KEY, uniqueid TEXT, left TEXT, right TEXT,
+                chrom TEXT, start INT, end INT, dateadded TEXT,
                 FOREIGN KEY(left) REFERENCES primer(name) ON UPDATE CASCADE,
                 FOREIGN KEY(right) REFERENCES primer(name) ON UPDATE CASCADE,
                 UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);''')
-            cursor.execute('''CREATE TABLE IF NOT EXISTS target(seq TEXT, chrom TEXT, position INT, reverse BOOLEAN,
+            cursor.execute('''CREATE TABLE IF NOT EXISTS target(
+                seq TEXT, chrom TEXT, position INT, reverse BOOLEAN,
                 FOREIGN KEY(seq) REFERENCES primer(seq) ON DELETE CASCADE);''')
-            cursor.execute('''CREATE TABLE IF NOT EXISTS blacklist(uniqueid TEXT PRIMARY KEY, blacklistdate TEXT);''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS blacklist(
+                uniqueid TEXT PRIMARY KEY, blacklistdate TEXT);''')
             self.db.commit()
         except:
             print >> sys.stderr, self.sqlite
@@ -235,6 +241,56 @@ class PrimerDB(object):
             primerPairs.append(PrimerPair([leftPrimer, rightPrimer],name=row[0],reverse=reverse))
         return primerPairs  # ordered by midpoint distance
 
+    def queryName(self, searchName):
+        '''query database for primers with sub-string in name'''
+        subSearchName = '%'+searchName+'%'
+        try:
+            self.db = sqlite3.connect(self.sqlite)
+        except:
+            raise
+        else:
+            cursor = self.db.cursor()
+            cursor.execute('''SELECT DISTINCT p.pairid, l.tag, r.tag, l.seq, r.seq, p.left, p.right,
+                p.chrom, p.start, p.end, l.vessel, l.well, r.vessel, r.well
+                FROM pairs AS p
+                LEFT JOIN primer as l ON p.left = l.name
+                LEFT JOIN primer as r ON p.right = r.name
+                WHERE p.pairid LIKE ?
+                ORDER BY p.pairid;''', \
+                (subSearchName,))
+            rows = cursor.fetchall()
+        finally:
+            self.db.close()
+        # return primer pairs that would match
+        primerPairs = []
+        for row in rows:
+            print >> sys.stderr, row
+            # build targets
+            leftTargetposition = Locus(row[7], row[8], len(row[3]), False)
+            rightTargetposition = Locus(row[7], row[9]-len(row[4]), len(row[4]), True)
+            # build storage locations (if available)
+            leftLocation = Location(*row[10:12]) if all(row[10:12]) else None
+            rightLocation = Location(*row[12:14]) if all(row[12:14]) else None
+            # Build primers
+            leftPrimer = Primer(row[5], row[3], targetposition=leftTargetposition, tag=row[1], location=leftLocation)
+            rightPrimer = Primer(row[6], row[4], targetposition=rightTargetposition, tag=row[2], location=rightLocation)
+            # get reverse status (from name)
+            orientations = [ x[1] for x in map(parsePrimerName,row[5:7]) ]
+            if not any(orientations) or len(set(orientations))==1:
+                print >> sys.stderr, '\rWARNING: {} orientation is ambiguous ({},{}){}\r'.format(row[0],\
+                    '???' if orientations[0]==0 else 'rev' if orientations[0]<0 else 'fwd', \
+                    '???' if orientations[0]==0 else 'rev' if orientations[1]<0 else 'fwd'," "*20)
+                reverse = False
+            elif orientations[0]>0 or orientations[1]<0:
+                reverse = False
+            elif orientations[1]>0 or orientations[0]<0:
+                reverse = True
+            else:
+                raise Exception('PrimerPairStrandError')
+            # Build pair
+            primerPairs.append(PrimerPair([leftPrimer, rightPrimer],name=row[0],reverse=reverse))
+        return primerPairs # ordered by primer name
+
     def getLocation(self,loc):
         '''returns whats stored at location'''
         try:
@@ -289,7 +345,7 @@ class PrimerDB(object):
         return
 
     def storePrimer(self,primerid,loc):
-        '''updates the location in which primer pairs are stored in the status table'''
+        '''updates the location in which primers are stored'''
         try:
             self.db = sqlite3.connect(self.sqlite)
         except:

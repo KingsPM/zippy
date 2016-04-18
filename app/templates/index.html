@@ -1,32 +1,41 @@
 {% extends "base.html" %}
 {% block content %}
-    <div>
-        <div>
-            <p>Select batch file to upload</p>
+    <div id="indexPage">
+        <div id="left">
+            <p>Select batch file to upload to query database for, or design, primers</p>
             <form action="/upload/" method="post" enctype="multipart/form-data">
                 <input type="file" name="filePath"><br><br>
-                <input type="submit" value="Upload">
+                <input type="submit" value="Upload"><br><br>
             </form>
         </div>
         <div>
-            <br>
         </div>
-        <div>
+        <div id="right">
             <p>Or enter specific locus to design primer for in the form: <span class="pop">Chromosome:Start-End</span></p>
             <form action="/adhoc_design/" method="post" enctype="multipart/form-data">
-                <input type="text" name="locus"><br><br>
+                <input type="text" name="locus">
                 <input type="checkbox" name="store" value="True">Store designed primers<br><br>
-                <input type="submit" value="Submit">
+                <input type="submit" value="Submit"><br><br>
             </form>
         </div>
-    </div>
-    <br><br>
-    <div>
+        <div>
+            <p>&nbsp</p><hr><br><br>
+        </div>
+        <div>
+            <p>Enter search string to query database for primers stored under a name containing this string</p>
+            <form action="/search_by_name/" method="post" enctype="multipart/form-data">
+                <input type="text" name="searchName"><br><br>
+                <input type="submit" id="revButton" value="Search">
+            </form>
+        </div>
+        <div>
+            <br><br>
+        </div>
         <div>
             <p>Update the storage location of a primer pair in the form: <span class="pop">PrimerName Vessel Well</span></p>
             <form action="/update_location/" method="post" enctype="multipart/form-data">
                 <input type="text" name="location"><br><br>
-                <input type="submit" value="Update">
+                <input type="submit" id="revButton" value="Update">
             </form>
         </div>
     </div>

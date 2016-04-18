@@ -469,6 +469,17 @@ def updateLocation(primername, location, database):
     else:
         return 'Location already occupied by %s' % (' and '.join(occupied))
 
+def searchByName(searchName, db):
+    print >> sys.stderr, 'Searching database for primers with the sub-string "%s" in their name' %(searchName)
+    primersInDB = db.queryName(searchName)
+    if primersInDB:
+        print >> sys.stderr, 'The following primers were found: -'
+        for eachPair in primersInDB:
+            for eachPrimer in eachPair:
+                print >> sys.stderr, eachPrimer.name
+    else:
+        print >> sys.stderr, 'No primers were found'
+    return primersInDB
 
 # ==============================================================================
 # === CLI ======================================================================
@@ -510,6 +521,12 @@ def main():
     parser_retrieve.add_argument("--outfile", dest="outfile", default='', type=str, \
         help="Output file name")
     parser_retrieve.set_defaults(which='get')
+
+    ## query database for primers by name
+    parser_query = subparsers.add_parser('query', help='Query database for primers with specified sub-string in name')
+    parser_query.add_argument("subString", default=None, metavar="Sub-string within name", \
+        help="String found within primer name")
+    parser_query.set_defaults(which='query')
 
     ## batch
     parser_batch = subparsers.add_parser('batch', help='Batch design primers for sample list')
@@ -605,6 +622,8 @@ def main():
         zippyPrimerQuery(config, options.targets, options.design, options.outfile, db, options.store, options.deep)
     elif options.which=='batch':
         zippyBatchQuery(config, options.targets, options.design, options.outfile, db, options.predesign, options.deep)
+    elif options.which=='query':
+        searchByName(options.subString, db)
 
 if __name__=="__main__":
     main()
