@@ -63,7 +63,8 @@ Primer table import
 Storage by Primer and storage validation
 Allows for same primer in multiple pairs
 added primer redundancy query
-
+Primer design parameter sets (deep digging for primers)
+Apache Webserver in VM
 
 ### FUTURE
 Asynchronous Design process
