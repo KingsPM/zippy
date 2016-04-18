@@ -264,7 +264,6 @@ class PrimerDB(object):
         # return primer pairs that would match
         primerPairs = []
         for row in rows:
-            print >> sys.stderr, row
             # build targets
             leftTargetposition = Locus(row[7], row[8], len(row[3]), False)
             rightTargetposition = Locus(row[7], row[9]-len(row[4]), len(row[4]), True)

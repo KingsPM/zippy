@@ -24,7 +24,7 @@
 		{% endfor %}
 		<p>Please re-submit a different genomic location or relax the configuration design limits and attempt the primer design again</p>
 		<div>
-    	    <p>Enter specific locus to design primer for in the form: <span class="pop">Chromosome:Start-End</span></p>
+    	    <p>Enter specific locus to design primer for in the form: <span class="pop">Chromosome:Start-End[:-]</span></p>
     	    <form action="/adhoc_design/" method="post" enctype="multipart/form-data">
     	        <input type="text" name="locus"><br><br>
     	        <input type="checkbox" name="store" value="True">Store designed primers<br><br>
@@ -32,7 +32,7 @@
     	    </form>
     	</div>
 	{% else %}
-		<p>The specific locus to design primers for was not given in the correct format. Please re-submit in the correct format: <span class="pop">Chromosome:Start-End</span></p>
+		<p>The specific locus to design primers for was not given in the correct format. Please re-submit in the correct format: <span class="pop">Chromosome:Start-End[:-]</span></p>
 		<div>
     	    <form action="/adhoc_design/" method="post" enctype="multipart/form-data">
     	        <input type="text" name="locus"><br><br>
