@@ -76,27 +76,27 @@ class MultiFasta(object):
         mapfile = self.file+'.sam'
         if not os.path.exists(mapfile):
             proc = subprocess.check_call( \
-                [bowtie, '-f', '--end-to-end', \
-                '-k 50', '-L 10', '-N 1', '-D 20', '-R 3', \
+                [bowtie, '-f', '--end-to-end', '-p 2', \
+                '-k 20', '-L 10', '-N 1', '-D 20', '-R 3', \
                 '-x', db, '-U', self.file, '>', mapfile ])
         # Read fasta file (Create Primer)
         primers = {}
-        fasta = pysam.FastaFile(self.file)
-        for s in fasta.references:
-            # parse target locus from fasta file
-            try:
-                primername, targetposition = s.split('|')
-                reTargetposition = re.match(r'(\w+):(\d+)-(\d+):([+-])',targetposition)
-            except:
-                primername = s
-                targetLocus = None
-            else:
-                # create stranded targetlocus
-                reverse = True if reTargetposition.group(4)=='-' else False
-                targetLocus = Locus(reTargetposition.group(1), int(reTargetposition.group(2)), int(reTargetposition.group(3))-int(reTargetposition.group(2)), reverse)
-            # create primer (with target locus)
-            primertag = tags[primername] if primername in tags.keys() else None
-            primers[primername] = Primer(primername,fasta.fetch(s),targetLocus,tag=primertag)
+        with pysam.FastaFile(self.file) as fasta:
+            for s in fasta.references:
+                # parse target locus from fasta file
+                try:
+                    primername, targetposition = s.split('|')
+                    reTargetposition = re.match(r'(\w+):(\d+)-(\d+):([+-])',targetposition)
+                except:
+                    primername = s
+                    targetLocus = None
+                else:
+                    # create stranded targetlocus
+                    reverse = True if reTargetposition.group(4)=='-' else False
+                    targetLocus = Locus(reTargetposition.group(1), int(reTargetposition.group(2)), int(reTargetposition.group(3))-int(reTargetposition.group(2)), reverse)
+                # create primer (with target locus)
+                primertag = tags[primername] if primername in tags.keys() else None
+                primers[primername] = Primer(primername,fasta.fetch(s),targetLocus,tag=primertag)
 
         # read SAM OUTPUT
         mappings = pysam.Samfile(mapfile,'r')

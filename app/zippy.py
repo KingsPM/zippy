@@ -470,15 +470,8 @@ def updateLocation(primername, location, database):
         return 'Location already occupied by %s' % (' and '.join(occupied))
 
 def searchByName(searchName, db):
-    print >> sys.stderr, 'Searching database for primers with the sub-string "%s" in their name' %(searchName)
     primersInDB = db.queryName(searchName)
-    if primersInDB:
-        print >> sys.stderr, 'The following primers were found: -'
-        for eachPair in primersInDB:
-            for eachPrimer in eachPair:
-                print >> sys.stderr, eachPrimer.name
-    else:
-        print >> sys.stderr, 'No primers were found'
+    print >> sys.stderr, 'Found {} primer pairs with string "{}"'.format(len(primersInDB),searchName)
     return primersInDB
 
 # ==============================================================================

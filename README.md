@@ -64,13 +64,15 @@ Storage by Primer and storage validation
 Allows for same primer in multiple pairs
 added primer redundancy query
 Primer design parameter sets (deep digging for primers)
+Importing of primer pairs with multiple amplicons
+Blacklist cache for design
+Improved webinterface
 Apache Webserver in VM
+New setup routines (zippy-primer on PyPi)
 
 ### FUTURE
-Asynchronous Design process
-Primer metadata adding
+Asynchronous design process (celery)
 Web GUI extensions
-
 
 ## Reference Genome
 Primers are designed from the unmasked 1kg reference genome while ignoring simple repeat regions.
