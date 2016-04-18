@@ -16,6 +16,7 @@ import pysam
 import subprocess
 from collections import defaultdict, OrderedDict
 from .interval import Interval
+from string import maketrans
 
 '''returns common prefix (substring)'''
 def commonPrefix(left,right,stripchars='-_ ',commonlength=3):
@@ -40,6 +41,24 @@ def parsePrimerName(x):
         elif suf in rev_suffix or re.match(r'r\d+',suf):
             return (pre, -1)
     return (x,0)
+
+class Genome(object):
+    def __init__(self,fi):
+        self.file = fi
+
+    def primerMatch(self,locus,seq,ampsize):
+        # get sequence with flank
+        chromStart = locus.offset-ampsize[1] if locus.reverse else locus.offset+locus.length+ampsize[0]
+        chromEnd   = locus.offset-ampsize[0] if locus.reverse else locus.offset+locus.length+ampsize[1]
+        with pysam.FastaFile(self.file) as fasta:
+            seqslice = fasta.fetch(locus.chrom,chromStart,chromEnd)
+        # find sequence
+        qrySeq = seq if locus.reverse else seq.translate(maketrans('ACGTNacgtn','TGCANtgcan'))[::-1]
+        # create new loci
+        loci = []
+        for i in [ match.start() for match in re.finditer(re.escape(qrySeq), seqslice) ]:
+            loci.append(Locus(locus.chrom, chromStart+i, len(qrySeq), not locus.reverse))
+        return loci
 
 '''just a wrapper for pysam'''
 class MultiFasta(object):
@@ -268,7 +287,7 @@ class PrimerPair(list):
         assert len(self)==2
         return (len(self.amplicons([0,10000]))-1, self.criticalsnp(), self.mispriming(), self.snpcount(), self.designrank())
 
-    def amplicons(self,sizeRange=[0,10000]):  # counts possible amplicons to a certain size
+    def amplicons(self, sizeRange=[0,10000], autoreverse=True):  # counts possible amplicons to a certain size
         amplicons = []
         for m in self[0].loci:
             for n in self[1].loci:
@@ -277,6 +296,17 @@ class PrimerPair(list):
                     if (not sizeRange) or (amplen >= sizeRange[0] and amplen <= sizeRange[1]):
                         amp = (m, n, Interval(m.chrom,m.offset,n.offset + n.length,self.name))
                         amplicons.append(amp)
+        if autoreverse:  # reverse if and find amplicons if one direction doesnt yield any
+            if not amplicons:
+                for m in self[1].loci:
+                    for n in self[0].loci:
+                        if m.chrom == n.chrom:
+                            amplen = n.offset + n.length - m.offset
+                            if (not sizeRange) or (amplen >= sizeRange[0] and amplen <= sizeRange[1]):
+                                amp = (m, n, Interval(m.chrom,m.offset,n.offset + n.length,self.name))
+                                amplicons.append(amp)
+                if amplicons:
+                    self.reverse()
         return amplicons
 
     def snpcount(self):
