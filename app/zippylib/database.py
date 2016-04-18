@@ -244,25 +244,45 @@ class PrimerDB(object):
             raise
         else:
             cursor = self.db.cursor()
-            cursor.execute('''SELECT DISTINCT p.pairid, p.left, p.right, p.chrom, p.start, p.end, s.vessel, s.well
-                FROM pairs AS p, status AS s
-                WHERE p.pairid = s.pairid AND p.uniqueid = s.uniqueid
-                AND p.pairid like ?
+            cursor.execute('''SELECT DISTINCT p.pairid, l.tag, r.tag, l.seq, r.seq, p.left, p.right,
+                p.chrom, p.start, p.end, l.vessel, l.well, r.vessel, r.well
+                FROM pairs AS p
+                LEFT JOIN primer as l ON p.left = l.name
+                LEFT JOIN primer as r ON p.right = r.name
+                WHERE p.pairid LIKE ?
                 ORDER BY p.pairid;''', \
                 (subSearchName,))
             rows = cursor.fetchall()
         finally:
             self.db.close()
+        # return primer pairs that would match
         primerPairs = []
         for row in rows:
-            name = row[0]
-            leftSeq = row[1]
-            rightSeq = row[2]
-            leftTargetposition = Locus(row[3], row[4], len(row[1]), False)
-            rightTargetposition = Locus(row[3], row[5]-len(row[2]), len(row[2]), True)
-            leftPrimer = Primer(name+'_left', leftSeq, leftTargetposition)
-            rightPrimer = Primer(name+'_right', rightSeq, rightTargetposition)
-            primerPairs.append(PrimerPair([leftPrimer, rightPrimer], location=row[6:8]))
+            print >> sys.stderr, row
+            # build targets
+            leftTargetposition = Locus(row[7], row[8], len(row[3]), False)
+            rightTargetposition = Locus(row[7], row[9]-len(row[4]), len(row[4]), True)
+            # build storage locations (if available)
+            leftLocation = Location(*row[10:12]) if all(row[10:12]) else None
+            rightLocation = Location(*row[12:14]) if all(row[12:14]) else None
+            # Build primers
+            leftPrimer = Primer(row[5], row[3], targetposition=leftTargetposition, tag=row[1], location=leftLocation)
+            rightPrimer = Primer(row[6], row[4], targetposition=rightTargetposition, tag=row[2], location=rightLocation)
+            # get reverse status (from name)
+            orientations = [ x[1] for x in map(parsePrimerName,row[5:7]) ]
+            if not any(orientations) or len(set(orientations))==1:
+                print >> sys.stderr, '\rWARNING: {} orientation is ambiguous ({},{}){}\r'.format(row[0],\
+                    '???' if orientations[0]==0 else 'rev' if orientations[0]<0 else 'fwd', \
+                    '???' if orientations[0]==0 else 'rev' if orientations[1]<0 else 'fwd'," "*20)
+                reverse = False
+            elif orientations[0]>0 or orientations[1]<0:
+                reverse = False
+            elif orientations[1]>0 or orientations[0]<0:
+                reverse = True
+            else:
+                raise Exception('PrimerPairStrandError')
+            # Build pair
+            primerPairs.append(PrimerPair([leftPrimer, rightPrimer],name=row[0],reverse=reverse))
         return primerPairs # ordered by primer name
 
     def getLocation(self,loc):
@@ -319,7 +339,7 @@ class PrimerDB(object):
         return
 
     def storePrimer(self,primerid,loc):
-        '''updates the location in which primer pairs are stored in the status table'''
+        '''updates the location in which primers are stored'''
         try:
             self.db = sqlite3.connect(self.sqlite)
         except:
