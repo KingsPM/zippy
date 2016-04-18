@@ -9,6 +9,8 @@ from app import app
 from zippy import zippyBatchQuery, zippyPrimerQuery, updateLocation, searchByName
 from zippylib import ascii_encode_dict
 from zippylib.database import PrimerDB
+from zippylib.primer import Location
+
 import hashlib
 
 ALLOWED_EXTENSIONS = set(['txt', 'batch', 'vcf', 'bed', 'csv'])
@@ -126,16 +128,20 @@ def adhocdesign():
 @app.route('/update_location/', methods=['POST'])
 def update_Location():
     location = request.form.get('location')
-    if re.match('\w+\s\w+\s\w',location):
-        with open(app.config['CONFIG_FILE']) as conf:
-            config = json.load(conf, object_hook=ascii_encode_dict)
-            db = PrimerDB(config['database'])
-        updateStatus = updateLocation(location, db)
-        print updateStatus
-        return render_template('location_updated.html', status=updateStatus)
-    else:
-        print 'update location not given in correct format'
+    try:
+        m = re.match('(\w+)\s+(\d+)\s+(\w+)',location)
+        assert m
+    except AssertionError:
+        print 'update location not given in correct format (PrimerName VesselNumber Well)'
         return render_template('location_updated.html', status=None)
+    except:
+        raise
+    with open(app.config['CONFIG_FILE']) as conf:
+        config = json.load(conf, object_hook=ascii_encode_dict)
+        db = PrimerDB(config['database'])
+    updateStatus = updateLocation(m.group(1), Location(m.group(2), m.group(3)), db)
+    return render_template('location_updated.html', status=updateStatus)
+
 
 @app.route('/search_by_name/', methods=['POST'])
 def searchName():
@@ -148,8 +154,3 @@ def searchName():
             for result in pairs:
                 print result.name
     return render_template('searchname_result.html', searchResult=searchResult, searchName=searchName)
-
-    
-
-
-
