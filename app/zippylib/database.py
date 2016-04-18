@@ -30,17 +30,23 @@ class PrimerDB(object):
         try:
             # TABLE
             cursor.execute('''PRAGMA foreign_keys = ON''')
-            cursor.execute('''CREATE TABLE IF NOT EXISTS primer(name TEXT, seq TEXT, tag TEXT, tm REAL, gc REAL, vessel INT, well TEXT, dateadded TEXT,
+            cursor.execute('''CREATE TABLE IF NOT EXISTS primer(
+                name TEXT, seq TEXT, tag TEXT, tm REAL, gc REAL, vessel INT,
+                well TEXT, dateadded TEXT,
                 FOREIGN KEY(seq) REFERENCES target(seq),
                 UNIQUE (name,seq,tag),
                 UNIQUE (vessel, well));''')
-            cursor.execute('''CREATE TABLE IF NOT EXISTS pairs(pairid TEXT PRIMARY KEY, uniqueid TEXT, left TEXT, right TEXT, chrom TEXT, start INT, end INT, dateadded TEXT,
+            cursor.execute('''CREATE TABLE IF NOT EXISTS pairs(
+                pairid TEXT PRIMARY KEY, uniqueid TEXT, left TEXT, right TEXT,
+                chrom TEXT, start INT, end INT, dateadded TEXT,
                 FOREIGN KEY(left) REFERENCES primer(name) ON UPDATE CASCADE,
                 FOREIGN KEY(right) REFERENCES primer(name) ON UPDATE CASCADE,
                 UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);''')
-            cursor.execute('''CREATE TABLE IF NOT EXISTS target(seq TEXT, chrom TEXT, position INT, reverse BOOLEAN,
+            cursor.execute('''CREATE TABLE IF NOT EXISTS target(
+                seq TEXT, chrom TEXT, position INT, reverse BOOLEAN,
                 FOREIGN KEY(seq) REFERENCES primer(seq) ON DELETE CASCADE);''')
-            cursor.execute('''CREATE TABLE IF NOT EXISTS blacklist(uniqueid TEXT PRIMARY KEY, blacklistdate TEXT);''')
+            cursor.execute('''CREATE TABLE IF NOT EXISTS blacklist(
+                uniqueid TEXT PRIMARY KEY, blacklistdate TEXT);''')
             self.db.commit()
         except:
             print >> sys.stderr, self.sqlite
