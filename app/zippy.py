@@ -22,7 +22,7 @@ import json
 import tempfile
 import hashlib
 from zippylib.files import VCF, BED, GenePred, Interval, Data, readTargets, readBatch
-from zippylib.primer import MultiFasta, Primer3, Primer, PrimerPair, Location, parsePrimerName
+from zippylib.primer import Genome, MultiFasta, Primer3, Primer, PrimerPair, Location, parsePrimerName
 from zippylib.reports import Test
 from zippylib.database import PrimerDB
 from zippylib import ConfigError, Progressbar, banner
@@ -178,16 +178,40 @@ def importPrimerPairs(inputfile,config,primer3=True):
         print >> sys.stderr, 'Identifying correct amplicons for unplaced primer pairs...'
         for p in pairs.values():
             if not p[0].targetposition or not p[1].targetposition:
-                if len(p.amplicons(config['import']['ampliconsize']))==1 or len(p.reverse().amplicons(config['import']['ampliconsize']))==1:
-                    # automatically reverses primers if no amplicons are found
-                    amplicons = p.amplicons(config['import']['ampliconsize'])
-                    p[0].targetposition = amplicons[0][0]  # m
-                    p[1].targetposition = amplicons[0][1]  # n
+                amplicons = p.amplicons(config['import']['ampliconsize'],autoreverse=True)
+                if amplicons:
+                    shortest = sorted(amplicons,key=lambda x: len(x[2]))[0]  # sort amplicons by size
+                    if len(amplicons)>1:
+                        print >> sys.stderr, 'WARNING: mutiple amplicons for {}. Assuming shortest ({}bp) is correct.'.format(p.name,str(len(shortest[2])))
+                    p[0].targetposition = shortest[0]  # m
+                    p[1].targetposition = shortest[1]  # n
                     acceptedPairs.append(p)
+                elif not primer3:  # try to find amplicon by sequence matching
+                    refGenome = Genome(config['design']['genome'])
+                    if p[0].loci and len(p[0].loci) < len(p[1].loci):
+                        query, mapped = 1,0
+                    elif p[1].loci and len(p[1].loci) < len(p[0].loci):
+                        query, mapped = 0,1
+                    else:
+                        print >> sys.stderr, 'WARNING: Primer set {} is too ambiguous to be imported ({},{})'.format(p.name,len(p[0].loci),len(p[1].loci))
+                        continue
+                    # find by quick sequence matching
+                    for l in p[mapped].loci:
+                        loc = refGenome.primerMatch(l,p[query].seq,config['import']['ampliconsize'])
+                        if loc:
+                            p[query].loci += loc
+                    # store new amplicon
+                    amplicons = p.amplicons(config['import']['ampliconsize'],autoreverse=True)
+                    if amplicons:
+                        p[0].targetposition = amplicons[0][0]  # m
+                        p[1].targetposition = amplicons[0][1]  # n
+                        acceptedPairs.append(p)
+                    else:
+                        print >> sys.stderr, '\n'.join([ ">"+str(l) for l in p[0].loci])
+                        print >> sys.stderr, '\n'.join([ "<"+str(l) for l in p[1].loci])
+                        print >> sys.stderr, 'WARNING: Primer set {} has no valid amplicons ({},{})'.format(p.name,len(p[0].loci),len(p[1].loci))
                 else:
-                    if p.reversed: p.reverse()  # just revert (thanks OCP)
                     print >> sys.stderr, 'WARNING: Primer set {} does not produce a well-sized, unique amplicon ({},{})'.format(p.name,len(p[0].loci),len(p[1].loci))
-                    continue
             else:
                 acceptedPairs.append(p)
         validPairs = acceptedPairs
