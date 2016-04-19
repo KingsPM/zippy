@@ -83,7 +83,9 @@
         "designrank": 100
     },
     "report": {
-        "logo": "viapath.png",
+        "auth": "James Bond",
+        "site": "KINGS COLLEGE HOSPITAL, MOLECULAR PATHOLOGY",
+        "logo": "zippy.png",
         "pairs": 1,
         "platesize": [8,12],
         "volumes": {

@@ -15,7 +15,8 @@ import time, datetime
 from math import ceil
 from copy import deepcopy
 from random import shuffle
-import itertools
+from itertools import product
+from functools import partial
 from hashlib import sha1
 from collections import Counter
 from . import PlateError, char_range, imageDir, githash
@@ -36,9 +37,20 @@ leftMargin = rightMargin = 2.6*cm
 topMargin = 2*cm
 bottomMargin = 2*cm
 
+
 # MolPath version controlled document template
 class MolPathTemplate(canvas.Canvas):
     def __init__(self, *args, **kwargs):
+        self.authorised = ""
+        self.headerstring = ""
+        # document authorisation and header
+        if 'auth' in kwargs.keys():
+            self.auth = kwargs['auth']
+            del kwargs['auth']
+        if 'site' in kwargs.keys():
+            self.site = kwargs['site']
+            del kwargs['site']
+        # build canvas
         canvas.Canvas.__init__(self, *args, **kwargs)
         self.pages = []
 
@@ -56,12 +68,12 @@ class MolPathTemplate(canvas.Canvas):
 
     def makePage(self, page_count):
         self.setFont("Helvetica", 9)
-        # header
-        headerstring = "KINGS COLLEGE HOSPITAL, MOLECULAR PATHOLOGY"
-        self.drawRightString(PAGE_WIDTH-rightMargin, PAGE_HEIGHT-topMargin/2.0, headerstring)
+        # site string
+        if self.site:
+            self.drawRightString(PAGE_WIDTH-rightMargin, PAGE_HEIGHT-topMargin/2.0, self.site)
         # authorised by
-        authorised = "James Bond"
-        self.drawString(leftMargin, bottomMargin/2, "Authorised by %s" % authorised)
+        if self.auth:
+            self.drawString(leftMargin, bottomMargin/2, "Authorised by %s" % self.auth)
         # version
         self.drawCentredString(PAGE_WIDTH/2, bottomMargin/2, githash('zippy'))
         # page number
@@ -70,7 +82,10 @@ class MolPathTemplate(canvas.Canvas):
 
 # Report
 class Report(object):
-    def __init__(self,fi,title='This is the title',logo=None):
+    def __init__(self,fi,title='This is the title',logo=None,site='',auth=''):
+        # site and auth
+        self.site = site
+        self.auth = auth
         # get document
         self.doc = SimpleDocTemplate(fi,pagesize=A4,
                         rightMargin=rightMargin,leftMargin=leftMargin,
@@ -85,8 +100,8 @@ class Report(object):
         self.elements = []
         # Header
         logo = Image(os.path.join(imageDir,logo),width=1.32*inch,height=0.7*inch) if logo else Paragraph('LOGO', self.styles["Heading1"])
-        titl = Paragraph('%s' % title, self.styles["Heading1"])
-        date = Paragraph('<font size=12>Generated on %s</font>' % time.ctime(), self.styles["Normal"])
+        titl = Paragraph('%s' % title, self.styles["Heading2"])
+        date = Paragraph('<font size=10>Generated on %s</font>' % time.ctime(), self.styles["Normal"])
         self.elements.append(Table([[logo,titl],['',date]],
             colWidths=[1.5*inch,4.5*inch],
             style=[ ('SPAN',(0,0),(0,1)), ('VALIGN',(0,0),(-1,-1),'BOTTOM'),
@@ -218,9 +233,9 @@ class Report(object):
         self.elements.append(Spacer(1, 12))
 
     def build(self):
-        self.doc.build(self.elements, canvasmaker=MolPathTemplate)
-        #self.doc.build(self.elements, onFirstPage=myFirstPage, onLaterPages=myFirstPage)
-        # self.doc.build(self.elements)
+        self.doc.build(self.elements, \
+            canvasmaker=partial(MolPathTemplate, site=self.site, auth=self.auth))
+
 
 '''PCR test (PrimerPair, samplename]'''
 class Test(object):
@@ -351,7 +366,9 @@ class Worksheet(list):
     '''PDF worksheet'''
     def createWorkSheet(self,fi,primertest=False,**kwargs):
         logo = kwargs['logo'] if 'logo' in kwargs.keys() and kwargs['logo'] else None
-        r = Report(fi,self.name,logo)
+        site = kwargs['site'] if 'site' in kwargs.keys() and kwargs['site'] else None
+        auth = kwargs['auth'] if 'auth' in kwargs.keys() and kwargs['auth'] else None
+        r = Report(fi,self.name,logo,site,auth)
         # add plates
         samples, primers, plates = [], [], []
         for p in self.plates:
@@ -401,13 +418,12 @@ class Worksheet(list):
                             else:
                                 digests[d] = cell.primerpair
                             # get tag name
-                            tagstring = ' '.join(set([ tags[x.tag]['name'] if x.tag in tags.keys() else x.tag \
-                                for x in cell.primerpairobject ]))
+                            tagstring = '/'.join(set([ x.tag for x in cell.primerpairobject ]))
                             print >> fh, "^XA"  # start label
-                            print >> fh, "^FO20,25^AB^FD{}^FS".format(self.date[:self.date.rfind('.')])  # date to the second
-                            print >> fh, "^FO20,45^AB,25^FD{}^FS".format(cell.primerpair)  # primer name
-                            print >> fh, "^FO20,75^AB^FD{}^FS".format(tagstring)  # primer name
-                            print >> fh, "^FO20,95^BY1.5^BCN,80,Y,N,N^FD{}^FS".format(d)  # uniqueid
+                            print >> fh, "^PR1,D,A"  # slower print speed
+                            print >> fh, "^FO20,50^AB^FD{}^FS".format(self.date[:self.date.rfind('.')])  # date to the second
+                            print >> fh, "^FO20,70^AB,25^FD{}  ({})^FS".format(cell.primerpair,tagstring)  # primer name
+                            print >> fh, "^FO20,100^BY1.5^BCN,80,Y,N,N^FD{}^FS".format(d)  # uniqueid
                             print >> fh, "^XZ"  # end label
 
 
@@ -470,7 +486,7 @@ class Plate(object):
             raise
         else:
             # get free columns
-            availableWells = [ r for r in itertools.product(bestRows,range(self.ncol)) if self.M[r[0]][r[1]] is None ]
+            availableWells = [ r for r in product(bestRows,range(self.ncol)) if self.M[r[0]][r[1]] is None ]
         # add to first available well
         self.M[availableWells[0][0]][availableWells[0][1]] = t
 
