@@ -376,10 +376,6 @@ def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=
     return primerTable, resultList, missedIntervals
 
 def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesign=False, deep=True):
-
-    print >> sys.stderr, 'IN', targets
-    print >> sys.stderr, 'OUT', outfile
-
     print >> sys.stderr, 'Reading batch file {}...'.format(targets)
     sampleVariants, genes = readBatch(targets, config['tiling'])
     print >> sys.stderr, '\n'.join([ '{:<20} {:>2d}'.format(sample,len(variants)) \

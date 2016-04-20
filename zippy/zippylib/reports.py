@@ -199,10 +199,11 @@ class Report(object):
             ['MasterMix', str((1.+excess)*reactions*mastermix)+' µl', '', '', '', 'Excess', str((excess)*100)+' %' ],
             ['Q-Solution', str((1.+excess)*reactions*qsolution)+' µl', '', '', '', 'PCR Program', 'ngsconfirm' ],
             ['TOTAL', str((1.+excess)*reactions*(mastermix+qsolution))+' µl', '', '', '', 'PCR Block','']]
-        t = Table(data, colWidths=[2.5*cm,2.5*cm,2.5*cm,2.5*cm,0.5*cm,2.5*cm,2.5*cm], rowHeights=0.6*cm)
+        t = Table(data, colWidths=[2.5*cm,2.5*cm,2.5*cm,2.5*cm,0.3*cm,2.7*cm,2.5*cm], rowHeights=0.6*cm)
         t.setStyle(TableStyle([
-            ('FONTSIZE',(0,0),(0,-1),10),
-            ('FONTSIZE',(1,0),(4,-1),8),
+            ('FONTSIZE',(0,1),(0,-1),10),
+            ('FONTSIZE',(1,0),(4,0),10),
+            ('FONTSIZE',(1,1),(4,-1),8),
             ('FONTSIZE',(5,0),(5,-1),10),
             ('FONTSIZE',(6,0),(6,-1),8),
             ('INNERGRID', (0,0), (3,-1), 0.25, colors.black),
@@ -289,9 +290,6 @@ class Test(object):
     def primerpair(self,x):
         self.primerpairobject = x
 
-    # returns human readable primer names (pairname and primer names if different)
-    def operatorPrimerName(self):
-        raise NotImplementedError
 
 '''Worksheet data (list of tests)'''
 class Worksheet(list):
@@ -423,6 +421,8 @@ class Worksheet(list):
                                     assert cell.primerpair == digests[d]
                                 except:
                                     raise Exception('BarcodeCollision')
+                                else:
+                                    continue  # dont print same barcode multiple times
                             else:
                                 digests[d] = cell.primerpair
                             # get tag name
