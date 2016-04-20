@@ -82,7 +82,7 @@ class MolPathTemplate(canvas.Canvas):
 
 # Report
 class Report(object):
-    def __init__(self,fi,title='This is the title',logo=None,site='',auth=''):
+    def __init__(self,fi,title='This is the title',logo=None,site='',auth='',worklist=''):
         # site and auth
         self.site = site
         self.auth = auth
@@ -123,7 +123,7 @@ class Report(object):
             ('BACKGROUND', (6,0), (6,0), colors.cyan)
             ])
         self.elements.append(Spacer(1, 2))
-        data = [[ 'Date','','','Operator','','','Worklist','']]
+        data = [[ 'Date','','','Operator','','','Worklist',worklist]]
         t = Table(data, \
             colWidths=[2.3*cm, 2.3*cm, 0.85*cm, 2.3*cm, 2.3*cm, 0.85*cm, 2.3*cm, 2.3*cm], rowHeights=0.6*cm)
         t.setStyle(TABLE_STYLE)
@@ -374,11 +374,11 @@ class Worksheet(list):
         return
 
     '''PDF worksheet'''
-    def createWorkSheet(self,fi,primertest=False,**kwargs):
+    def createWorkSheet(self,fi,primertest=False,worklist='',**kwargs):
         logo = kwargs['logo'] if 'logo' in kwargs.keys() and kwargs['logo'] else None
         site = kwargs['site'] if 'site' in kwargs.keys() and kwargs['site'] else None
         auth = kwargs['auth'] if 'auth' in kwargs.keys() and kwargs['auth'] else None
-        r = Report(fi,self.name,logo,site,auth)
+        r = Report(fi,self.name,logo,site,auth,worklist)
         # add plates
         samples, primers, plates = [], [], []
         for p in self.plates:

@@ -376,6 +376,10 @@ def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=
     return primerTable, resultList, missedIntervals
 
 def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesign=False, deep=True):
+
+    print >> sys.stderr, 'IN', targets
+    print >> sys.stderr, 'OUT', outfile
+
     print >> sys.stderr, 'Reading batch file {}...'.format(targets)
     sampleVariants, genes = readBatch(targets, config['tiling'])
     print >> sys.stderr, '\n'.join([ '{:<20} {:>2d}'.format(sample,len(variants)) \
@@ -415,6 +419,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
     if not outfile:
         print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTableConcat ])
     else:
+        worksheetName = '' if os.path.basename(targets).startswith(os.path.basename(outfile)) else os.path.basename(outfile)
         # output data
         writtenFiles.append(outfile+'.txt')
         print >> sys.stderr, "Writing results to {}...".format(writtenFiles[-1])
@@ -429,7 +434,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
             ws.addControls(control='Normal')  # add positive controls
             ws.fillPlates(size=config['report']['platesize'],randomize=True,\
                 includeSamples=False, includeControls=True)  # only include controls
-            ws.createWorkSheet(writtenFiles[-1], primertest=True, **config['report'])
+            ws.createWorkSheet(writtenFiles[-1], primertest=True, worklist=worksheetName, **config['report'])
             # robot csv
             writtenFiles.append(outfile+'.primertest.csv')
             print >> sys.stderr, "Writing Test CSV to {}...".format(writtenFiles[-1])
@@ -444,7 +449,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
         ws = Worksheet(tests,name='Validation batch PCR')  # load worksheet
         ws.addControls()  # add controls
         ws.fillPlates(size=config['report']['platesize'],randomize=True)
-        ws.createWorkSheet(writtenFiles[-1],**config['report'])
+        ws.createWorkSheet(writtenFiles[-1], worklist=worksheetName, **config['report'])
         # validate primer tube labels (checks for hash substring collisions)
         ws.tubeLabels()
         # robot csv
