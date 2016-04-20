@@ -4,7 +4,6 @@ Primer database and design tool
 ## Description
 This program integrates a simple SQLite primer database and design tool based on the Primer3 library.
 It allows the automatic generation of primer pairs based on a VCF, BED or SNPpy result table.
-All designed primers are
 
 ## Install
 ### Virtual machine
@@ -13,13 +12,25 @@ fire up the virtual machine and connect with
 
 then follow the local installation instructions below.
 
-### local Install
-Just run
-> `make`
+### local Install options
+#### Full install
+To install the Zippy webservice with all resources (genomes, index, reference VCFs) just run
+> `sudo make all`
 
 This will download reference genome, build the indexes and install all prerequisites (needs root/sudo access).
 
+#### Webservice only
+To install the webservice without downloading and building genome indexes, place everything in {ZIPPYROOT}/resources and run
+> `sudo make install`
+
 ## Usage
+
+### Webservice
+The application runs on Apache Webserver (WSGI).
+The standard install exposes the service on port 5000.
+In the VM this port is mapped to 80 on the host machine.
+
+### CLI
 To design primers and query existing
 > `zippy.py get <VCF/BED> --design`
 
@@ -71,6 +82,7 @@ Apache Webserver in VM
 New setup routines (zippyprimer on PyPi)
 
 ### FUTURE
+Support for primer collections (multiplexing)
 Asynchronous design process (celery)
 Web GUI extensions
 

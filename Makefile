@@ -2,7 +2,10 @@
 
 ZIPPYPATH=/usr/local/zippy
 ZIPPYVAR=/var/local/zippy
-ZIPPYWWW=/var/www
+ZIPPYWWW=/var/www/zippy
+
+WWWUSER=flask
+WWWGROUP=www-data
 
 all: install genome annotation
 
@@ -34,18 +37,28 @@ apache-install:
 	apt-get install -y libapache2-mod-wsgi
 
 apache-zippy:
+	# make WWW directories
+	mkdir -p $(ZIPPYWWW)
 	rsync -a zippy.wsgi $(ZIPPYWWW)
+	chown -R $(WWWUSER):$(WWWGROUP) $(ZIPPYWWW)
+	# make upload/result directories
+	mkdir -p $(ZIPPYWWW)/uploads
+	mkdir -p $(ZIPPYWWW)/results
+	chown -R $(WWWUSER):$(WWWGROUP) $(ZIPPYWWW)/uploads
+	chown -R $(WWWUSER):$(WWWGROUP) $(ZIPPYWWW)/results
+	# Copy resource files
+	mkdir -p $(ZIPPYVAR)
+	chown -R $(WWWUSER):$(WWWGROUP) /var/local/zippy
 	rsync -a resources $(ZIPPYVAR)
+	# apache WSGI config
 	cp apache2_zippy /etc/apache2/sites-available/zippy
 	sudo a2ensite zippy
 
 apache-user:
-	useradd -M flask
-	usermod -s /bin/false flask
-	usermod -L flask
-	adduser flask www-data
-	chown -R flask:www-data /var/local/zippy
-	chown -R flask:www-data /var/www/zippy
+	useradd -M $(WWWUSER)
+	usermod -s /bin/false $(WWWUSER)
+	usermod -L $(WWWUSER)
+	adduser $(WWWUSER) $(WWWGROUP)
 
 apache-restart: apache-zippy
 	/etc/init.d/apache2 restart

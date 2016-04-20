@@ -1,5 +1,6 @@
 #!/usr/local/env python
 
+import sys
 import os
 import re
 import json
@@ -68,7 +69,12 @@ def location_updated(status):
 
 @app.route('/upload/', methods=['POST'])
 def upload():
+    # read form
     uploadFile = request.files['filePath']
+    deep = request.form.get('deep')
+    predesign = request.form.get('deep')
+    design = request.form.get('deep')
+    outfile = request.form.get('outfile')
     if uploadFile and allowed_file(uploadFile.filename):
         filename = secure_filename(uploadFile.filename)
         print >> sys.stderr, "Uploaded: ", filename
@@ -89,8 +95,8 @@ def upload():
 
         # run Zippy to design primers
         shortName = os.path.splitext(filename)[0]
-        downloadFile = os.path.join(downloadFolder, shortName)
-        arrayOfFiles, missedIntervalNames = zippyBatchQuery(config, uploadedFile, True, downloadFile, db)
+        downloadFile = outfile if outfile else os.path.join(downloadFolder, shortName)
+        arrayOfFiles, missedIntervalNames = zippyBatchQuery(config, uploadedFile, design, downloadFile, db, predesign, deep)
         return render_template('file_uploaded.html', outputFiles=arrayOfFiles, missedIntervals=missedIntervalNames)
     else:
         print("file for upload not supplied or file-type not allowed")

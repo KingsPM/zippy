@@ -393,6 +393,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
     # for each sample design
     primerTableConcat = []
     allMissedIntervals = {}
+    missedIntervalNames = []
     tests = []  # tests to run
     for sample, intervals in sorted(sampleVariants.items(),key=lambda x: x[0]):
         print >> sys.stderr, "Getting primers for {} variants in sample {}".format(len(intervals),sample)
@@ -400,6 +401,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
         primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config,deep)
         if missedIntervals:
             allMissedIntervals[sample] = missedIntervals
+            missedIntervalNames += [ i.name for i in missedIntervals ]
         # store result list
         primerTableConcat += [ [sample]+l for l in primerTable ]
         # store primers
@@ -462,7 +464,6 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
                 print >> fh, '\t'.join(['sample','variant'])
                 for sample, missed in sorted(allMissedIntervals.items()):
                     print >> fh, '\n'.join([ '\t'.join([sample,i.name]) for i in missed ])
-                    missedIntervalNames += [ i.name for i in missed ]
     return writtenFiles, sorted(list(set(missedIntervalNames)))
 
 def updateLocation(primername, location, database):
