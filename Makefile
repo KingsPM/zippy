@@ -44,6 +44,8 @@ apache-user:
 	usermod -s /bin/false flask
 	usermod -L flask
 	adduser flask www-data
+	chown -R flask:www-data /var/local/zippy
+	chown -R flask:www-data /var/www/zippy
 
 apache-restart: apache-zippy
 	/etc/init.d/apache2 restart
