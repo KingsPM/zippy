@@ -325,10 +325,11 @@ class Worksheet(list):
             print >> fh, sep.join(['DestinationPlate','DestinationWell','PrimerID','SampleID','PrimerName'])
             for n, p in enumerate(self.plates):
                 P = 'Plate'+str(n+1)
-                for i,row in enumerate(p.M):
-                    R = chr(ord('A')+i)
-                    for j,cell in enumerate(row):
-                        C = str(j+1)
+                for col in range(p.ncol):
+                    C = str(col+1)
+                    for row in range(p.nrow):
+                        R = chr(ord('A')+row)
+                        cell = p.M[row][col]
                         if cell:
                             print >> fh, sep.join([P,R+C,cell.primerpairobject.uniqueid()[:10],cell.sample,cell.primerpair])
 
