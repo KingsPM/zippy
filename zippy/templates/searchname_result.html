@@ -18,7 +18,7 @@
 					<td><b>{{pairName[:-1]|join('_')}}</b></td>
 					{% for primer in pair %}
 						<td><i>{{primer.name}}</i></td>
-						<td>{{primer.seq}}</td>
+						<td>{{primer.tag}}-{{primer.seq}}</td>
 						<td>{{primer.targetposition}}</td>
 					{% endfor %}
   				</tr>

@@ -18,8 +18,8 @@
             <h3>Primer Query</h3>
             <form action="/adhoc_design/" method="post" enctype="multipart/form-data">
                 <span class="pop">BED, VCF, GenePred &nbsp</span><input type="file" name="filePath"><br><br>
-                <span class="pop">Chromosome:Start-End[+-] &nbsp</span><input type="text" name="locus"><br><br>
-                <input type="checkbox" name="design" value="True" checked>design  &nbsp
+                or&nbsp<span class="pop">Chromosome:Start-End[+-] &nbsp</span><input type="text" name="locus"><br><br>
+                <input type="checkbox" name="design" value="True" checked>design &nbsp
                 <input type="checkbox" name="deep" value="True">deep search &nbsp
                 <input type="checkbox" name="store" value="True">store<br><br>
                 <input type="submit" value="Submit"><br><br>
@@ -28,20 +28,22 @@
         <div>
             <p>&nbsp</p><br><hr><br><br>
         </div>
-        <div>
-            <p>Enter search string to query database for primers stored under a name containing this string</p>
+        <div id="left">
+            <h3>Name query</h3>
             <form action="/search_by_name/" method="post" enctype="multipart/form-data">
-                <input type="text" name="searchName"><br><br>
+                <span class="pop">Primer pair name &nbsp</span><input type="text" name="searchName"><br><br>
                 <input type="submit" id="revButton" value="Search">
             </form>
         </div>
         <div>
-            <br><br>
         </div>
-        <div>
-            <p>Update the storage location of a primer pair in the form: <span class="pop">PrimerName Vessel Well</span></p>
+        <div id="right">
+            <h3>Storage Location</h3>
             <form action="/update_location/" method="post" enctype="multipart/form-data">
-                <input type="text" name="location"><br><br>
+                <span class="pop">Primer name &nbsp</span><input type="text" name="primername" size=20>
+                <span class="pop">Vessel &nbsp</span><input type="text" name="vessel" maxlength="3" size=3>
+                <span class="pop">Well &nbsp</span><input type="text" name="well" maxlength="3" size=3><br><br>
+                <input type="checkbox" name="force" value="True">overwrite<br><br>
                 <input type="submit" id="revButton" value="Update">
             </form>
         </div>

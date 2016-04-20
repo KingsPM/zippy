@@ -466,10 +466,10 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
                     print >> fh, '\n'.join([ '\t'.join([sample,i.name]) for i in missed ])
     return writtenFiles, sorted(list(set(missedIntervalNames)))
 
-def updateLocation(primername, location, database):
+def updateLocation(primername, location, database, force=False):
     occupied = database.getLocation(location)
     if not occupied:
-        if database.storePrimer(primername,location):
+        if database.storePrimer(primername,location,force):
             return '%s location sucessfully set to %s' % (primername, str(location))
         else:
             return 'WARNING: %s location update to %s failed' % (primername, str(location))
@@ -546,6 +546,8 @@ def main():
     parser_update = subparsers.add_parser('update', help='Update status and location of primers')
     parser_update.add_argument('-l', dest="location", nargs=3, \
         help="Update storage location of primer pair (pairid vessel well)")
+    parser_update.add_argument("--force", dest="force", default=True, action='store_false', \
+        help="Force Location update (resets existing)")
     parser_update.add_argument('-b', dest="blacklist", type=str, \
         help="Blacklist primer")
     parser_update.set_defaults(which='update')
@@ -614,7 +616,7 @@ def main():
     elif options.which=='update':  #update location primer pairs are stored
         if options.location:
             primer, vessel, well = options.location
-            print >> sys.stderr, updateLocation(primer, Location(vessel, well), db)
+            print >> sys.stderr, updateLocation(primer, Location(vessel, well), db, options.force)
         if options.blacklist:
             print >> sys.stderr, 'BLACKLISTED PAIRS: {}'.format(','.join(db.blacklist(options.blacklist)))
             print >> sys.stderr, 'REMOVED ORPHANS:   {}'.format(','.join(db.removeOrphans()))

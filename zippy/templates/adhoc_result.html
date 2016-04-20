@@ -1,37 +1,33 @@
 {% extends "base.html" %}
 {% block content %}
+	<h3>Primer Query Results:</h3>
 	{% if resultList is not equalto [] %}
-		<p>Zippy returned the following primers: -</p>
+		<hr>
 		{% for item in resultList %}
-			<b>Amplified region:</b> {{item[0].targetposition.chrom}}:{{item[0].targetposition.offset+item[0].targetposition.length}}-{{item[1].targetposition.offset}}<hr>
-				<b><i>LEFT PRIMER</i></b><br>
-				<b>Sequence:</b> {{item[0].seq}}<br>
-				<b>Locus:</b> {{item[0].targetposition}}<br>
-				<b>TM:</b> {{item[0].tm}}<br>
-				<b>GC:</b> {{item[0].gc}}<br>
+			<b>Primer Pair Name:</b> {{item.name}}  <b>Amplicon:</b> {{item[0].targetposition.chrom}}:{{item[0].targetposition.offset+item[0].targetposition.length}}-{{item[1].targetposition.offset}} (Length: {{item[1].targetposition.offset+item[1].targetposition.length-item[0].targetposition.offset}})
 				<hr>
-				<b><i>RIGHT PRIMER</i></b><br>
-				<b>Sequence:</b> {{item[1].seq}}<br>
+				<b>Name:<i> {{ item[0].name }}</i></b><br>
+				<b>Sequence:</b> {{ item[0].tag }}-{{ item[0].seq }}<br>
+				<b>Locus:</b> {{ item[0].targetposition }}<br>
+				<b>TM:</b> {{ '%0.1f'|format(item[0].tm|float) }}˚C<br>
+				<b>GC:</b> {{ '%0.1f'|format((item[0].gc * 100)|float) }}%<br>
+				<br>
+				<b>Name:<i> {{item[1].name}}</i></b><br>
+				<b>Sequence:</b> {{ item[1].tag }}-{{ item[1].seq }}<br>
 				<b>Locus:</b> {{item[1].targetposition}}<br>
-				<b>TM:</b> {{item[1].tm}}<br>
-				<b>GC:</b> {{item[1].gc}}<br>
+				<b>TM:</b> {{ '%0.1f'|format(item[1].tm|float) }}˚C<br>
+				<b>GC:</b> {{ '%0.1f'|format((item[1].gc * 100)|float) }}%<br>
 				<hr>
 		{% endfor %}
-	{% elif missedIntervals is not equalto [] %}
-		<p>Zippy unable to design primers that satisfy the design limits set for the following intervals: -</p>
+	{% endif %}
+	<hr/>
+	{% if resultList is not equalto [] %}
+		<p>No results for: </p>
 		{% for interval in missedIntervals %}
 			<p>{{interval}}</p>
 		{% endfor %}
-		<p>Please re-submit a different genomic location or relax the configuration design limits and attempt the primer design again</p>
-		<div>
-    	    <p>Enter specific locus to design primer for in the form: <span class="pop">Chromosome:Start-End[:-]</span></p>
-    	    <form action="/adhoc_design/" method="post" enctype="multipart/form-data">
-    	        <input type="text" name="locus"><br><br>
-    	        <input type="checkbox" name="store" value="True">Store designed primers<br><br>
-    	        <input type="submit" value="Submit">
-    	    </form>
-    	</div>
-	{% else %}
+	{% endif %}
+	{% if not missedIntervals and not resultList %}
 		<p>The specific locus to design primers for was not given in the correct format. Please re-submit in the correct format: <span class="pop">Chromosome:Start-End[:-]</span></p>
 		<div>
     	    <form action="/adhoc_design/" method="post" enctype="multipart/form-data">

@@ -343,13 +343,22 @@ class PrimerDB(object):
             self.db.close()
         return
 
-    def storePrimer(self,primerid,loc):
+    def storePrimer(self,primerid,loc,force=False):
         '''updates the location in which primers are stored'''
         try:
             self.db = sqlite3.connect(self.sqlite)
         except:
             raise
         else:
+            if force:
+                # reset storage location
+                try:
+                    cursor = self.db.cursor()
+                    cursor.execute('''UPDATE OR IGNORE primer SET vessel = NULL, well = NULL
+                        WHERE vessel = ? AND well = ?''', (loc.vessel(), loc.well()))
+                    self.db.commit()
+                except:
+                    raise
             # update
             try:
                 cursor = self.db.cursor()

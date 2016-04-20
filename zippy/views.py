@@ -72,8 +72,8 @@ def upload():
     # read form
     uploadFile = request.files['filePath']
     deep = request.form.get('deep')
-    predesign = request.form.get('deep')
-    design = request.form.get('deep')
+    predesign = request.form.get('predesign')
+    design = request.form.get('design')
     outfile = request.form.get('outfile')
     if uploadFile and allowed_file(uploadFile.filename):
         filename = secure_filename(uploadFile.filename)
@@ -95,7 +95,7 @@ def upload():
 
         # run Zippy to design primers
         shortName = os.path.splitext(filename)[0]
-        downloadFile = outfile if outfile else os.path.join(downloadFolder, shortName)
+        downloadFile = os.path.join(downloadFolder, outfile) if outfile else os.path.join(downloadFolder, shortName)
         arrayOfFiles, missedIntervalNames = zippyBatchQuery(config, uploadedFile, design, downloadFile, db, predesign, deep)
         return render_template('file_uploaded.html', outputFiles=arrayOfFiles, missedIntervals=missedIntervalNames)
     else:
@@ -104,38 +104,56 @@ def upload():
 
 @app.route('/adhoc_design/', methods=['POST'])
 def adhocdesign():
+    # read form data
+    uploadFile = request.files['filePath']
     locus = request.form.get('locus')
+    design = request.form.get('design')
+    deep = request.form.get('deep')
+    store = request.form.get('store')
     # if locus:
-    if re.match('\w{1,2}:\d+-\d+',locus):
-        store = request.form.get('store')
+    if re.match('\w{1,2}:\d+-\d+',locus) or (uploadFile and allowed_file(uploadFile.filename)):
+        # get target
+        if uploadFile:
+            filename = secure_filename(uploadFile.filename)
+            print >> sys.stderr, "Uploaded: ", filename
+            target = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            uploadFile.save(target)
+            print >> sys.stderr, "file saved to %s" % target
+        else:
+            target = locus
+        # read config
         with open(app.config['CONFIG_FILE']) as conf:
             config = json.load(conf, object_hook=ascii_encode_dict)
             db = PrimerDB(config['database'])
-        # zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=False)
-        primerTable, resultList, missedIntervals = zippyPrimerQuery(config, locus, True, None, db, store)
+        # run Zippy
+        primerTable, resultList, missedIntervals = zippyPrimerQuery(config, target, design, None, db, store, deep)
+        # get missed and render template
         missedIntervalNames = []
         for interval in missedIntervals:
             missedIntervalNames.append(interval.name)
         return render_template('/adhoc_result.html', primerTable=primerTable, resultList=resultList, missedIntervals=missedIntervalNames)
     else:
-        print "locus not given"
+        print "no locus or file given"
         return render_template('/adhoc_result.html', primerTable=[], resultList=[], missedIntervals=[])
 
 @app.route('/update_location/', methods=['POST'])
 def update_Location():
-    location = request.form.get('location')
+    primername = request.form.get('primername')
+    vessel = request.form.get('vessel')
+    well = request.form.get('well')
+    force = request.form.get('force')
     try:
-        m = re.match('(\w+)\s+(\d+)\s+(\w+)',location)
-        assert m
-    except AssertionError:
-        print 'update location not given in correct format (PrimerName VesselNumber Well)'
-        return render_template('location_updated.html', status=None)
+        assert primername
+        loc = Location(vessel, well)
     except:
-        raise
+        print 'Please fill in all fields (PrimerName VesselNumber Well)'
+        return render_template('location_updated.html', status=None)
+    # read config
     with open(app.config['CONFIG_FILE']) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
         db = PrimerDB(config['database'])
-    updateStatus = updateLocation(m.group(1), Location(m.group(2), m.group(3)), db)
+    # run zippy and render
+    updateStatus = updateLocation(primername, loc, db, force)
     return render_template('location_updated.html', status=updateStatus)
 
 
