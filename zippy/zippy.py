@@ -477,7 +477,7 @@ def updateLocation(primername, location, database, force=False):
         return 'Location already occupied by %s' % (' and '.join(occupied))
 
 def searchByName(searchName, db):
-    primersInDB = db.queryName(searchName)
+    primersInDB = db.query(searchName)
     print >> sys.stderr, 'Found {} primer pairs with string "{}"'.format(len(primersInDB),searchName)
     return primersInDB
 

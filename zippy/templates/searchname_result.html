@@ -1,30 +1,32 @@
 {% extends "base.html" %}
 {% block content %}
-	<p>The following primer pairs were found in Zippy with <span class="pop">{{searchName}}</span> in their name: -</p>
+	<p>The following primer pairs matched <span class="pop">{{searchName}}</span> in their name: </p>
 	{% if searchResult is not equalto [] %}
 		<table>
-  			<tr>
-  				<th>Pair name</th>
-  				<th>Left Primer</th>
-  				<th>Left Sequence</th>
-  				<th>Left Locus</th>
-  				<th>Right Primer</th>
-  				<th>Right Sequence</th>
-  				<th>Right Locus</th>
-  			</tr>
+			<tr>
+				<th>Pair name</th>
+				<th>Amplicon</th>
+				<th>Tm range</th>
+				<th>Locations </th>
+				<th>Left Primer</th>
+				<th>Left Sequence</th>
+				<th>Right Primer</th>
+				<th>Right Sequence</th>
+			</tr>
 			{% for pair in searchResult %}
-				{% set pairName = pair[0].name.split('_') %}
-  				<tr>
-					<td><b>{{pairName[:-1]|join('_')}}</b></td>
-					{% for primer in pair %}
-						<td><i>{{primer.name}}</i></td>
-						<td>{{primer.tag}}-{{primer.seq}}</td>
-						<td>{{primer.targetposition}}</td>
-					{% endfor %}
-  				</tr>
+				<tr>
+					<td><b>{{pair.name}}</b></td>
+					<td><b>{{pair[0].targetposition.chrom}}:{{pair[0].targetposition.offset+pair[0].targetposition.length}}-{{pair[1].targetposition.offset}} ({{pair[1].targetposition.offset+pair[1].targetposition.length-pair[0].targetposition.offset}} bp)</b></td>
+					<td>{{pair.TmRange()}}˚C</td>
+					<td>{{pair[0].location}} {{pair[1].location}}</td>
+					<td><i>{{pair[0].name}}</i></td>
+					<td>{{pair[0].tag}}-{{pair[0].seq}}</td>
+					<td><i>{{pair[1].name}}</i></td>
+					<td>{{pair[1].tag}}-{{pair[1].seq}}</td>
+				</tr>
 			{% endfor %}
 		</table>
+	{% else %}
+		<p><b>NO RESULTS</b></p>
 	{% endif %}
-
-
 {% endblock %}
