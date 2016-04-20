@@ -31,8 +31,6 @@ from argparse import ArgumentParser
 from collections import defaultdict, Counter
 import cPickle as pickle
 
-blacklistCacheFile = '.blacklist.cache'
-
 '''file MD5'''
 def fileMD5(fi, block_size=2**20):
     md5 = hashlib.md5()
@@ -222,10 +220,10 @@ def getPrimers(intervals, db, design, config, deep=True):
     ivpairs = defaultdict(list)  # found/designed primer pairs (from database or design)
     blacklist = db.blacklist() if db else []
     try:
-        blacklist += pickle.load(open(blacklistCacheFile,'rb'))
+        blacklist += pickle.load(open(config['blacklistcache'],'rb'))
     except:
         print >> sys.stderr, 'Could not read blacklist cache, check permissions'
-        print >> sys.stderr, os.getcwd(), blacklistCacheFile
+        print >> sys.stderr, os.getcwd(), config['blacklistcache']
 
     # primer searching in database by default
     if db:
@@ -327,10 +325,10 @@ def getPrimers(intervals, db, design, config, deep=True):
 
     # save blacklist cache
     try:
-        pickle.dump(list(set(blacklist)),open(blacklistCacheFile,'wb'))
+        pickle.dump(list(set(blacklist)),open(config['blacklistcache'],'wb'))
     except:
         print >> sys.stderr, 'Could not write to blacklist cache, check permissions'
-        print >> sys.stderr, os.getcwd(), blacklistCacheFile
+        print >> sys.stderr, os.getcwd(), config['blacklistcache']
 
     # print primer pair count and build database table
     failure = [ iv.name for iv,p in ivpairs.items() if config['report']['pairs']>len(p) ]

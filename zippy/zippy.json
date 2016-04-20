@@ -1,6 +1,7 @@
 {
     "database": "zippy.sqlite",
     "logfile": "zippy.log",
+    "blacklistcache": ".blacklist.cache",
     "tiling": {
         "interval": 500,
         "overlap": 10,
