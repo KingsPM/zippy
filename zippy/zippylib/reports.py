@@ -41,8 +41,8 @@ bottomMargin = 2*cm
 # MolPath version controlled document template
 class MolPathTemplate(canvas.Canvas):
     def __init__(self, *args, **kwargs):
-        self.authorised = ""
-        self.headerstring = ""
+        self.auth = ""
+        self.site = ""
         # document authorisation and header
         if 'auth' in kwargs.keys():
             self.auth = kwargs['auth']

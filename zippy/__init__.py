@@ -14,7 +14,6 @@ from celery import Celery
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-
+# app.debug = True  # /var/log/apache2/error.log
 # app.config.from_object('config')
-
-from app import views
+from . import views

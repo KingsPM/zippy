@@ -68,7 +68,7 @@ Importing of primer pairs with multiple amplicons
 Blacklist cache for design
 Improved webinterface
 Apache Webserver in VM
-New setup routines (zippy-primer on PyPi)
+New setup routines (zippyprimer on PyPi)
 
 ### FUTURE
 Asynchronous design process (celery)

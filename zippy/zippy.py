@@ -224,7 +224,9 @@ def getPrimers(intervals, db, design, config, deep=True):
     try:
         blacklist += pickle.load(open(blacklistCacheFile,'rb'))
     except:
-        pass
+        print >> sys.stderr, 'Could not read blacklist cache, check permissions'
+        print >> sys.stderr, os.getcwd(), blacklistCacheFile
+
     # primer searching in database by default
     if db:
         progress = Progressbar(len(intervals),'Querying database')
@@ -324,7 +326,11 @@ def getPrimers(intervals, db, design, config, deep=True):
                         print >> sys.stderr, 'WARNING: Target {} failed on designlimits'.format(k)
 
     # save blacklist cache
-    pickle.dump(list(set(blacklist)),open(blacklistCacheFile,'wb'))
+    try:
+        pickle.dump(list(set(blacklist)),open(blacklistCacheFile,'wb'))
+    except:
+        print >> sys.stderr, 'Could not write to blacklist cache, check permissions'
+        print >> sys.stderr, os.getcwd(), blacklistCacheFile
 
     # print primer pair count and build database table
     failure = [ iv.name for iv,p in ivpairs.items() if config['report']['pairs']>len(p) ]
@@ -450,6 +456,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
         print >> sys.stderr, "Writing tube labels to {}...".format(writtenFiles[-1])
         ws.tubeLabels(writtenFiles[-1],tags=config['ordersheet']['sequencetags'])
         # write missed intervals
+        missedIntervalNames = []
         if allMissedIntervals:
             writtenFiles.append(outfile+'.failed.txt')
             print >> sys.stderr, "Writing failed designs {}...".format(writtenFiles[-1])
@@ -457,7 +464,8 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
                 print >> fh, '\t'.join(['sample','variant'])
                 for sample, missed in sorted(allMissedIntervals.items()):
                     print >> fh, '\n'.join([ '\t'.join([sample,i.name]) for i in missed ])
-    return
+                    missedIntervalNames += [ i.name for i in missed ]
+    return writtenFiles, sorted(list(set(missedIntervalNames)))
 
 def updateLocation(primername, location, database):
     occupied = database.getLocation(location)
