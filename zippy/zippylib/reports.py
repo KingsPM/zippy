@@ -176,35 +176,44 @@ class Report(object):
             ])
         doubleLine = ParagraphStyle('suffixes', fontSize=5, leading=5)  # suffix column
         centered = ParagraphStyle('locations', fontSize=8, leading=5, alignment=1)  # Location column
+        centeredsmall = ParagraphStyle('locations', fontSize=6, leading=6, alignment=1)  # Location column
         data = [[str(len(s)),'Samples','',str(len(p)),'Primer Pair', 'Suffixes', 'Locations']]
         for i in range(max(len(s),len(p))):
+            if i<len(p):
+                if any(p[i][2]):
+                    locationString = ' '.join(map(str,p[i][2]))
+                    locationParagraph = Paragraph(locationString, centered if len(locationString) < 10 else centeredsmall)
+                else:
+                    locationParagraph = Paragraph(' ',centered)
             data.append([ '', s[i] if i<len(s) else '', '', ''] + \
-            ([ p[i][0], Paragraph('<br/>'.join(p[i][1]),doubleLine), Paragraph(' '.join(map(str,p[i][2])),centered) ] \
-            if i<len(p) else ['','','']))
+            ([ p[i][0], Paragraph('<br/>'.join(p[i][1]),doubleLine), locationParagraph ] if i<len(p) else ['','','']))
         self.elements.append(Spacer(1, 2))
-        t = Table(data, colWidths=[0.6*cm,5*cm,0.3*cm,0.6*cm,5.5*cm,1.6*cm,1.9*cm], rowHeights=0.6*cm)
+        t = Table(data, colWidths=[0.6*cm,5*cm,0.3*cm,0.6*cm,5.3*cm,1.6*cm,2.1*cm], rowHeights=0.6*cm)
         t.setStyle(TABLE_STYLE)
         self.elements.append(t)
         self.elements.append(Spacer(1, 12))
 
     def volumeLists(self,reactions,mastermix,qsolution,excess):
         # batch mix
-        data = [['MasterMix', str((1.+excess)*reactions*mastermix)+' µl', '', 'Reactions', str(reactions), '' ],
-            ['Q-Solution', str((1.+excess)*reactions*qsolution)+' µl', '', 'Excess', str((excess)*100)+' %', '' ],
-            ['TOTAL', str((1.+excess)*reactions*(mastermix+qsolution))+' µl','','','']]
-        t = Table(data, colWidths=[3*cm,2*cm,0.3*cm,3*cm,2*cm,5.2*cm], rowHeights=0.6*cm)
+        data = [['Reagent','Quantity','LOT','Expiry','','Reactions', str(reactions) ],
+            ['MasterMix', str((1.+excess)*reactions*mastermix)+' µl', '', '', '', 'Excess', str((excess)*100)+' %' ],
+            ['Q-Solution', str((1.+excess)*reactions*qsolution)+' µl', '', '', '', 'PCR Program', 'ngsconfirm' ],
+            ['TOTAL', str((1.+excess)*reactions*(mastermix+qsolution))+' µl', '', '', '', 'PCR Block','']]
+        t = Table(data, colWidths=[2.5*cm,2.5*cm,2.5*cm,2.5*cm,0.5*cm,2.5*cm,2.5*cm], rowHeights=0.6*cm)
         t.setStyle(TableStyle([
             ('FONTSIZE',(0,0),(0,-1),10),
-            ('FONTSIZE',(3,0),(3,-1),10),
-            ('FONTSIZE',(1,0),(1,-1),8),
-            ('FONTSIZE',(4,0),(4,-1),8),
+            ('FONTSIZE',(1,0),(4,-1),8),
+            ('FONTSIZE',(5,0),(5,-1),10),
+            ('FONTSIZE',(6,0),(6,-1),8),
+            ('INNERGRID', (0,0), (3,-1), 0.25, colors.black),
+            ('INNERGRID', (5,0), (6,-1), 0.25, colors.black),
+            ('LINEABOVE', (0,1),(3,1), 1, colors.black),
+            ('BACKGROUND',(2,-1),(3,-1),colors.lightgrey),
+            ('BACKGROUND', (0,0), (3,0), colors.bisque),
             ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
             ('ALIGN',(0,0),(-1,-1),'RIGHT'),
-            ('INNERGRID', (0,0), (1,-1), 0.25, colors.black),
-            ('INNERGRID', (3,0), (4,1), 0.25, colors.black),
-            ('LINEABOVE', (0,-1),(1,-1), 1, colors.black),
-            ('BOX', (0,0), (1,-1), 1, colors.black),
-            ('BOX', (3,0), (4,1), 1, colors.black)
+            ('BOX', (0,0), (3,-1), 1, colors.black),
+            ('BOX', (5,0), (6,-1), 1, colors.black)
             ]))
         self.elements.append(Spacer(1, 12))
         self.elements.append(t)
@@ -390,10 +399,8 @@ class Worksheet(list):
         # reaction volume list
         r.volumeLists(sum([len(p) for p in self.plates]),kwargs['volumes']['mastermix'],kwargs['volumes']['qsolution'],kwargs['volumes']['excess'])
         # add checkboxes
-        allTested = sum([ p.locations().count(None) for p in primers])==0
         checkTasks = ['New primers ordered', 'Plate orientation checked', 'Primer checked and storage assigned'] if primertest \
-            else ['Plate orientation checked'] if allTested \
-            else ['New primers tested', 'Plate orientation checked']
+            else ['Plate orientation checked', 'DNA barcodes relabeled']
         r.checkBoxes(checkTasks)
         # plate layout
         r.plateLayouts(plates)
