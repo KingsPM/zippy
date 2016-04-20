@@ -85,6 +85,8 @@ New setup routines (zippyprimer on PyPi)
 Support for primer collections (multiplexing)
 Asynchronous design process (celery)
 Web GUI extensions
+Storage map (suggest new locations?)
+Import from files (fasta,list)
 
 ## Reference Genome
 Primers are designed from the unmasked 1kg reference genome while ignoring simple repeat regions.
