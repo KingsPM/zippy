@@ -31,8 +31,6 @@ from argparse import ArgumentParser
 from collections import defaultdict, Counter
 import cPickle as pickle
 
-blacklistCacheFile = '.blacklist.cache'
-
 '''file MD5'''
 def fileMD5(fi, block_size=2**20):
     md5 = hashlib.md5()
@@ -222,9 +220,11 @@ def getPrimers(intervals, db, design, config, deep=True):
     ivpairs = defaultdict(list)  # found/designed primer pairs (from database or design)
     blacklist = db.blacklist() if db else []
     try:
-        blacklist += pickle.load(open(blacklistCacheFile,'rb'))
+        blacklist += pickle.load(open(config['blacklistcache'],'rb'))
     except:
-        pass
+        print >> sys.stderr, 'Could not read blacklist cache, check permissions'
+        print >> sys.stderr, os.getcwd(), config['blacklistcache']
+
     # primer searching in database by default
     if db:
         progress = Progressbar(len(intervals),'Querying database')
@@ -324,7 +324,11 @@ def getPrimers(intervals, db, design, config, deep=True):
                         print >> sys.stderr, 'WARNING: Target {} failed on designlimits'.format(k)
 
     # save blacklist cache
-    pickle.dump(list(set(blacklist)),open(blacklistCacheFile,'wb'))
+    try:
+        pickle.dump(list(set(blacklist)),open(config['blacklistcache'],'wb'))
+    except:
+        print >> sys.stderr, 'Could not write to blacklist cache, check permissions'
+        print >> sys.stderr, os.getcwd(), config['blacklistcache']
 
     # print primer pair count and build database table
     failure = [ iv.name for iv,p in ivpairs.items() if config['report']['pairs']>len(p) ]
@@ -389,6 +393,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
     # for each sample design
     primerTableConcat = []
     allMissedIntervals = {}
+    missedIntervalNames = []
     tests = []  # tests to run
     for sample, intervals in sorted(sampleVariants.items(),key=lambda x: x[0]):
         print >> sys.stderr, "Getting primers for {} variants in sample {}".format(len(intervals),sample)
@@ -396,6 +401,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
         primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config,deep)
         if missedIntervals:
             allMissedIntervals[sample] = missedIntervals
+            missedIntervalNames += [ i.name for i in missedIntervals ]
         # store result list
         primerTableConcat += [ [sample]+l for l in primerTable ]
         # store primers
@@ -409,6 +415,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
     if not outfile:
         print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTableConcat ])
     else:
+        worksheetName = '' if os.path.basename(targets).startswith(os.path.basename(outfile)) else os.path.basename(outfile)
         # output data
         writtenFiles.append(outfile+'.txt')
         print >> sys.stderr, "Writing results to {}...".format(writtenFiles[-1])
@@ -423,7 +430,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
             ws.addControls(control='Normal')  # add positive controls
             ws.fillPlates(size=config['report']['platesize'],randomize=True,\
                 includeSamples=False, includeControls=True)  # only include controls
-            ws.createWorkSheet(writtenFiles[-1], primertest=True, **config['report'])
+            ws.createWorkSheet(writtenFiles[-1], primertest=True, worklist=worksheetName, **config['report'])
             # robot csv
             writtenFiles.append(outfile+'.primertest.csv')
             print >> sys.stderr, "Writing Test CSV to {}...".format(writtenFiles[-1])
@@ -438,7 +445,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
         ws = Worksheet(tests,name='Validation batch PCR')  # load worksheet
         ws.addControls()  # add controls
         ws.fillPlates(size=config['report']['platesize'],randomize=True)
-        ws.createWorkSheet(writtenFiles[-1],**config['report'])
+        ws.createWorkSheet(writtenFiles[-1], worklist=worksheetName, **config['report'])
         # validate primer tube labels (checks for hash substring collisions)
         ws.tubeLabels()
         # robot csv
@@ -450,6 +457,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
         print >> sys.stderr, "Writing tube labels to {}...".format(writtenFiles[-1])
         ws.tubeLabels(writtenFiles[-1],tags=config['ordersheet']['sequencetags'])
         # write missed intervals
+        missedIntervalNames = []
         if allMissedIntervals:
             writtenFiles.append(outfile+'.failed.txt')
             print >> sys.stderr, "Writing failed designs {}...".format(writtenFiles[-1])
@@ -457,12 +465,12 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
                 print >> fh, '\t'.join(['sample','variant'])
                 for sample, missed in sorted(allMissedIntervals.items()):
                     print >> fh, '\n'.join([ '\t'.join([sample,i.name]) for i in missed ])
-    return
+    return writtenFiles, sorted(list(set(missedIntervalNames)))
 
-def updateLocation(primername, location, database):
+def updateLocation(primername, location, database, force=False):
     occupied = database.getLocation(location)
-    if not occupied:
-        if database.storePrimer(primername,location):
+    if not occupied or force:
+        if database.storePrimer(primername,location,force):
             return '%s location sucessfully set to %s' % (primername, str(location))
         else:
             return 'WARNING: %s location update to %s failed' % (primername, str(location))
@@ -470,7 +478,7 @@ def updateLocation(primername, location, database):
         return 'Location already occupied by %s' % (' and '.join(occupied))
 
 def searchByName(searchName, db):
-    primersInDB = db.queryName(searchName)
+    primersInDB = db.query(searchName)
     print >> sys.stderr, 'Found {} primer pairs with string "{}"'.format(len(primersInDB),searchName)
     return primersInDB
 
@@ -539,6 +547,8 @@ def main():
     parser_update = subparsers.add_parser('update', help='Update status and location of primers')
     parser_update.add_argument('-l', dest="location", nargs=3, \
         help="Update storage location of primer pair (pairid vessel well)")
+    parser_update.add_argument("--force", dest="force", default=False, action='store_true', \
+        help="Force Location update (resets existing)")
     parser_update.add_argument('-b', dest="blacklist", type=str, \
         help="Blacklist primer")
     parser_update.set_defaults(which='update')
@@ -607,7 +617,7 @@ def main():
     elif options.which=='update':  #update location primer pairs are stored
         if options.location:
             primer, vessel, well = options.location
-            print >> sys.stderr, updateLocation(primer, Location(vessel, well), db)
+            print >> sys.stderr, updateLocation(primer, Location(vessel, well), db, options.force)
         if options.blacklist:
             print >> sys.stderr, 'BLACKLISTED PAIRS: {}'.format(','.join(db.blacklist(options.blacklist)))
             print >> sys.stderr, 'REMOVED ORPHANS:   {}'.format(','.join(db.removeOrphans()))

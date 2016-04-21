@@ -1,38 +1,40 @@
+#!/usr/local/env python
+
+import sys
 import os
 import re
 import json
+import hashlib
+import subprocess
 from flask import Flask, render_template, request, redirect, send_from_directory
 from celery import Celery
 from werkzeug.utils import secure_filename
-import subprocess
-from app import app
-from zippy import zippyBatchQuery, zippyPrimerQuery, updateLocation, searchByName
-from zippylib import ascii_encode_dict
-from zippylib.database import PrimerDB
-from zippylib.primer import Location
-
-import hashlib
+from . import app
+from .zippy import zippyBatchQuery, zippyPrimerQuery, updateLocation, searchByName
+from .zippylib import ascii_encode_dict
+from .zippylib.primer import Location
+from .zippylib.database import PrimerDB
 
 ALLOWED_EXTENSIONS = set(['txt', 'batch', 'vcf', 'bed', 'csv'])
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['DOWNLOAD_FOLDER'] = 'results'
-app.config['CONFIG_FILE'] = 'app/zippy.json'
+app.config['CONFIG_FILE'] = 'zippy/zippy.json'
 
-app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0'
-app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
-
-celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
-celery.conf.update(app.config)
-
-@celery.task(bind=True)
-def query_zippy(uploadFile):
-    filename = secure_filename(uploadFile.filename)
-    print filename
-    uploadFile.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-    print "file saved to ./uploads/%s" % filename
-    os.chdir('./app/')
-    print subprocess.call(['./zippy.py', 'get', '--outfile', outfile, '../uploads/%s'% filename], shell=False)
-    return "running zippy..."
+# app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0'
+# app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
+#
+# celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
+# celery.conf.update(app.config)
+#
+# @celery.task(bind=True)
+# def query_zippy(uploadFile):
+#     filename = secure_filename(uploadFile.filename)
+#     print filename
+#     uploadFile.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+#     print "file saved to ./uploads/%s" % filename
+#     os.chdir('./app/')
+#     print subprocess.call(['./zippy.py', 'get', '--outfile', outfile, '../uploads/%s'% filename], shell=False)
+#     return "running zippy..."
 
 
 def allowed_file(filename):
@@ -67,16 +69,20 @@ def location_updated(status):
 
 @app.route('/upload/', methods=['POST'])
 def upload():
+    # read form
     uploadFile = request.files['filePath']
-    print("request of file successful")
+    deep = request.form.get('deep')
+    predesign = request.form.get('predesign')
+    design = request.form.get('design')
+    outfile = request.form.get('outfile')
     if uploadFile and allowed_file(uploadFile.filename):
         filename = secure_filename(uploadFile.filename)
-        print "Uploaded: ", filename
+        print >> sys.stderr, "Uploaded: ", filename
 
         # save file
         uploadedFile = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         uploadFile.save(uploadedFile)
-        print "file saved to %s" % uploadedFile
+        print >> sys.stderr, "file saved to %s" % uploadedFile
 
         # open config file and database
         with open(app.config['CONFIG_FILE']) as conf:
@@ -88,15 +94,9 @@ def upload():
         subprocess.check_call(['mkdir', '-p', downloadFolder], shell=False)
 
         # run Zippy to design primers
-        print 'About to run Zippy'
         shortName = os.path.splitext(filename)[0]
-        downloadFile = os.path.join(downloadFolder, shortName)
-        arrayOfFiles, missedIntervals = zippyBatchQuery(config, uploadedFile, True, downloadFile, db)
-        missedIntervalNames = []
-        for interval in missedIntervals:
-            for i in interval:
-                missedIntervalNames.append(i.name)
-        print 'Missed intervals: ', missedIntervalNames
+        downloadFile = os.path.join(downloadFolder, outfile) if outfile else os.path.join(downloadFolder, shortName)
+        arrayOfFiles, missedIntervalNames = zippyBatchQuery(config, uploadedFile, design, downloadFile, db, predesign, deep)
         return render_template('file_uploaded.html', outputFiles=arrayOfFiles, missedIntervals=missedIntervalNames)
     else:
         print("file for upload not supplied or file-type not allowed")
@@ -104,42 +104,56 @@ def upload():
 
 @app.route('/adhoc_design/', methods=['POST'])
 def adhocdesign():
+    # read form data
+    uploadFile = request.files['filePath']
     locus = request.form.get('locus')
+    design = request.form.get('design')
+    deep = request.form.get('deep')
+    store = request.form.get('store')
     # if locus:
-    if re.match('\w{1,2}:\d+-\d+',locus):
-        print locus
-        store = request.form.get('store')
-        print store
+    if re.match('\w{1,2}:\d+-\d+',locus) or (uploadFile and allowed_file(uploadFile.filename)):
+        # get target
+        if uploadFile:
+            filename = secure_filename(uploadFile.filename)
+            print >> sys.stderr, "Uploaded: ", filename
+            target = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            uploadFile.save(target)
+            print >> sys.stderr, "file saved to %s" % target
+        else:
+            target = locus
+        # read config
         with open(app.config['CONFIG_FILE']) as conf:
             config = json.load(conf, object_hook=ascii_encode_dict)
             db = PrimerDB(config['database'])
-        # zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=False)
-        primerTable, resultList, missedIntervals = zippyPrimerQuery(config, locus, True, None, db, store)
+        # run Zippy
+        primerTable, resultList, missedIntervals = zippyPrimerQuery(config, target, design, None, db, store, deep)
+        # get missed and render template
         missedIntervalNames = []
         for interval in missedIntervals:
             missedIntervalNames.append(interval.name)
-        # os.chdir('./app/')
-        # print subprocess.call(['./zippy.py', 'get', locus, '--design', '--nostore'], shell=False)
         return render_template('/adhoc_result.html', primerTable=primerTable, resultList=resultList, missedIntervals=missedIntervalNames)
     else:
-        print "locus not given"
+        print "no locus or file given"
         return render_template('/adhoc_result.html', primerTable=[], resultList=[], missedIntervals=[])
 
 @app.route('/update_location/', methods=['POST'])
 def update_Location():
-    location = request.form.get('location')
+    primername = request.form.get('primername')
+    vessel = request.form.get('vessel')
+    well = request.form.get('well')
+    force = request.form.get('force')
     try:
-        m = re.match('(\w+)\s+(\d+)\s+(\w+)',location)
-        assert m
-    except AssertionError:
-        print 'update location not given in correct format (PrimerName VesselNumber Well)'
-        return render_template('location_updated.html', status=None)
+        assert primername
+        loc = Location(vessel, well)
     except:
-        raise
+        print 'Please fill in all fields (PrimerName VesselNumber Well)'
+        return render_template('location_updated.html', status=None)
+    # read config
     with open(app.config['CONFIG_FILE']) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
         db = PrimerDB(config['database'])
-    updateStatus = updateLocation(m.group(1), Location(m.group(2), m.group(3)), db)
+    # run zippy and render
+    updateStatus = updateLocation(primername, loc, db, force)
     return render_template('location_updated.html', status=updateStatus)
 
 
@@ -150,7 +164,4 @@ def searchName():
         config = json.load(conf, object_hook=ascii_encode_dict)
         db = PrimerDB(config['database'])
         searchResult = searchByName(searchName, db)
-        for pairs in searchResult:
-            for result in pairs:
-                print result.name
     return render_template('searchname_result.html', searchResult=searchResult, searchName=searchName)

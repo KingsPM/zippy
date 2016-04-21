@@ -251,6 +251,10 @@ class PrimerPair(list):
     def locations(self):
         return [ self[0].location if self[0] else None, self[1].location if self[1] else None ]
 
+    def TmRange(self):
+        tm = sorted([ float(p.tm) if p.tm else 0 for p in self ])
+        return '-'.join([ '{:.1f}'.format(t) for t in tm ])
+
     def log(self,logfile):
         timestamp = datetime.datetime.now().isoformat()
         with open(logfile, 'a') as fh:

@@ -190,7 +190,8 @@ class PrimerDB(object):
             self.db.close()
         return
 
-    def query(self, variant):
+    '''query for interval or name'''
+    def query(self, query):
         '''returns suitable primer pairs for the specified interval'''
         try:
             self.db = sqlite3.connect(self.sqlite)
@@ -198,17 +199,28 @@ class PrimerDB(object):
             raise
         else:
             cursor = self.db.cursor()
-            cursor.execute('''SELECT DISTINCT p.pairid, l.tag, r.tag, l.seq, r.seq, p.left, p.right,
-                p.chrom, p.start, p.end, l.vessel, l.well, r.vessel, r.well,
-                abs(p.start+((p.end-p.start)/2) - ?) as midpointdistance
-                FROM pairs AS p
-                LEFT JOIN primer as l ON p.left = l.name
-                LEFT JOIN primer as r ON p.right = r.name
-                WHERE p.chrom = ?
-                AND p.start + length(l.seq) <= ?
-                AND p.end - length(r.seq) >= ?
-                ORDER BY midpointdistance;''', \
-                (int(variant.chromStart+int(variant.chromEnd-variant.chromStart)/2.0), variant.chrom, variant.chromStart, variant.chromEnd))
+            if type(query) in [str,unicode]:  # us primerpair name
+                subSearchName = '%'+query+'%'
+                cursor.execute('''SELECT DISTINCT p.pairid, l.tag, r.tag, l.seq, r.seq, p.left, p.right,
+                    p.chrom, p.start, p.end, l.vessel, l.well, r.vessel, r.well, 0
+                    FROM pairs AS p
+                    LEFT JOIN primer as l ON p.left = l.name
+                    LEFT JOIN primer as r ON p.right = r.name
+                    WHERE p.pairid LIKE ?
+                    ORDER BY p.pairid;''', \
+                    (subSearchName,))
+            else:  # is interval
+                cursor.execute('''SELECT DISTINCT p.pairid, l.tag, r.tag, l.seq, r.seq, p.left, p.right,
+                    p.chrom, p.start, p.end, l.vessel, l.well, r.vessel, r.well,
+                    abs(p.start+((p.end-p.start)/2) - ?) as midpointdistance
+                    FROM pairs AS p
+                    LEFT JOIN primer as l ON p.left = l.name
+                    LEFT JOIN primer as r ON p.right = r.name
+                    WHERE p.chrom = ?
+                    AND p.start + length(l.seq) <= ?
+                    AND p.end - length(r.seq) >= ?
+                    ORDER BY midpointdistance;''', \
+                    (int(query.chromStart+int(query.chromEnd-query.chromStart)/2.0), query.chrom, query.chromStart, query.chromEnd))
             rows = cursor.fetchall()
         finally:
             self.db.close()
@@ -240,55 +252,6 @@ class PrimerDB(object):
             # Build pair
             primerPairs.append(PrimerPair([leftPrimer, rightPrimer],name=row[0],reverse=reverse))
         return primerPairs  # ordered by midpoint distance
-
-    def queryName(self, searchName):
-        '''query database for primers with sub-string in name'''
-        subSearchName = '%'+searchName+'%'
-        try:
-            self.db = sqlite3.connect(self.sqlite)
-        except:
-            raise
-        else:
-            cursor = self.db.cursor()
-            cursor.execute('''SELECT DISTINCT p.pairid, l.tag, r.tag, l.seq, r.seq, p.left, p.right,
-                p.chrom, p.start, p.end, l.vessel, l.well, r.vessel, r.well
-                FROM pairs AS p
-                LEFT JOIN primer as l ON p.left = l.name
-                LEFT JOIN primer as r ON p.right = r.name
-                WHERE p.pairid LIKE ?
-                ORDER BY p.pairid;''', \
-                (subSearchName,))
-            rows = cursor.fetchall()
-        finally:
-            self.db.close()
-        # return primer pairs that would match
-        primerPairs = []
-        for row in rows:
-            # build targets
-            leftTargetposition = Locus(row[7], row[8], len(row[3]), False)
-            rightTargetposition = Locus(row[7], row[9]-len(row[4]), len(row[4]), True)
-            # build storage locations (if available)
-            leftLocation = Location(*row[10:12]) if all(row[10:12]) else None
-            rightLocation = Location(*row[12:14]) if all(row[12:14]) else None
-            # Build primers
-            leftPrimer = Primer(row[5], row[3], targetposition=leftTargetposition, tag=row[1], location=leftLocation)
-            rightPrimer = Primer(row[6], row[4], targetposition=rightTargetposition, tag=row[2], location=rightLocation)
-            # get reverse status (from name)
-            orientations = [ x[1] for x in map(parsePrimerName,row[5:7]) ]
-            if not any(orientations) or len(set(orientations))==1:
-                print >> sys.stderr, '\rWARNING: {} orientation is ambiguous ({},{}){}\r'.format(row[0],\
-                    '???' if orientations[0]==0 else 'rev' if orientations[0]<0 else 'fwd', \
-                    '???' if orientations[0]==0 else 'rev' if orientations[1]<0 else 'fwd'," "*20)
-                reverse = False
-            elif orientations[0]>0 or orientations[1]<0:
-                reverse = False
-            elif orientations[1]>0 or orientations[0]<0:
-                reverse = True
-            else:
-                raise Exception('PrimerPairStrandError')
-            # Build pair
-            primerPairs.append(PrimerPair([leftPrimer, rightPrimer],name=row[0],reverse=reverse))
-        return primerPairs # ordered by primer name
 
     def getLocation(self,loc):
         '''returns whats stored at location'''
@@ -343,13 +306,22 @@ class PrimerDB(object):
             self.db.close()
         return
 
-    def storePrimer(self,primerid,loc):
+    def storePrimer(self,primerid,loc,force=False):
         '''updates the location in which primers are stored'''
         try:
             self.db = sqlite3.connect(self.sqlite)
         except:
             raise
         else:
+            # reset storage location
+            if force:
+                try:
+                    cursor = self.db.cursor()
+                    cursor.execute('''UPDATE OR IGNORE primer SET vessel = NULL, well = NULL
+                        WHERE vessel = ? AND well = ?''', (loc.vessel(), loc.well()))
+                    self.db.commit()
+                except:
+                    raise
             # update
             try:
                 cursor = self.db.cursor()

@@ -53,6 +53,7 @@ h1 {
 }
 
 table {
+	font-size: 12px;
 	text-align: left;
 	border-spacing: 0px;
 }
@@ -100,14 +101,14 @@ input[type=submit] {
 input[type=submit]:hover {
 	background-color: white;
 	color: #009933;
-	font-weight: bold;	
+	font-weight: bold;
 }
 
 input[type=submit]:active {
 	background-color: white;
 	color: #009933;
 	font-weight: bold;
-	box-shadow: inset 0 0 5px 2px #009933;	
+	box-shadow: inset 0 0 5px 2px #009933;
 }
 
 #revButton {
@@ -140,4 +141,3 @@ input[type=submit]:active {
 	font-weight: bold;
 	font-style: italic;
 }
-

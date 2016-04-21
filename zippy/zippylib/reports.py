@@ -15,7 +15,8 @@ import time, datetime
 from math import ceil
 from copy import deepcopy
 from random import shuffle
-import itertools
+from itertools import product
+from functools import partial
 from hashlib import sha1
 from collections import Counter
 from . import PlateError, char_range, imageDir, githash
@@ -36,9 +37,20 @@ leftMargin = rightMargin = 2.6*cm
 topMargin = 2*cm
 bottomMargin = 2*cm
 
+
 # MolPath version controlled document template
 class MolPathTemplate(canvas.Canvas):
     def __init__(self, *args, **kwargs):
+        self.auth = ""
+        self.site = ""
+        # document authorisation and header
+        if 'auth' in kwargs.keys():
+            self.auth = kwargs['auth']
+            del kwargs['auth']
+        if 'site' in kwargs.keys():
+            self.site = kwargs['site']
+            del kwargs['site']
+        # build canvas
         canvas.Canvas.__init__(self, *args, **kwargs)
         self.pages = []
 
@@ -56,12 +68,12 @@ class MolPathTemplate(canvas.Canvas):
 
     def makePage(self, page_count):
         self.setFont("Helvetica", 9)
-        # header
-        headerstring = "KINGS COLLEGE HOSPITAL, MOLECULAR PATHOLOGY"
-        self.drawRightString(PAGE_WIDTH-rightMargin, PAGE_HEIGHT-topMargin/2.0, headerstring)
+        # site string
+        if self.site:
+            self.drawRightString(PAGE_WIDTH-rightMargin, PAGE_HEIGHT-topMargin/2.0, self.site)
         # authorised by
-        authorised = "James Bond"
-        self.drawString(leftMargin, bottomMargin/2, "Authorised by %s" % authorised)
+        if self.auth:
+            self.drawString(leftMargin, bottomMargin/2, "Authorised by %s" % self.auth)
         # version
         self.drawCentredString(PAGE_WIDTH/2, bottomMargin/2, githash('zippy'))
         # page number
@@ -70,7 +82,10 @@ class MolPathTemplate(canvas.Canvas):
 
 # Report
 class Report(object):
-    def __init__(self,fi,title='This is the title',logo=None):
+    def __init__(self,fi,title='This is the title',logo=None,site='',auth='',worklist=''):
+        # site and auth
+        self.site = site
+        self.auth = auth
         # get document
         self.doc = SimpleDocTemplate(fi,pagesize=A4,
                         rightMargin=rightMargin,leftMargin=leftMargin,
@@ -85,8 +100,8 @@ class Report(object):
         self.elements = []
         # Header
         logo = Image(os.path.join(imageDir,logo),width=1.32*inch,height=0.7*inch) if logo else Paragraph('LOGO', self.styles["Heading1"])
-        titl = Paragraph('%s' % title, self.styles["Heading1"])
-        date = Paragraph('<font size=12>Generated on %s</font>' % time.ctime(), self.styles["Normal"])
+        titl = Paragraph('%s' % title, self.styles["Heading2"])
+        date = Paragraph('<font size=10>Generated on %s</font>' % time.ctime(), self.styles["Normal"])
         self.elements.append(Table([[logo,titl],['',date]],
             colWidths=[1.5*inch,4.5*inch],
             style=[ ('SPAN',(0,0),(0,1)), ('VALIGN',(0,0),(-1,-1),'BOTTOM'),
@@ -108,7 +123,7 @@ class Report(object):
             ('BACKGROUND', (6,0), (6,0), colors.cyan)
             ])
         self.elements.append(Spacer(1, 2))
-        data = [[ 'Date','','','Operator','','','Worklist','']]
+        data = [[ 'Date','','','Operator','','','Worklist',worklist]]
         t = Table(data, \
             colWidths=[2.3*cm, 2.3*cm, 0.85*cm, 2.3*cm, 2.3*cm, 0.85*cm, 2.3*cm, 2.3*cm], rowHeights=0.6*cm)
         t.setStyle(TABLE_STYLE)
@@ -161,35 +176,45 @@ class Report(object):
             ])
         doubleLine = ParagraphStyle('suffixes', fontSize=5, leading=5)  # suffix column
         centered = ParagraphStyle('locations', fontSize=8, leading=5, alignment=1)  # Location column
+        centeredsmall = ParagraphStyle('locations', fontSize=6, leading=6, alignment=1)  # Location column
         data = [[str(len(s)),'Samples','',str(len(p)),'Primer Pair', 'Suffixes', 'Locations']]
         for i in range(max(len(s),len(p))):
+            if i<len(p):
+                if any(p[i][2]):
+                    locationString = ' '.join(map(str,p[i][2]))
+                    locationParagraph = Paragraph(locationString, centered if len(locationString) < 10 else centeredsmall)
+                else:
+                    locationParagraph = Paragraph(' ',centered)
             data.append([ '', s[i] if i<len(s) else '', '', ''] + \
-            ([ p[i][0], Paragraph('<br/>'.join(p[i][1]),doubleLine), Paragraph(' '.join(map(str,p[i][2])),centered) ] \
-            if i<len(p) else ['','','']))
+            ([ p[i][0], Paragraph('<br/>'.join(p[i][1]),doubleLine), locationParagraph ] if i<len(p) else ['','','']))
         self.elements.append(Spacer(1, 2))
-        t = Table(data, colWidths=[0.6*cm,5*cm,0.3*cm,0.6*cm,5.5*cm,1.6*cm,1.9*cm], rowHeights=0.6*cm)
+        t = Table(data, colWidths=[0.6*cm,5*cm,0.3*cm,0.6*cm,5.3*cm,1.6*cm,2.1*cm], rowHeights=0.6*cm)
         t.setStyle(TABLE_STYLE)
         self.elements.append(t)
         self.elements.append(Spacer(1, 12))
 
-    def volumeLists(self,reactions,mastermix,qsolution,excess):
+    def volumeLists(self,reactions,mastermix,qsolution,excess,program):
         # batch mix
-        data = [['MasterMix', str((1.+excess)*reactions*mastermix)+' µl', '', 'Reactions', str(reactions), '' ],
-            ['Q-Solution', str((1.+excess)*reactions*qsolution)+' µl', '', 'Excess', str((excess)*100)+' %', '' ],
-            ['TOTAL', str((1.+excess)*reactions*(mastermix+qsolution))+' µl','','','']]
-        t = Table(data, colWidths=[3*cm,2*cm,0.3*cm,3*cm,2*cm,5.2*cm], rowHeights=0.6*cm)
+        data = [['Reagent','Quantity','LOT','Expiry','','Reactions', str(reactions) ],
+            ['MasterMix', str((1.+excess)*reactions*mastermix)+' µl', '', '', '', 'Excess', str((excess)*100)+' %' ],
+            ['Q-Solution', str((1.+excess)*reactions*qsolution)+' µl', '', '', '', 'PCR Program', program ],
+            ['TOTAL', str((1.+excess)*reactions*(mastermix+qsolution))+' µl', '', '', '', 'PCR Block','']]
+        t = Table(data, colWidths=[2.5*cm,2.5*cm,2.5*cm,2.5*cm,0.3*cm,2.7*cm,2.5*cm], rowHeights=0.6*cm)
         t.setStyle(TableStyle([
-            ('FONTSIZE',(0,0),(0,-1),10),
-            ('FONTSIZE',(3,0),(3,-1),10),
-            ('FONTSIZE',(1,0),(1,-1),8),
-            ('FONTSIZE',(4,0),(4,-1),8),
+            ('FONTSIZE',(0,1),(0,-1),10),
+            ('FONTSIZE',(1,0),(4,0),10),
+            ('FONTSIZE',(1,1),(4,-1),8),
+            ('FONTSIZE',(5,0),(5,-1),10),
+            ('FONTSIZE',(6,0),(6,-1),8),
+            ('INNERGRID', (0,0), (3,-1), 0.25, colors.black),
+            ('INNERGRID', (5,0), (6,-1), 0.25, colors.black),
+            ('LINEABOVE', (0,1),(3,1), 1, colors.black),
+            ('BACKGROUND',(2,-1),(3,-1),colors.lightgrey),
+            ('BACKGROUND', (0,0), (3,0), colors.bisque),
             ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
             ('ALIGN',(0,0),(-1,-1),'RIGHT'),
-            ('INNERGRID', (0,0), (1,-1), 0.25, colors.black),
-            ('INNERGRID', (3,0), (4,1), 0.25, colors.black),
-            ('LINEABOVE', (0,-1),(1,-1), 1, colors.black),
-            ('BOX', (0,0), (1,-1), 1, colors.black),
-            ('BOX', (3,0), (4,1), 1, colors.black)
+            ('BOX', (0,0), (3,-1), 1, colors.black),
+            ('BOX', (5,0), (6,-1), 1, colors.black)
             ]))
         self.elements.append(Spacer(1, 12))
         self.elements.append(t)
@@ -218,9 +243,9 @@ class Report(object):
         self.elements.append(Spacer(1, 12))
 
     def build(self):
-        self.doc.build(self.elements, canvasmaker=MolPathTemplate)
-        #self.doc.build(self.elements, onFirstPage=myFirstPage, onLaterPages=myFirstPage)
-        # self.doc.build(self.elements)
+        self.doc.build(self.elements, \
+            canvasmaker=partial(MolPathTemplate, site=self.site, auth=self.auth))
+
 
 '''PCR test (PrimerPair, samplename]'''
 class Test(object):
@@ -265,9 +290,6 @@ class Test(object):
     def primerpair(self,x):
         self.primerpairobject = x
 
-    # returns human readable primer names (pairname and primer names if different)
-    def operatorPrimerName(self):
-        raise NotImplementedError
 
 '''Worksheet data (list of tests)'''
 class Worksheet(list):
@@ -310,10 +332,11 @@ class Worksheet(list):
             print >> fh, sep.join(['DestinationPlate','DestinationWell','PrimerID','SampleID','PrimerName'])
             for n, p in enumerate(self.plates):
                 P = 'Plate'+str(n+1)
-                for i,row in enumerate(p.M):
-                    R = chr(ord('A')+i)
-                    for j,cell in enumerate(row):
-                        C = str(j+1)
+                for col in range(p.ncol):
+                    C = str(col+1)
+                    for row in range(p.nrow):
+                        R = chr(ord('A')+row)
+                        cell = p.M[row][col]
                         if cell:
                             print >> fh, sep.join([P,R+C,cell.primerpairobject.uniqueid()[:10],cell.sample,cell.primerpair])
 
@@ -349,9 +372,11 @@ class Worksheet(list):
         return
 
     '''PDF worksheet'''
-    def createWorkSheet(self,fi,primertest=False,**kwargs):
+    def createWorkSheet(self,fi,primertest=False,worklist='',**kwargs):
         logo = kwargs['logo'] if 'logo' in kwargs.keys() and kwargs['logo'] else None
-        r = Report(fi,self.name,logo)
+        site = kwargs['site'] if 'site' in kwargs.keys() and kwargs['site'] else None
+        auth = kwargs['auth'] if 'auth' in kwargs.keys() and kwargs['auth'] else None
+        r = Report(fi,self.name,logo,site,auth,worklist)
         # add plates
         samples, primers, plates = [], [], []
         for p in self.plates:
@@ -370,12 +395,10 @@ class Worksheet(list):
         # store ordered list of sample (str) and primers (primername, primersuffixes, locations)
         r.samplePrimerLists(orderedSamples,orderedPrimers)
         # reaction volume list
-        r.volumeLists(sum([len(p) for p in self.plates]),kwargs['volumes']['mastermix'],kwargs['volumes']['qsolution'],kwargs['volumes']['excess'])
+        r.volumeLists(sum([len(p) for p in self.plates]),kwargs['volumes']['mastermix'],kwargs['volumes']['qsolution'],kwargs['volumes']['excess'],kwargs['volumes']['program'])
         # add checkboxes
-        allTested = sum([ p.locations().count(None) for p in primers])==0
         checkTasks = ['New primers ordered', 'Plate orientation checked', 'Primer checked and storage assigned'] if primertest \
-            else ['Plate orientation checked'] if allTested \
-            else ['New primers tested', 'Plate orientation checked']
+            else ['Plate orientation checked', 'DNA barcodes relabeled']
         r.checkBoxes(checkTasks)
         # plate layout
         r.plateLayouts(plates)
@@ -398,16 +421,17 @@ class Worksheet(list):
                                     assert cell.primerpair == digests[d]
                                 except:
                                     raise Exception('BarcodeCollision')
+                                else:
+                                    continue  # dont print same barcode multiple times
                             else:
                                 digests[d] = cell.primerpair
                             # get tag name
-                            tagstring = ' '.join(set([ tags[x.tag]['name'] if x.tag in tags.keys() else x.tag \
-                                for x in cell.primerpairobject ]))
+                            tagstring = '/'.join(set([ x.tag for x in cell.primerpairobject ]))
                             print >> fh, "^XA"  # start label
-                            print >> fh, "^FO20,25^AB^FD{}^FS".format(self.date[:self.date.rfind('.')])  # date to the second
-                            print >> fh, "^FO20,45^AB,25^FD{}^FS".format(cell.primerpair)  # primer name
-                            print >> fh, "^FO20,75^AB^FD{}^FS".format(tagstring)  # primer name
-                            print >> fh, "^FO20,95^BY1.5^BCN,80,Y,N,N^FD{}^FS".format(d)  # uniqueid
+                            print >> fh, "^PR1,D,A"  # slower print speed
+                            print >> fh, "^FO20,50^AB^FD{}^FS".format(self.date[:self.date.rfind('.')])  # date to the second
+                            print >> fh, "^FO20,70^AB,25^FD{}  ({})^FS".format(cell.primerpair,tagstring)  # primer name
+                            print >> fh, "^FO20,100^BY1.5^BCN,80,Y,N,N^FD{}^FS".format(d)  # uniqueid
                             print >> fh, "^XZ"  # end label
 
 
@@ -470,7 +494,7 @@ class Plate(object):
             raise
         else:
             # get free columns
-            availableWells = [ r for r in itertools.product(bestRows,range(self.ncol)) if self.M[r[0]][r[1]] is None ]
+            availableWells = [ r for r in product(bestRows,range(self.ncol)) if self.M[r[0]][r[1]] is None ]
         # add to first available well
         self.M[availableWells[0][0]][availableWells[0][1]] = t
 
