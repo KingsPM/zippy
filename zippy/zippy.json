@@ -1,0 +1,111 @@
+{
+    "database": "zippy.sqlite",
+    "logfile": "zippy.log",
+    "blacklistcache": ".blacklist.cache",
+    "tiling": {
+        "interval": 500,
+        "overlap": 10,
+        "flank" : 15
+    },
+    "design": {
+        "COMMENT": "DESIGN GENOME AND PRIMER3 CONFIG",
+        "genome": "/var/local/zippy/resources/human_g1k_v37.fasta",
+        "annotation": "/var/local/zippy/resources/refGene",
+        "bowtieindex": "/var/local/zippy/resources/human_g1k_v37.bowtie",
+        "tag": "M13",
+        "primer3": [
+            {
+                "PRIMER_TASK": "generic",
+                "PRIMER_MIN_SIZE": 18,
+                "PRIMER_OPT_SIZE": 20,
+                "PRIMER_MAX_SIZE": 24,
+                "PRIMER_MIN_TM": 58.0,
+                "PRIMER_OPT_TM": 62.0,
+                "PRIMER_MAX_TM": 64.0,
+                "PRIMER_MIN_GC": 40.0,
+                "PRIMER_OPT_GC": 50.0,
+                "PRIMER_MAX_GC": 60.0,
+                "PRIMER_MAX_POLY_X": 4,
+                "PRIMER_PRODUCT_SIZE_RANGE": [[100,550]],
+                "PRIMER_GC_CLAMP": 1,
+                "PRIMER_NUM_RETURN": 10,
+                "PRIMER_MISPRIMING_LIBRARY":"/var/local/zippy/resources/human_repeat_simple.fa"
+            },
+            {
+                "PRIMER_TASK": "generic",
+                "PRIMER_MIN_SIZE": 18,
+                "PRIMER_OPT_SIZE": 20,
+                "PRIMER_MAX_SIZE": 24,
+                "PRIMER_MIN_TM": 58.0,
+                "PRIMER_OPT_TM": 62.0,
+                "PRIMER_MAX_TM": 64.0,
+                "PRIMER_MIN_GC": 35.0,
+                "PRIMER_OPT_GC": 50.0,
+                "PRIMER_MAX_GC": 65.0,
+                "PRIMER_MAX_POLY_X": 4,
+                "PRIMER_PRODUCT_SIZE_RANGE": [[100,550],[550,1100]],
+                "PRIMER_GC_CLAMP": 1,
+                "PRIMER_NUM_RETURN": 100,
+                "PRIMER_MISPRIMING_LIBRARY":"/var/local/zippy/resources/human_repeat_simple.fa"
+            },
+            {
+                "PRIMER_TASK": "generic",
+                "PRIMER_MIN_SIZE": 17,
+                "PRIMER_OPT_SIZE": 20,
+                "PRIMER_MAX_SIZE": 25,
+                "PRIMER_MIN_TM": 57.0,
+                "PRIMER_OPT_TM": 62.0,
+                "PRIMER_MAX_TM": 65.0,
+                "PRIMER_MIN_GC": 30.0,
+                "PRIMER_OPT_GC": 50.0,
+                "PRIMER_MAX_GC": 70.0,
+                "PRIMER_MAX_POLY_X": 5,
+                "PRIMER_PRODUCT_SIZE_RANGE": [[100,1200]],
+                "PRIMER_GC_CLAMP": 1,
+                "PRIMER_NUM_RETURN": 200,
+                "PRIMER_MISPRIMING_LIBRARY":"/var/local/zippy/resources/human_repeat_simple.fa"
+            }
+        ]
+    },
+    "import": {
+        "ampliconsize": [100,2000],
+        "tag": "M13"
+    },
+    "snpcheck": {
+        "common": "/var/local/zippy/resources/common_all_20160408.vcf.gz",
+        "GATK_G5A": "/var/local/zippy/resources/dbsnp_138.b37.G5A.vcf.gz",
+        "GATK_ALL": "/var/local/zippy/resources/dbsnp_138.b37.vcf.gz"
+    },
+    "designlimits": {
+        "amplicons": 1,
+        "criticalsnp": 0,
+        "mispriming": 10,
+        "snpcount": 2,
+        "designrank": 100
+    },
+    "report": {
+        "auth": "James Bond",
+        "site": "KINGS COLLEGE HOSPITAL, MOLECULAR PATHOLOGY",
+        "logo": "zippy.png",
+        "pairs": 1,
+        "platesize": [8,12],
+        "volumes": {
+            "mastermix": 6,
+            "qsolution": 2,
+            "excess": 0.1,
+            "program": "ngsconfirm"
+        }
+    },
+    "ordersheet": {
+        "extracolumns": [
+            "25nm",
+            "STD"
+        ],
+        "sequencetags" : {
+            "M13": {
+                "name": "M13(-21)/M13_pUC",
+                "tags": ["TGTAAAACGACGGCCAGT", "CAGGAAACAGCTATGACC"]
+            }
+        }
+    }
+}

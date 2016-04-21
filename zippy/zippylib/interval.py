@@ -3,7 +3,7 @@
 __doc__=="""Interval Lists"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "1.2"
+__version__ = "2.0.0"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -12,15 +12,19 @@ import sys
 from math import ceil
 
 class Interval(object):
-    def __init__(self,chrom,chromStart,chromEnd,name=None,reverse=False,sample=None):
+    def __init__(self,chrom,chromStart,chromEnd,name=None,reverse=None,sample=None):
         self.chrom = chrom
         self.chromStart = int(chromStart)
         self.chromEnd = int(chromEnd)
+        assert self.chromStart <= self.chromEnd  # make sure its on the forward genomic strand
         self.name = name if name else chrom+':'+str(chromStart)+'-'+str(chromEnd)
-        self.strand = -1 if reverse else 1
+        self.strand = 0 if reverse is None else -1 if reverse else 1
         self.sample = sample
         self.subintervals = IntervalList([])
         return
+
+    def midpoint(self):
+        return int(self.chromStart + (self.chromEnd - self.chromStart)/2.0)
 
     def locus(self):
         '''returns interval of variant'''
@@ -38,11 +42,11 @@ class Interval(object):
     def __lt__(self,other):
         return (self.chrom, self.chromStart, self.chromEnd) < (other.chrom, other.chromStart, other.chromEnd)
 
-    def __str__(self):
+    def __repr__(self):
         return "<Interval ("+self.name+") "+self.chrom+":"+str(self.chromStart)+'-'+str(self.chromEnd)+ \
             " ["+str(self.strand)+"] len:"+str(len(self))+">"
 
-    def __repr__(self):
+    def __str__(self):
         return "\t".join(map(str,[self.chrom, self.chromStart, self.chromEnd, self.name]))
 
     def tile(self,i,o,suffix=True):  # interval, overlap
@@ -107,4 +111,7 @@ class IntervalList(list):
         self.source = source  # source of intervals
 
     def __str__(self):
+        return "<IntervalList (%s) %d elements> " % (self.source, len(self))
+
+    def __repr__(self):
         return "<IntervalList (%s) %d elements> " % (self.source, len(self))

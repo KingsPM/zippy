@@ -78,14 +78,19 @@ target/
 # mac stuff
 .DS_Store
 
-# uploads
+# uploads/results
 uploads/*
+results/*
 
 # Python virtualenv
 zippyvenv/*
 
 # resources
 zippy_resources/*
+resources/*
 
 # scratch
 scratch/*
+
+# cache
+.*.cache

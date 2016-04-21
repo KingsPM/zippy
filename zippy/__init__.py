@@ -3,7 +3,7 @@
 __doc__=="""Zippy"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "1.2"
+__version__ = "2.0.0"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -14,7 +14,6 @@ from celery import Celery
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-
+# app.debug = True  # /var/log/apache2/error.log
 # app.config.from_object('config')
-
-from app import views
+from . import views

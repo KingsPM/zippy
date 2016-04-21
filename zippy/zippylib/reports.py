@@ -4,7 +4,7 @@
 __doc__=="""Report Generator"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "1.2"
+__version__ = "2.0.0"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -15,10 +15,12 @@ import time, datetime
 from math import ceil
 from copy import deepcopy
 from random import shuffle
-import itertools
+from itertools import product
+from functools import partial
 from hashlib import sha1
 from collections import Counter
 from . import PlateError, char_range, imageDir, githash
+from .primer import parsePrimerName, PrimerPair, Primer
 
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
@@ -35,12 +37,20 @@ leftMargin = rightMargin = 2.6*cm
 topMargin = 2*cm
 bottomMargin = 2*cm
 
-# barcode encoding for primer names
-barcode = lambda x: sha1(x).hexdigest()[:10]
 
 # MolPath version controlled document template
 class MolPathTemplate(canvas.Canvas):
     def __init__(self, *args, **kwargs):
+        self.auth = ""
+        self.site = ""
+        # document authorisation and header
+        if 'auth' in kwargs.keys():
+            self.auth = kwargs['auth']
+            del kwargs['auth']
+        if 'site' in kwargs.keys():
+            self.site = kwargs['site']
+            del kwargs['site']
+        # build canvas
         canvas.Canvas.__init__(self, *args, **kwargs)
         self.pages = []
 
@@ -58,20 +68,24 @@ class MolPathTemplate(canvas.Canvas):
 
     def makePage(self, page_count):
         self.setFont("Helvetica", 9)
-        # header
-        headerstring = "KINGS COLLEGE HOSPITAL, MOLECULAR PATHOLOGY"
-        self.drawRightString(PAGE_WIDTH-rightMargin, PAGE_HEIGHT-topMargin/2.0, headerstring)
+        # site string
+        if self.site:
+            self.drawRightString(PAGE_WIDTH-rightMargin, PAGE_HEIGHT-topMargin/2.0, self.site)
         # authorised by
-        authorised = "James Bond"
-        self.drawString(leftMargin, bottomMargin/2, "Authorised by %s" % authorised)
+        if self.auth:
+            self.drawString(leftMargin, bottomMargin/2, "Authorised by %s" % self.auth)
         # version
         self.drawCentredString(PAGE_WIDTH/2, bottomMargin/2, githash('zippy'))
         # page number
         page = "Page %s of %s" % (self._pageNumber, page_count)
         self.drawRightString(PAGE_WIDTH-rightMargin, bottomMargin/2, page)
 
+# Report
 class Report(object):
-    def __init__(self,fi,title='This is the title',logo=None):
+    def __init__(self,fi,title='This is the title',logo=None,site='',auth='',worklist=''):
+        # site and auth
+        self.site = site
+        self.auth = auth
         # get document
         self.doc = SimpleDocTemplate(fi,pagesize=A4,
                         rightMargin=rightMargin,leftMargin=leftMargin,
@@ -86,8 +100,8 @@ class Report(object):
         self.elements = []
         # Header
         logo = Image(os.path.join(imageDir,logo),width=1.32*inch,height=0.7*inch) if logo else Paragraph('LOGO', self.styles["Heading1"])
-        titl = Paragraph('%s' % title, self.styles["Heading1"])
-        date = Paragraph('<font size=12>Generated on %s</font>' % time.ctime(), self.styles["Normal"])
+        titl = Paragraph('%s' % title, self.styles["Heading2"])
+        date = Paragraph('<font size=10>Generated on %s</font>' % time.ctime(), self.styles["Normal"])
         self.elements.append(Table([[logo,titl],['',date]],
             colWidths=[1.5*inch,4.5*inch],
             style=[ ('SPAN',(0,0),(0,1)), ('VALIGN',(0,0),(-1,-1),'BOTTOM'),
@@ -109,7 +123,7 @@ class Report(object):
             ('BACKGROUND', (6,0), (6,0), colors.cyan)
             ])
         self.elements.append(Spacer(1, 2))
-        data = [[ 'Date','','','Operator','','','Worklist','']]
+        data = [[ 'Date','','','Operator','','','Worklist',worklist]]
         t = Table(data, \
             colWidths=[2.3*cm, 2.3*cm, 0.85*cm, 2.3*cm, 2.3*cm, 0.85*cm, 2.3*cm, 2.3*cm], rowHeights=0.6*cm)
         t.setStyle(TABLE_STYLE)
@@ -149,9 +163,9 @@ class Report(object):
 
     def samplePrimerLists(self,s,p):
         TABLE_STYLE = TableStyle([
-            ('FONTSIZE',(0,1),(-1,-1),8),
-            ('FONTSIZE',(0,0),(-1,0),10),
-            ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+            ('FONTSIZE',(0,1),(-1,-1),8),  # body
+            ('FONTSIZE',(0,0),(-1,0),10),  # title line
+            ('VALIGN',(0,0),(-1,-1),'TOP'),
             ('ALIGN',(0,0),(-1,-1),'LEFT'),
             ('INNERGRID', (0,1), (1,len(s)), 0.25, colors.black),
             ('LINEABOVE', (0,1),(1,1),1,colors.black),
@@ -160,34 +174,47 @@ class Report(object):
             ('LINEABOVE', (3,1),(-1,1),1,colors.black),
             ('BOX', (3,0), (-1,len(p)), 1, colors.black),
             ])
-        data = [[str(len(s)),'Samples','',str(len(p)),'Primer Pairs', 'Vessel', 'Well']]
+        doubleLine = ParagraphStyle('suffixes', fontSize=5, leading=5)  # suffix column
+        centered = ParagraphStyle('locations', fontSize=8, leading=5, alignment=1)  # Location column
+        centeredsmall = ParagraphStyle('locations', fontSize=6, leading=6, alignment=1)  # Location column
+        data = [[str(len(s)),'Samples','',str(len(p)),'Primer Pair', 'Suffixes', 'Locations']]
         for i in range(max(len(s),len(p))):
+            if i<len(p):
+                if any(p[i][2]):
+                    locationString = ' '.join(map(str,p[i][2]))
+                    locationParagraph = Paragraph(locationString, centered if len(locationString) < 10 else centeredsmall)
+                else:
+                    locationParagraph = Paragraph(' ',centered)
             data.append([ '', s[i] if i<len(s) else '', '', ''] + \
-            ([ p[i][0], str(p[i][1][0]), str(p[i][1][1]) ] if i<len(p) else ['','','']))
+            ([ p[i][0], Paragraph('<br/>'.join(p[i][1]),doubleLine), locationParagraph ] if i<len(p) else ['','','']))
         self.elements.append(Spacer(1, 2))
-        t = Table(data, colWidths=[0.6*cm,5*cm,0.3*cm,0.6*cm,6*cm,2*cm,cm], rowHeights=0.6*cm)
+        t = Table(data, colWidths=[0.6*cm,5*cm,0.3*cm,0.6*cm,5.3*cm,1.6*cm,2.1*cm], rowHeights=0.6*cm)
         t.setStyle(TABLE_STYLE)
         self.elements.append(t)
         self.elements.append(Spacer(1, 12))
 
-    def volumeLists(self,reactions,mastermix,qsolution,excess):
+    def volumeLists(self,reactions,mastermix,qsolution,excess,program):
         # batch mix
-        data = [['MasterMix', str((1.+excess)*reactions*mastermix)+' µl', '', 'Reactions', str(reactions), '' ],
-            ['Q-Solution', str((1.+excess)*reactions*qsolution)+' µl', '', 'Excess', str((excess)*100)+' %', '' ],
-            ['TOTAL', str((1.+excess)*reactions*(mastermix+qsolution))+' µl','','','']]
-        t = Table(data, colWidths=[3*cm,2*cm,0.3*cm,3*cm,2*cm,5.2*cm], rowHeights=0.6*cm)
+        data = [['Reagent','Quantity','LOT','Expiry','','Reactions', str(reactions) ],
+            ['MasterMix', str((1.+excess)*reactions*mastermix)+' µl', '', '', '', 'Excess', str((excess)*100)+' %' ],
+            ['Q-Solution', str((1.+excess)*reactions*qsolution)+' µl', '', '', '', 'PCR Program', program ],
+            ['TOTAL', str((1.+excess)*reactions*(mastermix+qsolution))+' µl', '', '', '', 'PCR Block','']]
+        t = Table(data, colWidths=[2.5*cm,2.5*cm,2.5*cm,2.5*cm,0.3*cm,2.7*cm,2.5*cm], rowHeights=0.6*cm)
         t.setStyle(TableStyle([
-            ('FONTSIZE',(0,0),(0,-1),10),
-            ('FONTSIZE',(3,0),(3,-1),10),
-            ('FONTSIZE',(1,0),(1,-1),8),
-            ('FONTSIZE',(4,0),(4,-1),8),
+            ('FONTSIZE',(0,1),(0,-1),10),
+            ('FONTSIZE',(1,0),(4,0),10),
+            ('FONTSIZE',(1,1),(4,-1),8),
+            ('FONTSIZE',(5,0),(5,-1),10),
+            ('FONTSIZE',(6,0),(6,-1),8),
+            ('INNERGRID', (0,0), (3,-1), 0.25, colors.black),
+            ('INNERGRID', (5,0), (6,-1), 0.25, colors.black),
+            ('LINEABOVE', (0,1),(3,1), 1, colors.black),
+            ('BACKGROUND',(2,-1),(3,-1),colors.lightgrey),
+            ('BACKGROUND', (0,0), (3,0), colors.bisque),
             ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
             ('ALIGN',(0,0),(-1,-1),'RIGHT'),
-            ('INNERGRID', (0,0), (1,-1), 0.25, colors.black),
-            ('INNERGRID', (3,0), (4,1), 0.25, colors.black),
-            ('LINEABOVE', (0,-1),(1,-1), 1, colors.black),
-            ('BOX', (0,0), (1,-1), 1, colors.black),
-            ('BOX', (3,0), (4,1), 1, colors.black)
+            ('BOX', (0,0), (3,-1), 1, colors.black),
+            ('BOX', (5,0), (6,-1), 1, colors.black)
             ]))
         self.elements.append(Spacer(1, 12))
         self.elements.append(t)
@@ -216,26 +243,33 @@ class Report(object):
         self.elements.append(Spacer(1, 12))
 
     def build(self):
-        self.doc.build(self.elements, canvasmaker=MolPathTemplate)
-        #self.doc.build(self.elements, onFirstPage=myFirstPage, onLaterPages=myFirstPage)
-        # self.doc.build(self.elements)
+        self.doc.build(self.elements, \
+            canvasmaker=partial(MolPathTemplate, site=self.site, auth=self.auth))
 
 
-'''PCR test [PrimerPair X Sample] (multiple variants)'''
+'''PCR test (PrimerPair, samplename]'''
 class Test(object):
-    def __init__(self,sample,primerpair,primerstorage=[]):
+    def __init__(self,primerpair,sample,**kwargs):
         self.sample = sample
         self.primerpair = primerpair
         self.control = False
-        self.variants = []  # variants to test for (name, offset)
-        self.primerstorage = primerstorage  # storage location of primerpair
-
-    def __str__(self):
-        return '<'+'|'.join([self.sample,self.primerpair,str(self.control),
-            'Variants:'+str(len(self.variants))])+' Store:'+'|'.join(map(str,self.primerstorage))+'>'
 
     def __repr__(self):
-        return self.sample[:2]+("-" if self.control else "+")+self.primerpair[:2]
+        return "%s(%r)" % (self.__class__, self.__dict__)
+
+    def __str__(self):
+        try:
+            testString = [
+                str(self.__class__),
+                self.sample,
+                self.primerpair,
+                str(self.control),
+                ','.join(map(str,self.primerpairobject.locations()))
+            ]
+        except:
+            raise
+        else:
+            return ' '.join(testString)
 
     def __hash__(self):
         #hash((self.sample,self.primerpair,self.control))
@@ -244,26 +278,26 @@ class Test(object):
     def __eq__(self,other):
         return hash(self) == hash(other)
 
-'''Worksheet data'''
+    @property
+    def primerpair(self):
+        return self.primerpairobject
+
+    @primerpair.getter
+    def primerpair(self):
+        return self.primerpairobject.name
+
+    @primerpair.setter
+    def primerpair(self,x):
+        self.primerpairobject = x
+
+
+'''Worksheet data (list of tests)'''
 class Worksheet(list):
-    def __init__(self,elements,name='Worksheet',fieldNames=['sample', 'variant', 'primerpair', \
-        'vessel','well','fwd', 'fwdTm', 'fwdGC', 'rev', 'revTm', 'revGC', 'chrom', \
-        'chromStart', 'chromEnd']):
-        list.__init__(self, [])
+    def __init__(self,elements,name='Worksheet'):
+        list.__init__(self, elements)
         self.plates = []
         self.name = name
         self.date = datetime.datetime.now().isoformat()
-        for i, e in enumerate(elements):
-            data = dict(zip(fieldNames,e))
-            t = Test(sample=data['sample'],primerpair=data['primerpair'], primerstorage=[data['vessel'],data['well']])
-            if t in self:
-                for test in self[::-1]:  # go backwards as variants are sorted by sample and coordinate
-                    if test == t:
-                        test.variants.append(data['variant'])
-                        break
-            else:
-                t.variants.append(data['variant'])
-                self.append(t)
 
     def __str__(self):
         return "<Worksheet (%d tests, %d variants)> " % (len(self),sum([len(e.variants) for e in self]))
@@ -271,18 +305,40 @@ class Worksheet(list):
     def count(self,attr,x):
         return len([ e for e in self if getattr(e,attr)==x ])
 
+    '''generates IDT orderlist for primers without assigned storage location'''
+    def orderCsv(self,fi,config):
+        # get all primers without storage location
+        primerpairs = set()
+        for plate in self.plates:
+            for r in range(len(plate.M)):
+                for c in range(len(plate.M[r])):
+                    if plate.M[r][c] is not None:
+                        primerpairs.add(plate.M[r][c].primerpairobject)
+        # print CSV with extra columns
+        with open(fi,'w') as fh:
+            for pp in sorted(list(primerpairs),key=lambda x: x.name):
+                # add tag according to primername (check 1 fwd and 1 rev)
+                tagorder = [1,0] if pp.reversed else [0,1]
+                for i, p in enumerate(pp):
+                    try:
+                        tagseq = config['sequencetags'][p.tag]['tags'][tagorder[i]]
+                    except:
+                        tagseq = '' if not p.tag else p.tag+'-'
+                    print >> fh, '\t'.join([ p.name, tagseq+p.seq ] + config['extracolumns'])
+
     '''print robot csv, (DestinationPlate,DestinationWell,SampleID,PrimerID)'''
     def robotCsv(self,fi,sep=','):
         with open(fi,'w') as fh:
-            print >> fh, sep.join(['DestinationPlate','DestinationWell','PrimerID','SampleID','Confirmations','PrimerName'])
+            print >> fh, sep.join(['DestinationPlate','DestinationWell','PrimerID','SampleID','PrimerName'])
             for n, p in enumerate(self.plates):
                 P = 'Plate'+str(n+1)
-                for i,row in enumerate(p.M):
-                    R = chr(ord('A')+i)
-                    for j,cell in enumerate(row):
-                        C = str(j+1)
+                for col in range(p.ncol):
+                    C = str(col+1)
+                    for row in range(p.nrow):
+                        R = chr(ord('A')+row)
+                        cell = p.M[row][col]
                         if cell:
-                            print >> fh, sep.join([P,R+C,barcode(cell.primerpair),cell.sample,str(len(cell.variants)),cell.primerpair])
+                            print >> fh, sep.join([P,R+C,cell.primerpairobject.uniqueid()[:10],cell.sample,cell.primerpair])
 
     '''assign tests to plate (smart work better only for big test sets)'''
     def fillPlates(self,size=[8,12],randomize=True,roworder='primerpair',includeSamples=True,includeControls=True):
@@ -315,36 +371,42 @@ class Worksheet(list):
         self += controlsamples.values()
         return
 
-    # print worksheet
-    def createWorkSheet(self,fi,**kwargs):
+    '''PDF worksheet'''
+    def createWorkSheet(self,fi,primertest=False,worklist='',**kwargs):
         logo = kwargs['logo'] if 'logo' in kwargs.keys() and kwargs['logo'] else None
-        r = Report(fi,self.name,logo)
+        site = kwargs['site'] if 'site' in kwargs.keys() and kwargs['site'] else None
+        auth = kwargs['auth'] if 'auth' in kwargs.keys() and kwargs['auth'] else None
+        r = Report(fi,self.name,logo,site,auth,worklist)
         # add plates
         samples, primers, plates = [], [], []
         for p in self.plates:
-            s, p, m = p.platemap()
+            s, p, m = p.platemap()  # gets samples, (pairname, (primersuffixes), (locations)), platemap
             samples += s
-            primers += p
+            primers += p  # PrimerPair Objects
             plates.append(m)
-        # sample and primer list (samples and primers similar to plate order)
-        sampleOrder = { s: self.plates[0]._bestRows(Test(s,'dummy'),'sample')[0] for s in set(samples) }
+        # sample list (similar to plate order)
+        sampleOrder = { s: self.plates[0]._bestRows(Test(PrimerPair([None,None],name='dummyprimer'),s),'sample')[0] \
+            for s in set(samples) }
         orderedSamples = [ x[0] for x in sorted(sampleOrder.items(), key=lambda x: x[1]) ]
-        primerOrder = { p: self.plates[0]._bestRows(Test(s,'dummy'),'primerpair')[0] for p in set(primers) }
-        orderedPrimers = [ x[0] for x in sorted(primerOrder.items(), key=lambda x: x[1]) ]
+        # primer list (similar to plate order)
+        primerOrder = { p: self.plates[0]._bestRows(Test(p,'dummy'),'primerpair')[0] \
+            for p in set(primers) }
+        orderedPrimers = [ (x[0].name, x[0].primerSuffixes(), tuple(x[0].locations())) for x in sorted(primerOrder.items(), key=lambda x: x[1]) ]
+        # store ordered list of sample (str) and primers (primername, primersuffixes, locations)
         r.samplePrimerLists(orderedSamples,orderedPrimers)
         # reaction volume list
-        r.volumeLists(sum([len(p) for p in self.plates]),kwargs['volumes']['mastermix'],kwargs['volumes']['qsolution'],kwargs['volumes']['excess'])
+        r.volumeLists(sum([len(p) for p in self.plates]),kwargs['volumes']['mastermix'],kwargs['volumes']['qsolution'],kwargs['volumes']['excess'],kwargs['volumes']['program'])
         # add checkboxes
-        checkTasks = ['Plate orientation checked'] if all([ p[1][0] for p in primers]) \
-            else ['New primers ordered', 'Plate orientation checked', 'Primer checked and storage assigned'] if not any([ p[1][0] for p in primers]) \
-            else ['New primers tested', 'Plate orientation checked']
+        checkTasks = ['New primers ordered', 'Plate orientation checked', 'Primer checked and storage assigned'] if primertest \
+            else ['Plate orientation checked', 'DNA barcodes relabeled']
         r.checkBoxes(checkTasks)
         # plate layout
         r.plateLayouts(plates)
         # build pdf
         r.build()
 
-    def tubeLabels(self,fi='/dev/null',meta=''):
+    '''tube Labels'''
+    def tubeLabels(self,fi='/dev/null',tags={}):
         # detects collisions, run with empty output to validate
         digests = {}  # digest -> name
         with open(fi,'w') as fh:
@@ -353,20 +415,23 @@ class Worksheet(list):
                 for i,row in enumerate(p.M):
                     for j,cell in enumerate(row):
                         if cell:
-                            # generate barcode
-                            d = barcode(cell.primerpair)
+                            d = cell.primerpairobject.uniqueid()[:10]  # uniqueid
                             if d in digests.keys():
                                 try:
                                     assert cell.primerpair == digests[d]
                                 except:
                                     raise Exception('BarcodeCollision')
+                                else:
+                                    continue  # dont print same barcode multiple times
                             else:
                                 digests[d] = cell.primerpair
+                            # get tag name
+                            tagstring = '/'.join(set([ x.tag for x in cell.primerpairobject ]))
                             print >> fh, "^XA"  # start label
-                            print >> fh, "^FO20,25^AB^FD{}^FS".format(self.date[:self.date.rfind('.')])  # date to the second
-                            print >> fh, "^FO20,45^AB,25^FD{}^FS".format(cell.primerpair)  # primer name
-                            print >> fh, "^FO20,75^AB^FD{}^FS".format(meta)  # primer name
-                            print >> fh, "^FO20,95^BY1.5^BCN,80,Y,N,N^FD{}^FS".format(d)  # barcode digest
+                            print >> fh, "^PR1,D,A"  # slower print speed
+                            print >> fh, "^FO20,50^AB^FD{}^FS".format(self.date[:self.date.rfind('.')])  # date to the second
+                            print >> fh, "^FO20,70^AB,25^FD{}  ({})^FS".format(cell.primerpair,tagstring)  # primer name
+                            print >> fh, "^FO20,100^BY1.5^BCN,80,Y,N,N^FD{}^FS".format(d)  # uniqueid
                             print >> fh, "^XZ"  # end label
 
 
@@ -383,18 +448,18 @@ class Plate(object):
         return sum([ len([ f for f in r if f]) for r in self.M ])
 
     def platemap(self):
-        s, p, c = set(), set(), set()
+        s, p = set(), set()
         for r in range(len(self.M)):
             for c in range(len(self.M[r])):
                 if self.M[r][c] is not None:
                     s.add(self.M[r][c].sample)
-                    p.add((self.M[r][c].primerpair,tuple(self.M[r][c].primerstorage)))
-        # generate plate map
+                    p.add(self.M[r][c].primerpairobject)
+        # # generate plate map
         trunc = lambda x: '<br/>'.join([ x.sample[:9]+'...' if len(x.sample)>12 else x.sample,
             x.primerpair[:9]+'...' if len(x.primerpair)>12 else x.primerpair]) if x is not None else "EMPTY"
         pm = [ map(trunc,r) for r in self.M ]
         # return values
-        return sorted(list(s)), sorted(list(p)), pm
+        return sorted(list(s)), sorted(list(p),key=lambda x: x.name), pm
 
     def bestRowNumbers(self,val,attr):
         rowcounts = { i: len([ e for e in r if e is not None and getattr(e,attr) == val ]) \
@@ -403,11 +468,13 @@ class Plate(object):
 
     def _bestRows(self,x,rvalue):
         if x.control:  # try to spread across rows
-            rowcounts = { i: len([ e for e in r if e is not None and getattr(e,rvalue) != getattr(x,rvalue) ]) - \
+            rowcounts = { i: \
+                len([ e for e in r if e is not None and getattr(e,rvalue) != getattr(x,rvalue) ]) - \
                 len([ e for e in r if e is not None and getattr(e,rvalue) == getattr(x,rvalue) ]) \
                 for i, r in enumerate(self.M) }
         else:  # use same row if possible
-            rowcounts = { i: len([ e for e in r if e is not None and getattr(e,rvalue) == getattr(x,rvalue) ]) - \
+            rowcounts = { i: \
+                len([ e for e in r if e is not None and getattr(e,rvalue) == getattr(x,rvalue) ]) - \
                 len([ e for e in r if e is not None and getattr(e,rvalue) != getattr(x,rvalue) ]) \
                 for i, r in enumerate(self.M) }
         return [ x[0] for x in sorted(rowcounts.items(), key=lambda x: x[1], reverse=True) ]
@@ -416,7 +483,7 @@ class Plate(object):
         return True if len(self)>=len(self.M)*len(self.M[0]) else False
 
     # s with row priority only (corresponds to sample)
-    def add(self,t,rvalue='sample'):
+    def add(self,t,rvalue='primerpair'):
         # get best rows
         try:
             bestRows = self._bestRows(t,rvalue)  # randomises for controls
@@ -427,8 +494,7 @@ class Plate(object):
             raise
         else:
             # get free columns
-            availableWells = [ r for r in itertools.product(bestRows,range(self.ncol)) if self.M[r[0]][r[1]] is None ]
-
+            availableWells = [ r for r in product(bestRows,range(self.ncol)) if self.M[r[0]][r[1]] is None ]
         # add to first available well
         self.M[availableWells[0][0]][availableWells[0][1]] = t
 
