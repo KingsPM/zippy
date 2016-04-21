@@ -469,7 +469,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
 
 def updateLocation(primername, location, database, force=False):
     occupied = database.getLocation(location)
-    if not occupied:
+    if not occupied or force:
         if database.storePrimer(primername,location,force):
             return '%s location sucessfully set to %s' % (primername, str(location))
         else:
@@ -547,7 +547,7 @@ def main():
     parser_update = subparsers.add_parser('update', help='Update status and location of primers')
     parser_update.add_argument('-l', dest="location", nargs=3, \
         help="Update storage location of primer pair (pairid vessel well)")
-    parser_update.add_argument("--force", dest="force", default=True, action='store_false', \
+    parser_update.add_argument("--force", dest="force", default=False, action='store_true', \
         help="Force Location update (resets existing)")
     parser_update.add_argument('-b', dest="blacklist", type=str, \
         help="Blacklist primer")

@@ -47,22 +47,26 @@ apache-user:
 	usermod -L $(WWWUSER)
 	adduser $(WWWUSER) $(WWWGROUP)
 
-apache-setup:
+apache-setup: import-resources
 	# make WWW directories
 	mkdir -p $(ZIPPYWWW)
 	rsync -a zippy.wsgi $(ZIPPYWWW)
 	chown -R $(WWWUSER):$(WWWGROUP) $(ZIPPYWWW)
-	# Copy resource files
-	mkdir -p $(ZIPPYVAR)
-	rsync -a resources $(ZIPPYVAR)
-	chown -R $(WWWUSER):$(WWWGROUP) $(ZIPPYVAR)
 	# apache WSGI config
 	cp apache2_zippy /etc/apache2/sites-available/zippy
-	sudo a2ensite zippy
+	a2ensite zippy
+	# disable default site
+	a2dissite default
 
 apache-restart:
 	# restart apache
 	/etc/init.d/apache2 restart
+
+import-resources:
+	# Copy resource files
+	mkdir -p $(ZIPPYVAR)
+	rsync -avPp resources $(ZIPPYVAR)
+	chown -R $(WWWUSER):$(WWWGROUP) $(ZIPPYVAR)
 
 genome: genome-download genome-index
 

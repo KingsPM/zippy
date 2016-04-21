@@ -2,7 +2,7 @@
 {% block content %}
     <div id="indexPage">
         <div id="left">
-            <h3>Variant confirmation</h3>
+            <h3>Batch PCR</h3>
             <form action="/upload/" method="post" enctype="multipart/form-data">
                 <span class="pop">SNPpy output &nbsp</span><input type="file" name="filePath"><br><br>
                 <span class="pop">Output name (optional) &nbsp</span><input type="text" name="outfile"><br><br>
@@ -18,7 +18,7 @@
             <h3>Primer Query</h3>
             <form action="/adhoc_design/" method="post" enctype="multipart/form-data">
                 <span class="pop">BED, VCF, GenePred &nbsp</span><input type="file" name="filePath"><br><br>
-                or&nbsp<span class="pop">Chromosome:Start-End[+-] &nbsp</span><input type="text" name="locus"><br><br>
+                or&nbsp<span class="pop">Chromosome:Start-End:[+-] &nbsp</span><input type="text" name="locus"><br><br>
                 <input type="checkbox" name="design" value="True" checked>design &nbsp
                 <input type="checkbox" name="deep" value="True">deep search &nbsp
                 <input type="checkbox" name="store" value="True">store<br><br>

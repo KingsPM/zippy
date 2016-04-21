@@ -6,7 +6,7 @@ This program integrates a simple SQLite primer database and design tool based on
 It allows the automatic generation of primer pairs based on a VCF, BED or SNPpy result table.
 
 ### Primer design
-Zippy's primary functionality is the automatic design of working sequencing primer pairs. It uses Primer3 as a backend and verifies the uniqueness of resulting sequening amplicons and identifies overlap with potentially interfering common variation in the genome. Multiple design parameter sets can be specified and Zippy will autmatically move on to the next, less stringent parameter sets if the design process does not yield any good primer pairs (deep searching).
+Zippy's primary functionality is the automatic design of working sequencing primer pairs. It uses Primer3 as a backend and verifies the uniqueness of resulting sequencing amplicons, identifying overlap with potentially interfering common variation in the genome. Multiple design parameter sets can be specified and Zippy will autmatically move on to the next, less stringent parameter sets if the design process does not yield any good primer pairs (deep searching).
 
 ### Storage Management
 Zippy also manages storage of primer pairs in boxes (vessel) and wells. It also provides functionality for barcode tracking of primer dilutions ready for sequencing.
@@ -38,7 +38,7 @@ Make sure to modify the configuration file `zippy.json` accordingly.
 
 The webservice will be exposed to the VM host at address `55.55.55.5`.
 
-You can install zippy with all needes resource with
+You can install zippy with all needed resource with
 > `sudo make all`
 
 To install zippy and the flask webservice on apache2/wsgi_mod run

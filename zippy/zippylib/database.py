@@ -313,8 +313,8 @@ class PrimerDB(object):
         except:
             raise
         else:
+            # reset storage location
             if force:
-                # reset storage location
                 try:
                     cursor = self.db.cursor()
                     cursor.execute('''UPDATE OR IGNORE primer SET vessel = NULL, well = NULL
