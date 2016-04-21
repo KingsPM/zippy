@@ -12,4 +12,5 @@ Vagrant.configure(2) do |config|
     vb.cpus = 2
     vb.memory = 6144
   end
+  config.vm.provision "shell", inline: "INSTALL WITH: cd zippy && make install"
 end

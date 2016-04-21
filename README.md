@@ -6,22 +6,27 @@ This program integrates a simple SQLite primer database and design tool based on
 It allows the automatic generation of primer pairs based on a VCF, BED or SNPpy result table.
 
 ## Install
-### Virtual machine
+### Virtual machine setup
 fire up the virtual machine and connect with
 > `vagrant up && vagrant ssh`
 
 then follow the local installation instructions below.
 
-### local Install options
-#### Full install
-To install the Zippy webservice with all resources (genomes, index, reference VCFs) just run
+### Webservice Install
+The current installation routine will download and build the human *GRCh_37* genome index and download the common variantion data from *dbsnp142*. If you desire to use your own resources or an alternative reference genome simply put everything into the `./resource` directory and it will be imported to `/var/local/zippy/resources` during the installation process.
+Make sure to modify the configuration file `zippy.json` accordingly.
+
+You can install zippy with all needes resource with
 > `sudo make all`
 
-This will download reference genome, build the indexes and install all prerequisites (needs root/sudo access).
-
-#### Webservice only
-To install the webservice without downloading and building genome indexes, place everything in {ZIPPYROOT}/resources and run
+To install zippy and the flask webservice on apache2/wsgi_mod run
 > `sudo make install`
+
+Download b37 genomes and index with
+> `sudo make genome`
+
+Download variantion data and reference annotation with
+> `sudo make annotation`
 
 ## Usage
 
@@ -80,6 +85,7 @@ Blacklist cache for design
 Improved webinterface
 Apache Webserver in VM
 New setup routines (zippyprimer on PyPi)
+Easier VM provisioning
 
 ### FUTURE
 Support for primer collections (multiplexing)

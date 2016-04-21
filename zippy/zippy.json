@@ -72,9 +72,9 @@
         "tag": "M13"
     },
     "snpcheck": {
-        "common": "/var/local/zippy/resources/dbsnp_138.b37.G5A.vcf.gz",
-        "full": "/var/local/zippy/resources/dbsnp_138.b37.vcf.gz",
-        "G5A": "/var/local/zippy/resources/dbsnp_138.b37.G5A.vcf.gz"
+        "common": "/var/local/zippy/resources/common_all_20160408.vcf.gz",
+        "GATK_G5A": "/var/local/zippy/resources/dbsnp_138.b37.G5A.vcf.gz",
+        "GATK_ALL": "/var/local/zippy/resources/dbsnp_138.b37.vcf.gz"
     },
     "designlimits": {
         "amplicons": 1,
