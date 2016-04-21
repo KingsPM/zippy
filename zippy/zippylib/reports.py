@@ -193,11 +193,11 @@ class Report(object):
         self.elements.append(t)
         self.elements.append(Spacer(1, 12))
 
-    def volumeLists(self,reactions,mastermix,qsolution,excess):
+    def volumeLists(self,reactions,mastermix,qsolution,excess,program):
         # batch mix
         data = [['Reagent','Quantity','LOT','Expiry','','Reactions', str(reactions) ],
             ['MasterMix', str((1.+excess)*reactions*mastermix)+' µl', '', '', '', 'Excess', str((excess)*100)+' %' ],
-            ['Q-Solution', str((1.+excess)*reactions*qsolution)+' µl', '', '', '', 'PCR Program', 'ngsconfirm' ],
+            ['Q-Solution', str((1.+excess)*reactions*qsolution)+' µl', '', '', '', 'PCR Program', program ],
             ['TOTAL', str((1.+excess)*reactions*(mastermix+qsolution))+' µl', '', '', '', 'PCR Block','']]
         t = Table(data, colWidths=[2.5*cm,2.5*cm,2.5*cm,2.5*cm,0.3*cm,2.7*cm,2.5*cm], rowHeights=0.6*cm)
         t.setStyle(TableStyle([
@@ -395,7 +395,7 @@ class Worksheet(list):
         # store ordered list of sample (str) and primers (primername, primersuffixes, locations)
         r.samplePrimerLists(orderedSamples,orderedPrimers)
         # reaction volume list
-        r.volumeLists(sum([len(p) for p in self.plates]),kwargs['volumes']['mastermix'],kwargs['volumes']['qsolution'],kwargs['volumes']['excess'])
+        r.volumeLists(sum([len(p) for p in self.plates]),kwargs['volumes']['mastermix'],kwargs['volumes']['qsolution'],kwargs['volumes']['excess'],kwargs['volumes']['program'])
         # add checkboxes
         checkTasks = ['New primers ordered', 'Plate orientation checked', 'Primer checked and storage assigned'] if primertest \
             else ['Plate orientation checked', 'DNA barcodes relabeled']

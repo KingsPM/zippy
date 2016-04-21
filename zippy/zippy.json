@@ -92,7 +92,8 @@
         "volumes": {
             "mastermix": 6,
             "qsolution": 2,
-            "excess": 0.1
+            "excess": 0.1,
+            "program": "ngsconfirm"
         }
     },
     "ordersheet": {
