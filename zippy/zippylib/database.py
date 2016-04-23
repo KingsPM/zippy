@@ -44,6 +44,7 @@ class PrimerDB(object):
                 UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS target(
                 seq TEXT, chrom TEXT, position INT, reverse BOOLEAN,
+                UNIQUE (seq,chrom,position,reverse),
                 FOREIGN KEY(seq) REFERENCES primer(seq) ON DELETE CASCADE);''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS blacklist(
                 uniqueid TEXT PRIMARY KEY, blacklistdate TEXT);''')
