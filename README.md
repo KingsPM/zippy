@@ -121,7 +121,8 @@ Set/update primer storage location
 - fixed import of primers with shared primers (multiple amplicons)
 - Added SMB share for windows installs
 - Fixed page breaking in tables
-- minor bugfixes
+- Added primer table dump for reimport and easier migration to future versions
+- Automatic primer/pair renaming on conflict
 
 ### FUTURE
 - Support for primer collections (multiplexing)
