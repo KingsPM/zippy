@@ -18,6 +18,8 @@ from collections import defaultdict, OrderedDict
 from .interval import Interval
 from string import maketrans
 
+revcmp = maketrans('ACGTNacgtn','TGCANtgcan')
+
 '''returns common prefix (substring)'''
 def commonPrefix(left,right,stripchars='-_ ',commonlength=3):
     if left and right:
@@ -53,11 +55,12 @@ class Genome(object):
         with pysam.FastaFile(self.file) as fasta:
             seqslice = fasta.fetch(locus.chrom,chromStart,chromEnd)
         # find sequence
-        qrySeq = seq if locus.reverse else seq.translate(maketrans('ACGTNacgtn','TGCANtgcan'))[::-1]
+        qrySeq = seq if locus.reverse else seq.translate(revcmp)[::-1]
         # create new loci
         loci = []
         for i in [ match.start() for match in re.finditer(re.escape(qrySeq), seqslice) ]:
-            loci.append(Locus(locus.chrom, chromStart+i, len(qrySeq), not locus.reverse))
+            tm = primer3.calcTm(qrySeq)
+            loci.append(Locus(locus.chrom, chromStart+i, len(qrySeq), not locus.reverse, tm))
         return loci
 
 '''just a wrapper for pysam'''
@@ -71,7 +74,7 @@ class MultiFasta(object):
                 print >> sys.stderr, self.file
                 raise Exception('DuplicateSequenceNames')
 
-    def createPrimers(self,db,bowtie='bowtie2',delete=True, tags={}):
+    def createPrimers(self,db,bowtie='bowtie2', delete=True, tags={}, tmThreshold=50.0, endMatch=6):
         # run bowtie (max 1000 alignments, allow for one gap/mismatch?)
         mapfile = self.file+'.sam'
         if not os.path.exists(mapfile):
@@ -93,27 +96,28 @@ class MultiFasta(object):
                 else:
                     # create stranded targetlocus
                     reverse = True if reTargetposition.group(4)=='-' else False
-                    targetLocus = Locus(reTargetposition.group(1), int(reTargetposition.group(2)), int(reTargetposition.group(3))-int(reTargetposition.group(2)), reverse)
+                    tm = primer3.calcTm(fasta.fetch(s))  # assume targetlocus is full match
+                    targetLocus = Locus(reTargetposition.group(1), int(reTargetposition.group(2)), int(reTargetposition.group(3))-int(reTargetposition.group(2)), reverse, tm)
                 # create primer (with target locus)
                 primertag = tags[primername] if primername in tags.keys() else None
                 primers[primername] = Primer(primername,fasta.fetch(s),targetLocus,tag=primertag)
 
-        # read SAM OUTPUT
+        # read SAM OUTPUT and filter alignments
         mappings = pysam.Samfile(mapfile,'r')
         for aln in mappings:
             if aln.is_unmapped:
                 continue
             primername = aln.qname.split('|')[0]
-            # add full matching loci
-            try:
-                if not any(zip(*aln.cigar)[0]):  # all matches (full length)
-                    primers[primername].addTarget(mappings.getrname(aln.reference_id), aln.pos, aln.is_reverse)
-                # add other significant matches (1 mismatch/gap)
-                elif zip(*aln.cigar)[0].count(0) >= len(aln.seq)-1:
-                    primers[primername].sigmatch += 1
-            except:
-                print >> sys.stderr, aln
-                raise
+            ## get reference sequence
+            qry = aln.query_sequence.upper()
+            ref = aln.get_reference_sequence().upper()
+            refrc = ref.translate(revcmp)[::-1]
+            aln_tm = primer3.calcHeterodimerTm(qry,refrc)
+            # TmThreshold and mimatches in 3'end check
+            if aln_tm > tmThreshold:
+                if len(qry)>endMatch and len(ref)>endMatch:
+                    if len([ x for x in zip(qry[-endMatch:], ref[-endMatch:]) if x[0]!=x[1] ]) == 0:
+                        primers[primername].addTarget(mappings.getrname(aln.reference_id), aln.pos, aln.is_reverse, aln_tm)
         if delete:
             os.unlink(self.file+'.sam') # delete mapping FILE
         return primers.values()
@@ -366,7 +370,6 @@ class Primer(object):
         self.loci = []  # genome matches
         self.snp = []  # same order as loci attribute
         self.meta = {}  # metadata
-        self.sigmatch = 0  # significant other matches (just counted)
         self.targetposition = targetposition
         self.location = location  # storage location
         if loci:
@@ -399,8 +402,8 @@ class Primer(object):
             seqname += '|'+self.meta['POSITION'][0]+':'+"-".join(map(str,self.meta['POSITION'][1:]))+':'+strand
         return "\n".join([ ">"+seqname, self.seq ])
 
-    def addTarget(self, chrom, pos, reverse):
-        self.loci.append(Locus(chrom,pos,len(self),reverse))
+    def addTarget(self, chrom, pos, reverse, tm=None):
+        self.loci.append(Locus(chrom,pos,len(self),reverse,tm))
         return
 
     def snpCheckPrimer(self,vcf):
@@ -417,11 +420,12 @@ class Primer(object):
 
 '''Locus'''
 class Locus(object):
-    def __init__(self,chrom,offset,length,reverse):
+    def __init__(self,chrom,offset,length,reverse,tm):
         self.chrom = chrom
         self.offset = offset
         self.length = length
         self.reverse = reverse
+        self.tm = tm
 
     def __str__(self):
         strand = '-' if self.reverse else '+'

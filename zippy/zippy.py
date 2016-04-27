@@ -122,7 +122,10 @@ def importPrimerPairs(inputfile,config,primer3=True):
             primertags[r] = config['import']['tag']
     print >> sys.stderr, "Placing primers on genome..."
     # Align primers to genome
-    primers = primerfile.createPrimers(config['design']['bowtieindex'],delete=False,tags=primertags)  # places in genome
+    primers = primerfile.createPrimers(config['design']['bowtieindex'], \
+        delete=False,tags=primertags, \
+        tmThreshold=config['design']['mispriming']['minimaltm'], \
+        endMatch=config['design']['mispriming']['identity3prime'])  # places in genome
     # pair primers (by name or by primerset) MAKE COPIES!!!!
     pairs = {}
     for p in primers:

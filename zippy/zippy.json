@@ -12,6 +12,10 @@
         "genome": "/var/local/zippy/resources/human_g1k_v37.fasta",
         "annotation": "/var/local/zippy/resources/refGene",
         "bowtieindex": "/var/local/zippy/resources/human_g1k_v37.bowtie",
+        "mispriming": {
+            "minimaltm": 50.0,
+            "identity3prime": 6
+        },
         "tag": "M13",
         "primer3": [
             {

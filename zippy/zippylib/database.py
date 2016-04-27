@@ -15,6 +15,7 @@ import hashlib
 import sqlite3
 import fnmatch
 import copy
+import primer3
 from collections import defaultdict
 from . import flatten
 from .primer import Primer, Locus, PrimerPair, Location, parsePrimerName
@@ -43,7 +44,7 @@ class PrimerDB(object):
                 FOREIGN KEY(right) REFERENCES primer(name) ON UPDATE CASCADE,
                 UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS target(
-                seq TEXT, chrom TEXT, position INT, reverse BOOLEAN,
+                seq TEXT, chrom TEXT, position INT, reverse BOOLEAN, tm REAL,
                 UNIQUE (seq,chrom,position,reverse),
                 FOREIGN KEY(seq) REFERENCES primer(seq) ON DELETE CASCADE);''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS blacklist(
@@ -154,8 +155,8 @@ class PrimerDB(object):
                 cursor.execute('''INSERT OR IGNORE INTO primer(name,seq,tag,tm,gc,dateadded) VALUES(?,?,?,?,?,?)''', \
                     (p.name, p.seq, p.tag, p.tm, p.gc, current_time))
                 for l in p.loci:
-                    cursor.execute('''INSERT OR IGNORE INTO target(seq,chrom,position,reverse) VALUES(?,?,?,?)''', \
-                        (p.seq, l.chrom, l.offset, l.reverse))
+                    cursor.execute('''INSERT OR IGNORE INTO target(seq,chrom,position,reverse,tm) VALUES(?,?,?,?,?)''', \
+                        (p.seq, l.chrom, l.offset, l.reverse, l.tm))
             self.db.commit()
         finally:
             self.db.close()
@@ -229,8 +230,8 @@ class PrimerDB(object):
         primerPairs = []
         for row in rows:
             # build targets
-            leftTargetposition = Locus(row[7], row[8], len(row[3]), False)
-            rightTargetposition = Locus(row[7], row[9]-len(row[4]), len(row[4]), True)
+            leftTargetposition = Locus(row[7], row[8], len(row[3]), False, primer3.calcTm(row[3]))
+            rightTargetposition = Locus(row[7], row[9]-len(row[4]), len(row[4]), True, primer3.calcTm(row[4]))
             # build storage locations (if available)
             leftLocation = Location(*row[10:12]) if all(row[10:12]) else None
             rightLocation = Location(*row[12:14]) if all(row[12:14]) else None
