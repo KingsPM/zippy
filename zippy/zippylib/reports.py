@@ -29,6 +29,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm, inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
+from reportlab.platypus.flowables import KeepTogether
 from reportlab.rl_config import defaultPageSize
 
 # Page Settings
@@ -158,7 +159,7 @@ class Report(object):
                     data[i][j] = Paragraph(c,self.styles['tiny']) if i and j else Paragraph(c,self.styles['small'])
             t = Table(data, colWidths=1.2*cm, rowHeights=0.5*cm)
             t.setStyle(PLATE_STYLE)
-            self.elements.append(t)
+            self.elements.append(KeepTogether(t))
             self.elements.append(Spacer(1, 12))
 
     def samplePrimerLists(self,s,p):
@@ -217,7 +218,7 @@ class Report(object):
             ('BOX', (5,0), (6,-1), 1, colors.black)
             ]))
         self.elements.append(Spacer(1, 12))
-        self.elements.append(t)
+        self.elements.append(KeepTogether(t))
         self.elements.append(Spacer(1, 12))
 
     def checkBoxes(self,titles):
@@ -239,7 +240,7 @@ class Report(object):
             data.append([ titles[i], '', '' ])
         t = Table(data, colWidths=[7.5*cm,4*cm,4*cm], rowHeights=0.6*cm)
         t.setStyle(TABLE_STYLE)
-        self.elements.append(t)
+        self.elements.append(KeepTogether(t))
         self.elements.append(Spacer(1, 12))
 
     def build(self):

@@ -121,10 +121,7 @@ Set/update primer storage location
 - fixed import of primers with shared primers (multiple amplicons)
 - Added SMB share for windows installs
 - Fixed page breaking in tables
-
-- Better detection on non-specific primers
 - minor bugfixes
-
 
 ### FUTURE
 - Support for primer collections (multiplexing)
@@ -132,6 +129,7 @@ Set/update primer storage location
 - Web GUI extensions
 - Storage map (suggest new locations?)
 - Import from files (fasta,list)
+- Better detection of foreign amplicons
 
 ## Reference Genome
 Primers are designed from the unmasked 1kg reference genome while ignoring simple repeat regions.
