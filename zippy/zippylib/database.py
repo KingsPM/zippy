@@ -441,3 +441,24 @@ class PrimerDB(object):
             finally:
                 self.db.close()
             return rows, ['pair','primer','vessel','well']
+        elif what=='table':
+            # dump table with pairs primers and locations (which can be reimported)
+            try:
+                self.db = sqlite3.connect(self.sqlite)
+            except:
+                raise
+            else:
+                cursor = self.db.cursor()
+                cursor.execute('''SELECT * FROM (
+                    SELECT p.name, pp.pairid, p.tag, p.seq, p.vessel, p.well
+                    FROM pairs AS pp, primer AS p
+                    WHERE pp.left = p.name
+                    UNION
+                    SELECT p.name, pp.pairid, p.tag, p.seq, p.vessel, p.well
+                    FROM pairs AS pp, primer AS p
+                    WHERE pp.right = p.name)
+                    ORDER BY pairid;''')
+                rows = cursor.fetchall()
+            finally:
+                self.db.close()
+            return rows, ['primername', 'primerset', 'tag', 'sequence', 'vessel', 'well']
