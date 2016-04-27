@@ -7,10 +7,15 @@ ZIPPYWWW=/var/www/zippy
 WWWUSER=flask
 WWWGROUP=www-data
 
-all: install genome annotation
+# production install
+release: install webservice
 
-install: essential bowtie zippy-install apache
+# development installs (with mounted volume)
+all: install resources
 
+install: essential bowtie zippy-install import-resources
+
+# requirements
 essential:
 	locale-gen en_GB.UTF-8
 	apt-get update
@@ -20,6 +25,16 @@ essential:
 	apt-get install -y redis-server
 	apt-get install -y build-essential libjpeg-dev libfreetype6-dev python-dev python-imaging libcurl3-dev
 	apt-get install -y mysql-client
+	# add apache user
+	useradd -M $(WWWUSER)
+	usermod -s /bin/false $(WWWUSER)
+	usermod -L $(WWWUSER)
+	adduser $(WWWUSER) $(WWWGROUP)
+	# install apache/wsgi
+	apt-get install -y apache2 apache2.2-common apache2-mpm-prefork apache2-utils libexpat1 ssl-cert
+	apt-get install -y libapache2-mod-wsgi
+	# disable default site
+	a2dissite default
 
 bowtie:
 	wget -c http://netix.dl.sourceforge.net/project/bowtie-bio/bowtie2/2.2.6/bowtie2-2.2.6-linux-x86_64.zip && \
@@ -27,53 +42,64 @@ bowtie:
 	cd bowtie2-2.2.6 && mv bowtie2* /usr/local/bin
 	rm -rf bowtie2-2.2.6 bowtie2-2.2.6-linux-x86_64.zip
 
+# zippy setup (will move to distutils in future release)
 zippy-install:
+	# virtualenv
 	mkdir -p $(ZIPPYPATH)
 	cd $(ZIPPYPATH) && virtualenv venv
 	$(ZIPPYPATH)/venv/bin/pip install cython
 	$(ZIPPYPATH)/venv/bin/pip install pysam
 	$(ZIPPYPATH)/venv/bin/pip install primer3-py==0.5.0
 	$(ZIPPYPATH)/venv/bin/pip install -r package-requirements.txt
+	# create empty database
+	mkdir -p $(ZIPPYVAR)
+	touch $(ZIPPYVAR)/zippy.sqlite
+	touch $(ZIPPYVAR)/zippy.log
+	touch $(ZIPPYVAR)/.blacklist.cache
+	mkdir -p $(ZIPPYVAR)/uploads
+	mkdir -p $(ZIPPYVAR)/results
+	chmod -R 777 $(ZIPPYVAR)
 
-apache: apache-install apache-user apache-setup apache-restart
-
-apache-install:
-	apt-get install -y apache2 apache2.2-common apache2-mpm-prefork apache2-utils libexpat1 ssl-cert
-	apt-get install -y libapache2-mod-wsgi
-
-apache-user:
-	useradd -M $(WWWUSER)
-	usermod -s /bin/false $(WWWUSER)
-	usermod -L $(WWWUSER)
-	adduser $(WWWUSER) $(WWWGROUP)
-
-apache-setup: import-resources
+# webservice install (production)
+webservice:
+	rsync -a --exclude-from=.gitignore . $(ZIPPYPATH)
 	# make WWW directories
 	mkdir -p $(ZIPPYWWW)
-	rsync -a zippy.wsgi $(ZIPPYWWW)
+	cp install/zippy.wsgi $(ZIPPYWWW)/zippy.wsgi
 	chown -R $(WWWUSER):$(WWWGROUP) $(ZIPPYWWW)
 	# apache WSGI config
-	cp apache2_zippy /etc/apache2/sites-available/zippy
+	cp install/zippy.hostconfig /etc/apache2/sites-available/zippy
+	# enable site and restart
 	a2ensite zippy
-	# disable default site
-	a2dissite default
-
-apache-restart:
-	# restart apache
 	/etc/init.d/apache2 restart
 
+# same for development environment (not maintained)
+webservice-dev:
+	# make WWW directories
+	mkdir -p $(ZIPPYWWW)
+	cp install/zippy_dev.wsgi $(ZIPPYWWW)/zippy.wsgi
+	chown -R $(WWWUSER):$(WWWGROUP) $(ZIPPYWWW)
+	# apache WSGI config
+	cp install/zippy_dev.hostconfig /etc/apache2/sites-available/zippy
+	# enable site and restart
+	a2ensite zippy
+	/etc/init.d/apache2 restart
+
+#### genome resources
 import-resources:
 	# Copy resource files
 	mkdir -p $(ZIPPYVAR)
 	rsync -avPp resources $(ZIPPYVAR)
 	chown -R $(WWWUSER):$(WWWGROUP) $(ZIPPYVAR)
 
+resources: genome annotation
+
 genome: genome-download genome-index
 
 genome-download:
 	mkdir -p $(ZIPPYVAR)/resources && cd $(ZIPPYVAR)/resources && \
-	wget ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/human_g1k_v37.fasta.gz && \
-	wget ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/human_g1k_v37.fasta.fai && \
+	wget -c ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/human_g1k_v37.fasta.gz && \
+	wget -c ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/human_g1k_v37.fasta.fai && \
 	gunzip human_g1k_v37.fasta.gz
 
 genome-index:
@@ -84,8 +110,8 @@ annotation: variation-download refgene-download
 
 variation-download:
 	mkdir -p $(ZIPPYVAR)/resources && cd $(ZIPPYVAR)/resources && \
-	wget ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b147_GRCh37p13/VCF/common_all_20160408.vcf.gz && \
-	wget ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b147_GRCh37p13/VCF/common_all_20160408.vcf.gz.tbi
+	wget -c ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b147_GRCh37p13/VCF/common_all_20160408.vcf.gz && \
+	wget -c ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b147_GRCh37p13/VCF/common_all_20160408.vcf.gz.tbi
 
 refgene-download:
 	mkdir -p $(ZIPPYVAR)/resources && cd $(ZIPPYVAR)/resources && \

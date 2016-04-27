@@ -3,6 +3,6 @@ recursive-include yourapplication/static *
 include package-requirements.txt
 include *.txt
 include *.md
-include *.png
-include *.json
+recursive-include static
+include zippy.json
 include Makefile

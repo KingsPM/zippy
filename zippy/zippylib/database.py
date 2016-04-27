@@ -3,7 +3,7 @@
 __doc__=="""SQLITE Database API"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -14,11 +14,26 @@ import json
 import hashlib
 import sqlite3
 import fnmatch
-import copy
+from copy import deepcopy
 from collections import defaultdict
 from . import flatten
 from .primer import Primer, Locus, PrimerPair, Location, parsePrimerName
 
+# changes conflicting name
+def changeConflictingName(n):
+    f = n.split('_')
+    # find suffix to increment
+    if len(f)==4:  # try to increase suffix
+        try:
+            f[2] = str(int(f[2])+1)
+        except:
+            raise Exception('PrimerNameChangeError')
+        return '_'.join(f)
+    elif len(f)==3:  # add number suffix after exon
+        return '_'.join(f[:2]+[str(1)]+f[2])
+    raise Exception('PrimerNameChangeError')
+
+# Primer Database
 class PrimerDB(object):
     def __init__(self, database, user='unkown'):
         # open database and get a cursor
@@ -30,20 +45,23 @@ class PrimerDB(object):
         try:
             # TABLE
             cursor.execute('''PRAGMA foreign_keys = ON''')
+            # names unique, reinsertion if identical primers ignored
             cursor.execute('''CREATE TABLE IF NOT EXISTS primer(
                 name TEXT, seq TEXT, tag TEXT, tm REAL, gc REAL, vessel INT,
                 well TEXT, dateadded TEXT,
                 FOREIGN KEY(seq) REFERENCES target(seq),
-                UNIQUE (name,seq,tag),
+                CONSTRAINT uniquenames PRIMARY KEY (name) ON CONFLICT ABORT,
+                UNIQUE (name,seq,tag) ON CONFLICT IGNORE,
                 UNIQUE (vessel, well));''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS pairs(
                 pairid TEXT PRIMARY KEY, uniqueid TEXT, left TEXT, right TEXT,
                 chrom TEXT, start INT, end INT, dateadded TEXT,
                 FOREIGN KEY(left) REFERENCES primer(name) ON UPDATE CASCADE,
                 FOREIGN KEY(right) REFERENCES primer(name) ON UPDATE CASCADE,
-                UNIQUE (pairid, uniqueid) ON CONFLICT REPLACE);''')
+                UNIQUE (pairid, uniqueid) ON CONFLICT IGNORE);''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS target(
                 seq TEXT, chrom TEXT, position INT, reverse BOOLEAN,
+                UNIQUE (seq,chrom,position,reverse),
                 FOREIGN KEY(seq) REFERENCES primer(seq) ON DELETE CASCADE);''')
             cursor.execute('''CREATE TABLE IF NOT EXISTS blacklist(
                 uniqueid TEXT PRIMARY KEY, blacklistdate TEXT);''')
@@ -140,7 +158,7 @@ class PrimerDB(object):
         finally:
             self.db.close()
 
-    '''adds list of primers to database'''
+    '''adds list of primers to database and automatically renames'''
     def addPrimer(self, *primers):
         try:
             self.db = sqlite3.connect(self.sqlite)
@@ -148,10 +166,26 @@ class PrimerDB(object):
             raise
         else:
             current_time = datetime.datetime.now()
+            cursor = self.db.cursor()
             for p in primers:
-                cursor = self.db.cursor()
-                cursor.execute('''INSERT OR IGNORE INTO primer(name,seq,tag,tm,gc,dateadded) VALUES(?,?,?,?,?,?)''', \
-                    (p.name, p.seq, p.tag, p.tm, p.gc, current_time))
+                # store primers and modify names if necessary
+                while True:
+                    originalName = deepcopy(p.name)
+                    try:
+                        cursor.execute('''INSERT INTO primer(name,seq,tag,tm,gc,dateadded) VALUES(?,?,?,?,?,?)''', \
+                            (p.name, p.seq, p.tag, p.tm, p.gc, current_time))
+                    except sqlite3.IntegrityError:
+                        try:
+                            p.name = changeConflictingName(p.name)
+                        except Exception as e:
+                            raise e
+                    except:
+                        raise
+                    else:
+                        if originalName != p.name:
+                            print >> sys.stderr, "WARNING: Name conflict, renamed primer {} -> {} in database".format(originalName, p.name)
+                        break  # sucessfully stored
+                # store mapping loci
                 for l in p.loci:
                     cursor.execute('''INSERT OR IGNORE INTO target(seq,chrom,position,reverse) VALUES(?,?,?,?)''', \
                         (p.seq, l.chrom, l.offset, l.reverse))
@@ -162,12 +196,11 @@ class PrimerDB(object):
 
     def addPair(self, *pairs):
         '''adds primer pairs (and individual primers)'''
-        # add primers
+        # add primers (and rename if necessary)
         flat = []
         for p in pairs:
             flat.append(p[0])
             flat.append(p[1])
-
         self.addPrimer(*flat)
         # add pairs
         try:
@@ -179,11 +212,12 @@ class PrimerDB(object):
             cursor = self.db.cursor()
             # add pairs
             for p in pairs:
+                p.fixName()  # changes name if there is a longer common name (catches primer renaming)
                 # find common substring in name for automatic naming
                 chrom = p[0].targetposition.chrom
                 start = p[0].targetposition.offset
                 end = p[1].targetposition.offset+p[1].targetposition.length
-                cursor.execute('''INSERT OR REPLACE INTO pairs(pairid,uniqueid,left,right,chrom,start,end,dateadded) VALUES(?,?,?,?,?,?,?,?)''', \
+                cursor.execute('''INSERT OR IGNORE INTO pairs(pairid,uniqueid,left,right,chrom,start,end,dateadded) VALUES(?,?,?,?,?,?,?,?)''', \
                     (p.name, p.uniqueid(), p[0].name, p[1].name, chrom, start, end, current_time))
             self.db.commit()
         finally:
@@ -440,3 +474,24 @@ class PrimerDB(object):
             finally:
                 self.db.close()
             return rows, ['pair','primer','vessel','well']
+        elif what=='table':
+            # dump table with pairs primers and locations (which can be reimported)
+            try:
+                self.db = sqlite3.connect(self.sqlite)
+            except:
+                raise
+            else:
+                cursor = self.db.cursor()
+                cursor.execute('''SELECT * FROM (
+                    SELECT p.name, pp.pairid, p.tag, p.seq, p.vessel, p.well
+                    FROM pairs AS pp, primer AS p
+                    WHERE pp.left = p.name
+                    UNION
+                    SELECT p.name, pp.pairid, p.tag, p.seq, p.vessel, p.well
+                    FROM pairs AS pp, primer AS p
+                    WHERE pp.right = p.name)
+                    ORDER BY pairid;''')
+                rows = cursor.fetchall()
+            finally:
+                self.db.close()
+            return rows, ['primername', 'primerset', 'tag', 'sequence', 'vessel', 'well']

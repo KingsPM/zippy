@@ -3,7 +3,7 @@
 __doc__=="""File parsing classes"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -266,7 +266,7 @@ def readTargets(targets,tiling):
                 intervals = GenePred(fh,**tiling)
             else:
                 raise Exception('UnknownFileExtension')
-    elif re.match('\w+:\d+-\d+',targets):  # single interval
+    elif re.match('\w+:\d+-\d+',targets):  # single interval, no tiling
         m = re.match('(\w+):(\d+)-(\d+):?([+-])?',targets)
         rev = None if m.group(4) is None else True if m.group(4) == '-' else False
         intervals = [ Interval(m.group(1),m.group(2),m.group(3),reverse=rev) ]
