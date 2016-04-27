@@ -358,6 +358,17 @@ class PrimerPair(list):
                 suffixes.append(suffix1)
         return tuple(suffixes)
 
+    '''changes name to any longer common primer name prefix'''
+    def fixName(self):
+        firstDifferent = min([ i for i,x in enumerate(zip(self[0].name,self[1].name)) if len(set(x))!=1 ])
+        newName = self[0].name[:firstDifferent].rstrip('_-')
+        if newName != self.name and len(newName) >= len(self.name):
+            print >> sys.stderr, 'WARNING: Name Conflict, renamed PrimerPair {} -> {} in database'.format(self.name, newName)
+            self.name = newName
+            return True
+        return False
+
+
 '''fasta/primer'''
 class Primer(object):
     def __init__(self,name,seq,targetposition=None,tag=None,loci=[],location=None):

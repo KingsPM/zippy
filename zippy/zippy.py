@@ -55,7 +55,7 @@ def importPrimerLocations(inputfile):
                 l = dict(zip(header,f))
                 # store metadata and write fasta
                 if 'vessel' in l.keys() and 'well' in l.keys() and \
-                    l['vessel'] and l['well']:
+                    l['vessel'] and l['well'] and l['vessel'] != 'None' and l['well'] != 'None':
                     # store location
                     loc = Location(l['vessel'],l['well'])
                     if l['primername'] in primerlocs.keys():
@@ -590,6 +590,7 @@ def main():
     if options.which=='add':  # read primers and add to database
         # import primer pairs
         pairs = importPrimerPairs(options.primers, config, primer3=False)  # import and locate primer pairs
+        print >> sys.stderr, "Storing Primers..."
         db.addPair(*pairs)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
         sys.stderr.write('Added {} primer pairs to database\n'.format(len(pairs)))
         # store locations if table
