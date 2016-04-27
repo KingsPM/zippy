@@ -574,6 +574,8 @@ def main():
         help="Primer locations")
     parser_dump.add_argument("--redundancies", dest="redundancies", default=False, action="store_true", \
         help="Primers with same sequence and tag")
+    parser_dump.add_argument("--table", dest="table", default=False, action="store_true", \
+        help="Primer pair table with locations")
     parser_dump.add_argument("--outfile", dest="outfile", default='', type=str, \
         help="Output file name")
     parser_dump.set_defaults(which='dump')
@@ -612,6 +614,8 @@ def main():
             data,colnames = db.dump('ordersheet', **config['ordersheet'])
         elif options.locations:
             data,colnames = db.dump('locations')
+        elif options.table:
+            data,colnames = db.dump('table')
         elif options.redundancies:
             data,colnames = db.getRedundantPrimers()
         else:
