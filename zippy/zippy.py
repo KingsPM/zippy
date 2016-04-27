@@ -28,6 +28,7 @@ from zippylib.database import PrimerDB
 from zippylib import ConfigError, Progressbar, banner
 from zippylib.reports import Worksheet
 from argparse import ArgumentParser
+from copy import deepcopy
 from collections import defaultdict, Counter
 import cPickle as pickle
 
@@ -122,7 +123,7 @@ def importPrimerPairs(inputfile,config,primer3=True):
     print >> sys.stderr, "Placing primers on genome..."
     # Align primers to genome
     primers = primerfile.createPrimers(config['design']['bowtieindex'],delete=False,tags=primertags)  # places in genome
-    # pair primers (by name or by primerset)
+    # pair primers (by name or by primerset) MAKE COPIES!!!!
     pairs = {}
     for p in primers:
         setnames = primersets[p.name] \
@@ -144,13 +145,13 @@ def importPrimerPairs(inputfile,config,primer3=True):
             reverse = p.targetposition.reverse if p.targetposition else parsePrimerName(p.name)[1] < 0
             try:
                 if reverse and pairs[setname][1] is None:
-                    pairs[setname][1] = p
+                    pairs[setname][1] = deepcopy(p)
                 else:
                     if pairs[setname][0] is None:
-                        pairs[setname][0] = p
+                        pairs[setname][0] = deepcopy(p)
                     else:
                         assert pairs[setname][1] is None
-                        pairs[setname][1] = p
+                        pairs[setname][1] = deepcopy(p)
             except:
                 print >> sys.stderr, "ERROR: Primer pair strand conflict?"
                 print >> sys.stderr, "PRIMER0", pairs[setname][0]
@@ -172,7 +173,7 @@ def importPrimerPairs(inputfile,config,primer3=True):
             p.pruneRanks()
         validPairs = pairs.values()
     else:  # guess target if not set
-        acceptedPairs = []
+        validPairs = []
         print >> sys.stderr, 'Identifying correct amplicons for unplaced primer pairs...'
         for p in pairs.values():
             if not p[0].targetposition or not p[1].targetposition:
@@ -180,10 +181,10 @@ def importPrimerPairs(inputfile,config,primer3=True):
                 if amplicons:
                     shortest = sorted(amplicons,key=lambda x: len(x[2]))[0]  # sort amplicons by size
                     if len(amplicons)>1:
-                        print >> sys.stderr, 'WARNING: mutiple amplicons for {}. Assuming shortest ({}bp) is correct.'.format(p.name,str(len(shortest[2])))
+                        print >> sys.stderr, 'WARNING: multiple amplicons for {}. Assuming shortest ({}bp) is correct.'.format(p.name,str(len(shortest[2])))
                     p[0].targetposition = shortest[0]  # m
                     p[1].targetposition = shortest[1]  # n
-                    acceptedPairs.append(p)
+                    validPairs.append(p)
                 elif not primer3:  # try to find amplicon by sequence matching
                     refGenome = Genome(config['design']['genome'])
                     if p[0].loci and len(p[0].loci) < len(p[1].loci):
@@ -203,7 +204,7 @@ def importPrimerPairs(inputfile,config,primer3=True):
                     if amplicons:
                         p[0].targetposition = amplicons[0][0]  # m
                         p[1].targetposition = amplicons[0][1]  # n
-                        acceptedPairs.append(p)
+                        validPairs.append(p)
                     else:
                         print >> sys.stderr, '\n'.join([ ">"+str(l) for l in p[0].loci])
                         print >> sys.stderr, '\n'.join([ "<"+str(l) for l in p[1].loci])
@@ -211,8 +212,7 @@ def importPrimerPairs(inputfile,config,primer3=True):
                 else:
                     print >> sys.stderr, 'WARNING: Primer set {} does not produce a well-sized, unique amplicon ({},{})'.format(p.name,len(p[0].loci),len(p[1].loci))
             else:
-                acceptedPairs.append(p)
-        validPairs = acceptedPairs
+                validPairs.append(p)
     return validPairs
 
 '''get primers from intervals'''
@@ -355,9 +355,10 @@ def getPrimers(intervals, db, design, config, deep=True):
     return primerTable, resultList, missedIntervals
 
 # ==============================================================================
-# === convenience functions ====================================================
+# === convenience functions for webservice =====================================
 # ==============================================================================
 
+# query database / design primer for VCF,BED,GenePred or interval
 def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=False, deep=True):
     intervals = readTargets(targets, config['tiling'])  # get intervals from file or commandline
     # get/design primer pairs
@@ -375,6 +376,7 @@ def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=
         print >> sys.stderr, "Primer designs stored in database"
     return primerTable, resultList, missedIntervals
 
+# batch query primer database and create confirmation worksheet
 def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesign=False, deep=True):
     print >> sys.stderr, 'Reading batch file {}...'.format(targets)
     sampleVariants, genes = readBatch(targets, config['tiling'])
@@ -467,6 +469,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
                     print >> fh, '\n'.join([ '\t'.join([sample,i.name]) for i in missed ])
     return writtenFiles, sorted(list(set(missedIntervalNames)))
 
+# update storage location for primer
 def updateLocation(primername, location, database, force=False):
     occupied = database.getLocation(location)
     if not occupied or force:
@@ -477,10 +480,15 @@ def updateLocation(primername, location, database, force=False):
     else:
         return 'Location already occupied by %s' % (' and '.join(occupied))
 
+# search primer pair by name substring matching
 def searchByName(searchName, db):
     primersInDB = db.query(searchName)
     print >> sys.stderr, 'Found {} primer pairs with string "{}"'.format(len(primersInDB),searchName)
     return primersInDB
+
+# future
+def blacklistPair(pairname, db):
+    raise NotImplementedError
 
 # ==============================================================================
 # === CLI ======================================================================
@@ -583,7 +591,7 @@ def main():
         if not options.primers.split('.')[-1].startswith('fa'):  # assume table format
             locations = importPrimerLocations(options.primers)
             db.addLocations(*locations.items())
-            sys.stderr.write('Added {:2d} locations for imported primers\n'.format(len(locations)))
+            sys.stderr.write('Added {} locations for imported primers\n'.format(len(locations)))
     elif options.which=='dump':  # data dump fucntions (`for bulk downloads`)
         if options.amplicons:
             try:

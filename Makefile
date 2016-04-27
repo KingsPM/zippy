@@ -82,7 +82,6 @@ webservice-dev:
 	a2ensite zippy
 	/etc/init.d/apache2 restart
 
-
 #### genome resources
 import-resources:
 	# Copy resource files
