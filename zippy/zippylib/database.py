@@ -263,8 +263,8 @@ class PrimerDB(object):
         primerPairs = []
         for row in rows:
             # build targets
-            leftTargetposition = Locus(row[7], row[8], len(row[3]), False, primer3.calcTm(row[3]))
-            rightTargetposition = Locus(row[7], row[9]-len(row[4]), len(row[4]), True, primer3.calcTm(row[4]))
+            leftTargetposition = Locus(row[7], row[8], len(row[3]), False, primer3.calcTm(str(row[3])))
+            rightTargetposition = Locus(row[7], row[9]-len(row[4]), len(row[4]), True, primer3.calcTm(str(row[4])))
             # build storage locations (if available)
             leftLocation = Location(*row[10:12]) if all(row[10:12]) else None
             rightLocation = Location(*row[12:14]) if all(row[12:14]) else None
