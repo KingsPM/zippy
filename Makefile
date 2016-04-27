@@ -70,6 +70,19 @@ webservice:
 	a2ensite zippy
 	/etc/init.d/apache2 restart
 
+# same for development environment (not maintained)
+webservice-dev:
+	# make WWW directories
+	mkdir -p $(ZIPPYWWW)
+	cp install/zippy_dev.wsgi $(ZIPPYWWW)/zippy.wsgi
+	chown -R $(WWWUSER):$(WWWGROUP) $(ZIPPYWWW)
+	# apache WSGI config
+	cp install/zippy_dev.hostconfig /etc/apache2/sites-available/zippy
+	# enable site and restart
+	a2ensite zippy
+	/etc/init.d/apache2 restart
+
+
 #### genome resources
 import-resources:
 	# Copy resource files
