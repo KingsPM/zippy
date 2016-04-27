@@ -1,7 +1,10 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 Vagrant.configure(2) do |config|
-  config.vm.synced_folder ".", "/home/vagrant/zippy", type: "nfs"
+  # share type dependent on platform
+  host = RbConfig::CONFIG['host_os']
+  sharetype = host =~ /darwin/ || host =~ /linux/ ? "nfs" : "smb"
+  config.vm.synced_folder ".", "/home/vagrant/zippy", type: sharetype
   config.vm.box = "ubuntu/precise64"
   # port config
   config.vm.network "forwarded_port", guest: 80, host: 5000

@@ -55,11 +55,13 @@ zippy-install:
 	touch $(ZIPPYVAR)/zippy.sqlite
 	touch $(ZIPPYVAR)/zippy.log
 	touch $(ZIPPYVAR)/.blacklist.cache
+	mkdir -p $(ZIPPYVAR)/uploads
+	mkdir -p $(ZIPPYVAR)/results
 	chmod -R 777 $(ZIPPYVAR)
 
 # webservice install (production)
 webservice:
-	rsync -a zippy $(ZIPPYPATH)
+	rsync -a --exclude-from=.gitignore . $(ZIPPYPATH)
 	# make WWW directories
 	mkdir -p $(ZIPPYWWW)
 	cp install/zippy.wsgi $(ZIPPYWWW)/zippy.wsgi

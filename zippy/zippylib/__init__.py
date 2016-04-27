@@ -19,7 +19,8 @@ def githash(prefix=None):
     taghash, headhash = {},{}
     gitrevision = [ prefix ] if prefix else []
     head = None
-    for i, line in enumerate(subprocess.check_output(['git', 'show-ref', '--head', '--abbrev=7']).split('\n')):
+    APP_ROOT = os.path.dirname(os.path.abspath(__file__))
+    for i, line in enumerate(subprocess.check_output(['git', 'show-ref', '--head', '--abbrev=7'],cwd=APP_ROOT).split('\n')):
         f = line.split()
         if len(f)==2:
             if f[1] == 'HEAD':

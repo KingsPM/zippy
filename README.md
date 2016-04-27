@@ -117,11 +117,12 @@ Set/update primer storage location
 - Easier VM provisioning
 
 ### v2.0.1
-- option to install all on VM
+- option to install production version on VM
 - fixed import of primers with shared primers (multiple amplicons)
-- Better detection on non-specific primers
 - Added SMB share for windows installs
 - Fixed page breaking in tables
+
+- Better detection on non-specific primers
 - minor bugfixes
 
 

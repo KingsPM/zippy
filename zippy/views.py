@@ -16,9 +16,11 @@ from .zippylib.primer import Location
 from .zippylib.database import PrimerDB
 
 ALLOWED_EXTENSIONS = set(['txt', 'batch', 'vcf', 'bed', 'csv'])
+
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['DOWNLOAD_FOLDER'] = 'results'
-app.config['CONFIG_FILE'] = 'zippy/zippy.json'
+APP_ROOT = os.path.dirname(os.path.abspath(__file__))
+app.config['CONFIG_FILE'] = os.path.join(APP_ROOT, 'zippy.json')
 
 # app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0'
 # app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
