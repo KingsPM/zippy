@@ -52,6 +52,7 @@ zippy-install:
 	$(ZIPPYPATH)/venv/bin/pip install primer3-py==0.5.0
 	$(ZIPPYPATH)/venv/bin/pip install -r package-requirements.txt
 	# create empty database
+	mkdir -p $(ZIPPYVAR)
 	touch $(ZIPPYVAR)/zippy.sqlite
 	touch $(ZIPPYVAR)/zippy.log
 	touch $(ZIPPYVAR)/.blacklist.cache
