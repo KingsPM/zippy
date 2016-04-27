@@ -32,32 +32,33 @@ fire up the virtual machine and connect with
 
 then follow the local installation instructions below.
 
-### Webservice Install
+### Install
 The current installation routine will download and build the human *GRCh_37* genome index and download the common variantion data from *dbsnp142*. If you desire to use your own resources or an alternative reference genome simply put everything into the `./resource` directory and it will be imported to `/var/local/zippy/resources` during the installation process.
 Make sure to modify the configuration file `zippy.json` accordingly.
 
-The webservice will be exposed to the VM host at address `55.55.55.5`.
-
-You can install zippy with all needed resource with
-> `sudo make all`
-
-To install zippy and the flask webservice on apache2/wsgi_mod run
+To install the development version (uses zippy from mounted NFS volume) run
 > `sudo make install`
 
-Download b37 genomes and index with
-> `sudo make genome`
+During installation preindexed genomes and annotations in the _resource_ folder are imported into the VM.
+Alternatively you can download b37 genomes, index and annotations with
+> `sudo make resources`
 
-Download variantion data and reference annotation with
-> `sudo make annotation`
+NB: The default install makes the database/resource directory accessible for all users.
+
+### Webservice
+The webservice will be exposed to the VM host at address `55.55.55.5`.
+
+To install or update the webservice (independent of mounted folders, best for VM distribution)
+> `sudo make release`
 
 ## Usage
 
 ### Webservice
 The application runs on Apache Webserver (WSGI).
-The standard install exposes the service on port 5000.
-In the VM this port is mapped to 80 on the host machine.
+The standard install exposes the service on port 80 on the guest and forwards to host machine port 5000.
 
-Currently the design process is executed synchronously. This can potentially lead to timeouts during the design process if many target regions are requested. In this case please run *zippy* from the command line interface. This will be changed in a future version.
+Currently the design process is executed synchronously. This can potentially lead to timeouts during the design process if many target regions are requested. In this case please run *zippy* from the command line interface.
+This will be changed in a future version.
 
 ### Command line interface
 Before running zippy from the CLI, make sure to activate the virtual environment first
@@ -99,7 +100,8 @@ Set/update primer storage location
 - Fixed Plate filling
 - GenePred input for design
 
-### v2.0
+### v2.0.0
+- changed version scheme
 - New database schema to allow for primer collections
 - Primer tag tracking
 - Primer table import
@@ -113,6 +115,15 @@ Set/update primer storage location
 - Apache Webserver in VM
 - New setup routines (zippyprimer on PyPi)
 - Easier VM provisioning
+
+### v2.0.1
+- option to install all on VM
+- fixed import of primers with shared primers (multiple amplicons)
+- Better detection on non-specific primers
+- Added SMB share for windows installs
+- Fixed page breaking in tables
+- minor bugfixes
+
 
 ### FUTURE
 - Support for primer collections (multiplexing)
