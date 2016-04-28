@@ -10,7 +10,7 @@ __doc__=="""
 __author__ = "David Brawand"
 __credits__ = ['David Brawand','Christopher Wall']
 __license__ = "MIT"
-__version__ = "2.0.1"
+__version__ = "2.1.0"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -122,7 +122,10 @@ def importPrimerPairs(inputfile,config,primer3=True):
             primertags[r] = config['import']['tag']
     print >> sys.stderr, "Placing primers on genome..."
     # Align primers to genome
-    primers = primerfile.createPrimers(config['design']['bowtieindex'],delete=False,tags=primertags)  # places in genome
+    primers = primerfile.createPrimers(config['design']['bowtieindex'], \
+        delete=False,tags=primertags, \
+        tmThreshold=config['design']['mispriming']['minimaltm'], \
+        endMatch=config['design']['mispriming']['identity3prime'])  # places in genome
     # pair primers (by name or by primerset) MAKE COPIES!!!!
     pairs = {}
     for p in primers:
@@ -185,20 +188,22 @@ def importPrimerPairs(inputfile,config,primer3=True):
                     p[0].targetposition = shortest[0]  # m
                     p[1].targetposition = shortest[1]  # n
                     validPairs.append(p)
-                elif not primer3:  # try to find amplicon by sequence matching
+                elif not primer3:
+                    # try to find amplicon by sequence matching if no amplicons from genome mapping with sufficient Tm
                     refGenome = Genome(config['design']['genome'])
-                    if p[0].loci and len(p[0].loci) < len(p[1].loci):
-                        query, mapped = 1,0
-                    elif p[1].loci and len(p[1].loci) < len(p[0].loci):
-                        query, mapped = 0,1
-                    else:
-                        print >> sys.stderr, 'WARNING: Primer set {} is too ambiguous to be imported ({},{})'.format(p.name,len(p[0].loci),len(p[1].loci))
+                    # get new loci (one round)
+                    newLoci = [[],[]]
+                    for mapped,query in [[0,1],[1,0]]:
+                        for l in p[mapped].loci:
+                            newLoci[query] += refGenome.primerMatch(l,p[query].seq,config['import']['ampliconsize'])
+                    # add new loci
+                    if not newLoci[0] and not newLoci[1]:
+                        print >> sys.stderr, 'WARNING: {} is not specific and not imported ({},{})'.format(p.name,len(p[0].loci),len(p[1].loci))
                         continue
-                    # find by quick sequence matching
-                    for l in p[mapped].loci:
-                        loc = refGenome.primerMatch(l,p[query].seq,config['import']['ampliconsize'])
-                        if loc:
-                            p[query].loci += loc
+                    else:  # add new loci
+                        for i,loc in enumerate(newLoci):
+                            p[i].loci += loc
+                            p[i].loci = list(set(p[i].loci))  # remove redundancy
                     # store new amplicon
                     amplicons = p.amplicons(config['import']['ampliconsize'],autoreverse=True)
                     if amplicons:
@@ -206,8 +211,8 @@ def importPrimerPairs(inputfile,config,primer3=True):
                         p[1].targetposition = amplicons[0][1]  # n
                         validPairs.append(p)
                     else:
-                        print >> sys.stderr, '\n'.join([ ">"+str(l) for l in p[0].loci])
-                        print >> sys.stderr, '\n'.join([ "<"+str(l) for l in p[1].loci])
+                        print >> sys.stderr, '\n'.join([ "-> "+str(l) for l in p[0].loci])
+                        print >> sys.stderr, '\n'.join([ "<- "+str(l) for l in p[1].loci])
                         print >> sys.stderr, 'WARNING: Primer set {} has no valid amplicons ({},{})'.format(p.name,len(p[0].loci),len(p[1].loci))
                 else:
                     print >> sys.stderr, 'WARNING: Primer set {} does not produce a well-sized, unique amplicon ({},{})'.format(p.name,len(p[0].loci),len(p[1].loci))
