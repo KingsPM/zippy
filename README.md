@@ -49,7 +49,7 @@ NB: The default install makes the database/resource directory accessible for all
 The webservice will be exposed to the VM host at address `55.55.55.5`.
 
 To install or update the webservice (independent of mounted folders, best for VM distribution)
-> `sudo make release`
+> `sudo make webservice`
 
 ## Usage
 
