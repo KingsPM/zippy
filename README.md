@@ -107,7 +107,7 @@ Set/update primer storage location
 - Primer table import
 - Storage by Primer and storage validation
 - Allows for same primer in multiple pairs
-- added primer redundancy query
+- Added primer redundancy query
 - Primer design parameter sets (deep digging for primers)
 - Importing of primer pairs with multiple amplicons
 - Blacklist cache for design
@@ -123,6 +123,12 @@ Set/update primer storage location
 - Fixed page breaking in tables
 - Added primer table dump for reimport and easier migration to future versions
 - Automatic primer/pair renaming on conflict
+
+### v2.1.0
+- Loci stored with Tm (prep for future in silico PCR)
+- Mispriming check with thermodynamic alignments and 3prime match
+- amplicon rescue for non-specific primers on import
+- Bugfixes
 
 ### FUTURE
 - Support for primer collections (multiplexing)

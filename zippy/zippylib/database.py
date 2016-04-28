@@ -184,7 +184,7 @@ class PrimerDB(object):
                         raise
                     else:
                         if originalName != p.name:
-                            print >> sys.stderr, "WARNING: Name conflict, renamed primer {} -> {} in database".format(originalName, p.name)
+                            print >> sys.stderr, "WARNING: renamed primer {} -> {} in database".format(originalName, p.name)
                         break  # sucessfully stored
                 # store mapping loci
                 for l in p.loci:
