@@ -4,7 +4,7 @@
 __doc__=="""Primer3 Classes"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "2.0.1"
+__version__ = "2.1.0"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -14,7 +14,7 @@ from hashlib import md5, sha1
 import primer3
 import pysam
 import subprocess
-from collections import defaultdict, OrderedDict
+from collections import defaultdict, OrderedDict, Counter
 from .interval import Interval
 from string import maketrans
 
@@ -74,13 +74,13 @@ class MultiFasta(object):
                 print >> sys.stderr, self.file
                 raise Exception('DuplicateSequenceNames')
 
-    def createPrimers(self,db,bowtie='bowtie2', delete=True, tags={}, tmThreshold=50.0, endMatch=6):
+    def createPrimers(self,db,bowtie='bowtie2', delete=True, tags={}, tmThreshold=50.0, endMatch=6, maxAln=20):
         # run bowtie (max 1000 alignments, allow for one gap/mismatch?)
         mapfile = self.file+'.sam'
         if not os.path.exists(mapfile):
             proc = subprocess.check_call( \
                 [bowtie, '-f', '--end-to-end', '-p 2', \
-                '-k 20', '-L 10', '-N 1', '-D 20', '-R 3', \
+                '-k '+str(maxAln), '-L 10', '-N 1', '-D 20', '-R 3', \
                 '-x', db, '-U', self.file, '>', mapfile ])
         # Read fasta file (Create Primer)
         primers = {}
@@ -104,10 +104,13 @@ class MultiFasta(object):
 
         # read SAM OUTPUT and filter alignments
         mappings = pysam.Samfile(mapfile,'r')
+        alnCount = Counter()  # count alignments to kill locations of non-specific primers (count == -k)
         for aln in mappings:
+            primername = aln.qname.split('|')[0]
             if aln.is_unmapped:
                 continue
-            primername = aln.qname.split('|')[0]
+            else:
+                alnCount[primername] += 1
             ## get reference sequence
             qry = aln.query_sequence.upper()
             ref = aln.get_reference_sequence().upper()
@@ -118,6 +121,11 @@ class MultiFasta(object):
                 if len(qry)>endMatch and len(ref)>endMatch:
                     if len([ x for x in zip(qry[-endMatch:], ref[-endMatch:]) if x[0]!=x[1] ]) == 0:
                         primers[primername].addTarget(mappings.getrname(aln.reference_id), aln.pos, aln.is_reverse, aln_tm)
+        # remove primer locations for those that have hit maximum
+        for k, v in primers.items():
+            if len(v.loci) >= maxAln:
+                v.loci = []
+        # cleanup
         if delete:
             os.unlink(self.file+'.sam') # delete mapping FILE
         return primers.values()
@@ -363,7 +371,7 @@ class PrimerPair(list):
         firstDifferent = min([ i for i,x in enumerate(zip(self[0].name,self[1].name)) if len(set(x))!=1 ])
         newName = self[0].name[:firstDifferent].rstrip('_-')
         if newName != self.name and len(newName) >= len(self.name):
-            print >> sys.stderr, 'WARNING: Name Conflict, renamed PrimerPair {} -> {} in database'.format(self.name, newName)
+            print >> sys.stderr, 'WARNING: Renamed PrimerPair {} -> {} in database'.format(self.name, newName)
             self.name = newName
             return True
         return False
@@ -444,6 +452,15 @@ class Locus(object):
 
     def __lt__(self,other):
         return (self.chrom, self.offset) < (other.chrom, other.offset)
+
+    def __eq__(self,other):
+        return self.chrom == other.chrom and \
+            self.offset == other.offset and \
+            self.length == other.length and \
+            self.reverse == other.reverse
+
+    def __hash__(self):
+        return hash((self.chrom, self.offset, self.length, self.reverse))
 
     def snpCheck(self,database):
         db = pysam.TabixFile(database)
