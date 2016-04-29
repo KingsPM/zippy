@@ -116,9 +116,4 @@ variation-download:
 refgene-download:
 	mkdir -p $(ZIPPYVAR)/resources && cd $(ZIPPYVAR)/resources && \
 	mysql --user=genome --host=genome-mysql.cse.ucsc.edu -A -N -D hg19 -P 3306 \
-	 -e 'SELECT DISTINCT r.bin,CONCAT(r.name,".",i.version),c.ensembl,r.strand,
-	r.txStart,r.txEnd,r.cdsStart,r.cdsEnd,r.exonCount,r.exonStarts,r.exonEnds,
-	r.score,r.name2,r.cdsStartStat,r.cdsEndStat,r.exonFrames
-	FROM refGene as r, gbCdnaInfo as i, ucscToEnsembl as c
-	WHERE r.name=i.acc AND c.ucsc = r.chrom
-	ORDER BY r.bin;' > refGene
+	 -e "SELECT DISTINCT r.bin,CONCAT(r.name,'.',i.version),c.ensembl,r.strand, r.txStart,r.txEnd,r.cdsStart,r.cdsEnd,r.exonCount,r.exonStarts,r.exonEnds,r.score,r.name2,r.cdsStartStat,r.cdsEndStat,r.exonFrames FROM refGene as r, gbCdnaInfo as i, ucscToEnsembl as c WHERE r.name=i.acc AND c.ucsc = r.chrom ORDER BY r.bin;" > refGene
