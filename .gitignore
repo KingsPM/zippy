@@ -79,18 +79,18 @@ target/
 .DS_Store
 
 # uploads/results
-uploads/*
-results/*
+_OLDAPP_/uploads/*
+_OLDAPP_/results/*
 
 # Python virtualenv
-zippyvenv/*
+_OLDAPP_/zippyvenv/*
 
 # resources
-zippy_resources/*
-resources/*
+_OLDAPP_/zippy_resources/*
+_OLDAPP_/resources/*
 
 # scratch
-scratch/*
+_OLDAPP_/scratch/*
 
 # cache
 .*.cache
