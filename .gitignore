@@ -97,3 +97,6 @@ venv/*
 
 # cache
 .*.cache
+
+# bower comp
+bower_components/*
