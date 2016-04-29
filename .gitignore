@@ -92,5 +92,8 @@ _OLDAPP_/resources/*
 # scratch
 _OLDAPP_/scratch/*
 
+# virtualEnv
+venv/*
+
 # cache
 .*.cache
