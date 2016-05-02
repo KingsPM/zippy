@@ -1,0 +1,8 @@
+{
+    "GRCh37": {
+        "genome": "/var/local/zippy/resources/human_g1k_v37.fasta",
+        "annotation": "/var/local/zippy/resources/refGene",
+        "bowtieindex": "/var/local/zippy/resources/human_g1k_v37.bowtie",
+        "snps": "/var/local/zippy/resources/common_all_20160408.vcf.gz",
+    }
+}

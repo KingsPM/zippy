@@ -1,0 +1,28 @@
+
+{% extends "layout.html" %}
+{% block content %}
+<div class="container-narrow">
+  <h1>Enter Location</h1>
+    <br/>
+    <form id="registerForm" class="form form-register" method="POST" action="" role="form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="form-group">
+                {{form.chrom.label}}
+                {{form.chrom(placeholder="Chromosome", class_="form-control")}}
+            </div>
+            <div class="form-group">
+                {{form.chromStart.label}}
+                {{form.chromStart(placeholder="Start", class_="form-control")}}
+            </div>
+            <div class="form-group">
+                {{form.chromEnd.label}}
+                {{form.chromEnd(placeholder="End", class_="form-control")}}
+            </div>
+            <div class="form-group">
+                {{form.reverse.label}}
+                {{form.reverse(placeholder="Reverse", class_="form-control")}}
+            </div>
+            <p><input class="btn btn-default btn-submit" type="submit" value="Design"></p>
+    </form>
+</div>
+{% endblock %}

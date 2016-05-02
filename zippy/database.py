@@ -7,6 +7,7 @@ from .extensions import db
 
 # Alias common SQLAlchemy names
 Column = db.Column
+Index = db.Index
 relationship = relationship
 
 

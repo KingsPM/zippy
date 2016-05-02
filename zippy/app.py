@@ -2,7 +2,7 @@
 """The app module, containing the app factory function."""
 from flask import Flask, render_template
 
-from zippy import public, user
+from zippy import public, user, primer
 from zippy.assets import assets
 from zippy.extensions import bcrypt, cache, csrf_protect, db, debug_toolbar, login_manager, migrate
 from zippy.settings import ProdConfig
@@ -38,6 +38,7 @@ def register_blueprints(app):
     """Register Flask blueprints."""
     app.register_blueprint(public.views.blueprint)
     app.register_blueprint(user.views.blueprint)
+    app.register_blueprint(primer.views.blueprint)
     return None
 
 
