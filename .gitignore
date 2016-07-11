@@ -84,6 +84,7 @@ results/*
 
 # Python virtualenv
 zippyvenv/*
+venv/*
 
 # resources
 zippy_resources/*
@@ -91,6 +92,9 @@ resources/*
 
 # scratch
 scratch/*
+
+# old directories
+_*/*
 
 # cache
 .*.cache
