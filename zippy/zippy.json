@@ -88,7 +88,8 @@
     },
     "report": {
         "auth": "Frances Smith",
-        "site": "LF-HAE-PND147\nKINGS COLLEGE HOSPITAL, MOLECULAR PATHOLOGY",
+        "docid": "LF-HAE-PND147",
+        "site": "KINGS COLLEGE HOSPITAL, MOLECULAR PATHOLOGY",
         "logo": "zippy.png",
         "pairs": 1,
         "platesize": [8,12],
