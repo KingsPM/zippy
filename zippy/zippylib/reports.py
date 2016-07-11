@@ -242,10 +242,10 @@ class Report(object):
 
         self.elements.append(Paragraph('Checks', self.styles["Heading4"]))
         self.elements.append(Spacer(1, 2))
-        data = [[ 'Task', 'Date', 'Checker']]
+        data = [[ 'Task', 'Date', 'Checker', 'Notes']]
         for i in range(len(titles)):
             data.append([ titles[i], '', '' ])
-        t = Table(data, colWidths=[7.5*cm,4*cm,4*cm], rowHeights=0.6*cm)
+        t = Table(data, colWidths=[4*cm,3*cm,3*cm,5.5*cm], rowHeights=0.6*cm)
         t.setStyle(TABLE_STYLE)
         self.elements.append(KeepTogether(t))
         self.elements.append(Spacer(1, 12))
