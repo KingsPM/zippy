@@ -76,10 +76,8 @@
         "tag": "M13"
     },
     "snpcheck": {
-        "common": "/var/local/zippy/resources/common_all_20160408.vcf.gz",
-        "all":"/var/local/zippy/resources/All_20160408.vcf.gz",
-        "GATK_G5A": "/var/local/zippy/resources/dbsnp_138.b37.G5A.vcf.gz",
-        "GATK_ALL": "/var/local/zippy/resources/dbsnp_138.b37.vcf.gz"
+        "common": "/var/local/zippy/resources/00-common_all.vcf.gz",
+        "all":"/var/local/zippy/resources/00-All.vcf.gz"
     },
     "designlimits": {
         "amplicons": 1,
@@ -89,15 +87,15 @@
         "designrank": 100
     },
     "report": {
-        "auth": "James Bond",
-        "site": "KINGS COLLEGE HOSPITAL, MOLECULAR PATHOLOGY",
+        "auth": "Frances Smith",
+        "site": "LF-HAE-PND147\nKINGS COLLEGE HOSPITAL, MOLECULAR PATHOLOGY",
         "logo": "zippy.png",
         "pairs": 1,
         "platesize": [8,12],
         "volumes": {
             "mastermix": 6,
             "qsolution": 2,
-            "excess": 0.1,
+            "excess": 0.15,
             "program": "ngsconfirm"
         }
     },

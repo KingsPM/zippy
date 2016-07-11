@@ -107,8 +107,8 @@ annotation: variation-download refgene-download
 
 variation-download:
 	mkdir -p $(ZIPPYVAR)/resources && cd $(ZIPPYVAR)/resources && \
-	wget -c ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b147_GRCh37p13/VCF/common_all_20160408.vcf.gz && \
-	wget -c ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b147_GRCh37p13/VCF/common_all_20160408.vcf.gz.tbi
+	wget -c ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b147_GRCh37p13/VCF/00-common_all.vcf.gz && \
+	wget -c ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b147_GRCh37p13/VCF/00-common_all.vcf.gz.tbi
 
 refgene-download:
 	mkdir -p $(ZIPPYVAR)/resources && cd $(ZIPPYVAR)/resources && \
