@@ -131,7 +131,7 @@ class Report(object):
             ('BACKGROUND', (6,0), (6,0), colors.cyan)
             ])
         self.elements.append(Spacer(1, 2))
-        data = [[ 'Date','','','Operator','','','Worklist',worklist]]
+        data = [[ 'Date','','','Checker','','','Worklist',worklist]]
         t = Table(data, \
             colWidths=[2.3*cm, 2.3*cm, 0.85*cm, 2.3*cm, 2.3*cm, 0.85*cm, 2.3*cm, 2.3*cm], rowHeights=0.6*cm)
         t.setStyle(TABLE_STYLE)
@@ -242,7 +242,7 @@ class Report(object):
 
         self.elements.append(Paragraph('Checks', self.styles["Heading4"]))
         self.elements.append(Spacer(1, 2))
-        data = [[ 'Task', 'Date', 'Operator']]
+        data = [[ 'Task', 'Date', 'Checker']]
         for i in range(len(titles)):
             data.append([ titles[i], '', '' ])
         t = Table(data, colWidths=[7.5*cm,4*cm,4*cm], rowHeights=0.6*cm)
