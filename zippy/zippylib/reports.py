@@ -43,11 +43,15 @@ bottomMargin = 2*cm
 class MolPathTemplate(canvas.Canvas):
     def __init__(self, *args, **kwargs):
         self.auth = ""
+        self.docid = ""
         self.site = ""
         # document authorisation and header
         if 'auth' in kwargs.keys():
             self.auth = kwargs['auth']
             del kwargs['auth']
+        if 'docid' in kwargs.keys():
+            self.docid = kwargs['docid']
+            del kwargs['docid']
         if 'site' in kwargs.keys():
             self.site = kwargs['site']
             del kwargs['site']
@@ -69,9 +73,11 @@ class MolPathTemplate(canvas.Canvas):
 
     def makePage(self, page_count):
         self.setFont("Helvetica", 9)
-        # site string
+        # docid and site string
         if self.site:
             self.drawRightString(PAGE_WIDTH-rightMargin, PAGE_HEIGHT-topMargin/2.0, self.site)
+        if self.docid:
+            self.drawString(leftMargin, PAGE_HEIGHT-topMargin/2.0, self.docid)
         # authorised by
         if self.auth:
             self.drawString(leftMargin, bottomMargin/2, "Authorised by %s" % self.auth)
@@ -83,10 +89,11 @@ class MolPathTemplate(canvas.Canvas):
 
 # Report
 class Report(object):
-    def __init__(self,fi,title='This is the title',logo=None,site='',auth='',worklist=''):
+    def __init__(self,fi,title='This is the title',logo=None,site='',auth='',docid='',worklist=''):
         # site and auth
         self.site = site
         self.auth = auth
+        self.docid = docid
         # get document
         self.doc = SimpleDocTemplate(fi,pagesize=A4,
                         rightMargin=rightMargin,leftMargin=leftMargin,
@@ -245,7 +252,7 @@ class Report(object):
 
     def build(self):
         self.doc.build(self.elements, \
-            canvasmaker=partial(MolPathTemplate, site=self.site, auth=self.auth))
+            canvasmaker=partial(MolPathTemplate, site=self.site, auth=self.auth, docid=self.docid))
 
 
 '''PCR test (PrimerPair, samplename]'''
@@ -377,7 +384,8 @@ class Worksheet(list):
         logo = kwargs['logo'] if 'logo' in kwargs.keys() and kwargs['logo'] else None
         site = kwargs['site'] if 'site' in kwargs.keys() and kwargs['site'] else None
         auth = kwargs['auth'] if 'auth' in kwargs.keys() and kwargs['auth'] else None
-        r = Report(fi,self.name,logo,site,auth,worklist)
+        docid = kwargs['docid'] if 'docid' in kwargs.keys() and kwargs['docid'] else None
+        r = Report(fi,title=self.name,logo=logo,site=site,auth=auth,docid=docid,worklist=worklist)
         # add plates
         samples, primers, plates = [], [], []
         for p in self.plates:
