@@ -139,7 +139,7 @@ def adhocdesign():
         return render_template('/adhoc_result.html', primerTable=[], resultList=[], missedIntervals=[])
 
 @app.route('/update_location/', methods=['POST'])
-def update_Location():
+def updatePrimerLocation():
     primername = request.form.get('primername')
     vessel = request.form.get('vessel')
     well = request.form.get('well')
@@ -156,6 +156,28 @@ def update_Location():
         db = PrimerDB(config['database'])
     # run zippy and render
     updateStatus = updateLocation(primername, loc, db, force)
+    return render_template('location_updated.html', status=updateStatus)
+
+# @app.route('/update_location_from_table/', methods=['POST'])
+@app.route('/update_location_from_table/<primerName>', methods=['POST'])
+def updateLocationFromTable(primerName):
+    combinedlocation = request.form.get('combinedlocation')
+    force = request.form.get('force')
+    splitloc = combinedlocation.split('-')
+    vessel = splitloc[0]
+    well = splitloc[1]
+    try:
+        assert primerName
+        loc = Location(vessel, well)
+    except:
+        print 'Please fill in all fields (PrimerName VesselNumber Well)'
+        return render_template('location_updated.html', status=None)
+    with open(app.config['CONFIG_FILE']) as conf:
+        config = json.load(conf, object_hook=ascii_encode_dict)
+        db = PrimerDB(config['database'])
+    print primerName, loc, db, force
+    # run zippy and render
+    updateStatus = updateLocation(primerName, loc, db, force)
     return render_template('location_updated.html', status=updateStatus)
 
 

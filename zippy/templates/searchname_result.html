@@ -10,8 +10,10 @@
 				<th>Locations </th>
 				<th>Left Primer</th>
 				<th>Left Sequence</th>
+				<th>Left Location</br>(Vessel-Well)</th>
 				<th>Right Primer</th>
 				<th>Right Sequence</th>
+				<th>Right Location</br>(Vessel-Well)</th>
 			</tr>
 			{% for pair in searchResult %}
 				<tr>
@@ -21,8 +23,30 @@
 					<td>{{pair[0].location}} {{pair[1].location}}</td>
 					<td><i>{{pair[0].name}}</i></td>
 					<td>{{pair[0].tag}}-{{pair[0].seq}}</td>
+					<td>
+						<form action="/update_location_from_table/{{pair[0].name}}" method="post" enctype="multipart/form-data">
+							<input type="text" name="combinedlocation" value="{{pair[0].location}}">
+							<br><input type="checkbox" name="force" value="True">overwrite
+							<input type="submit" id="smallButton" value="Update">
+						</form>
+					</td>
 					<td><i>{{pair[1].name}}</i></td>
 					<td>{{pair[1].tag}}-{{pair[1].seq}}</td>
+					<td>
+						<form action="/update_location_from_table/{{pair[1].name}}" method="post" enctype="multipart/form-data">
+							<input type="text" name="combinedlocation" value={{pair[1].location}}>
+							<br><input type="checkbox" name="force" value="True">overwrite
+							<input type="submit" id="smallButton" value="Update">
+						</form>
+					</td>
+					<!-- <td>
+						<form action="/update_location/" method="post" enctype="multipart/form-data">
+							<span class="pop">Vessel &nbsp</span><input type="text" name="vessel" value="A" maxlength="3" size=3>
+							<span class="pop">Well &nbsp</span><input type="text" name="well" value="1" maxlength="3" size=3><br><br>
+							<input type="checkbox" name="force" value="True">overwrite<br><br>
+							<input type="submit" id="revButton" value="Update">
+						</form>
+					</td> -->
 				</tr>
 			{% endfor %}
 		</table>
