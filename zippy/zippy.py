@@ -346,18 +346,27 @@ def getPrimers(intervals, db, design, config, deep=True):
     ## get best primer pairs
     ##### PRIORITISE AND ALWAYS PRINT DATABASE PRIMERS
     print >> sys.stderr, '========'
-    primerTable, resultList, missedIntervals = [], [], []
+    primerTable = []  # primer table (text)
+    primerVariants = defaultdict(list)  # primerpair -> intervalnames/variants dict
+    missedIntervals = []  # list of missed intervals/variants
     for iv in sorted(ivpairs.keys()):
+        print "IV", iv.name
         if not ivpairs[iv]:
             missedIntervals.append(iv)
         for i, p in enumerate(sorted(ivpairs[iv])):
             if i == config['report']['pairs']:
                 break  # only report number of primer pairs requested
-            resultList.append(p)
+            # log primer design
             if p.designrank() >= 0:
                 p.log(config['logfile'])
+            # save result (with interval names)
+            primerVariants[p].append(iv)
+            # save to primer table
             primerTable.append([iv.name] + str(p).split('\t'))
-    return primerTable, resultList, missedIntervals
+    # update primer pairs with covered variants
+    for pp, v in primerVariants.items():
+        pp.variants = v
+    return primerTable, primerVariants.keys(), missedIntervals
 
 # ==============================================================================
 # === convenience functions for webservice =====================================
@@ -449,7 +458,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
         # Batch PCR worksheet
         writtenFiles.append(outfile+'.pdf')
         print >> sys.stderr, "Writing worksheet to {}...".format(writtenFiles[-1])
-        ws = Worksheet(tests,name='Validation batch PCR')  # load worksheet
+        ws = Worksheet(tests,name='Variant Confirmations')  # load worksheet
         ws.addControls()  # add controls
         ws.fillPlates(size=config['report']['platesize'],randomize=True)
         ws.createWorkSheet(writtenFiles[-1], worklist=worksheetName, **config['report'])

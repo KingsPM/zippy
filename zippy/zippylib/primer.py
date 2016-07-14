@@ -184,6 +184,7 @@ class PrimerPair(list):
         self.length = length  # pair of primers by default
         self.reversed = reverse
         self.name = name
+        self.variants = []  # list of intervals with metadata from input table
         if not name and all(self):
             commonPrefix(self[0].name, self[1].name)
 
@@ -213,7 +214,7 @@ class PrimerPair(list):
         return super(PrimerPair, self).insert(i, x)
 
     def __hash__(self):
-        return hash(self.__repr__())
+        return hash(self.__str__())
 
     def __eq__(self,other):
         return self.name == other.name
@@ -259,6 +260,14 @@ class PrimerPair(list):
             self[0].targetposition.chrom if self[0] and self[1] and self[0].targetposition else '',
             self[0].targetposition.offset+self[0].targetposition.length if self[0] and self[1] and self[0].targetposition else '',
             self[1].targetposition.offset if self[0] and self[1] and self[1].targetposition else '')
+
+    def targetLength(self,includePrimers=False):
+        if self[0] and self[1] and self[0].targetposition and self[0].targetposition:
+            if includePrimers:
+                return self[1].targetposition.offset+self[1].targetposition.length-self[0].targetposition.offset
+            else:
+                return self[1].targetposition.offset-(self[0].targetposition.offset+self[0].targetposition.length)
+        return None
 
     def locations(self):
         return [ self[0].location if self[0] else None, self[1].location if self[1] else None ]
