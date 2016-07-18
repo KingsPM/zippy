@@ -6,11 +6,11 @@ import re
 import json
 import hashlib
 import subprocess
-from flask import Flask, render_template, request, redirect, send_from_directory
+from flask import Flask, render_template, request, redirect, send_from_directory, session, flash
 from celery import Celery
 from werkzeug.utils import secure_filename
 from . import app
-from .zippy import zippyBatchQuery, zippyPrimerQuery, updateLocation, searchByName
+from .zippy import zippyBatchQuery, zippyPrimerQuery, updateLocation, searchByName, updatePrimerName
 from .zippylib import ascii_encode_dict
 from .zippylib.primer import Location
 from .zippylib.database import PrimerDB
@@ -21,6 +21,7 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['DOWNLOAD_FOLDER'] = 'results'
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 app.config['CONFIG_FILE'] = os.path.join(APP_ROOT, 'zippy.json')
+app.secret_key = 'someKey'
 
 # app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0'
 # app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
@@ -158,32 +159,79 @@ def updatePrimerLocation():
     updateStatus = updateLocation(primername, loc, db, force)
     return render_template('location_updated.html', status=updateStatus)
 
-# @app.route('/update_location_from_table/', methods=['POST'])
-@app.route('/update_location_from_table/<primerName>', methods=['POST'])
-def updateLocationFromTable(primerName):
-    combinedlocation = request.form.get('combinedlocation')
-    force = request.form.get('force')
-    splitloc = combinedlocation.split('-')
-    vessel = splitloc[0]
-    well = splitloc[1]
-    try:
-        assert primerName
-        loc = Location(vessel, well)
-    except:
-        print 'Please fill in all fields (PrimerName VesselNumber Well)'
-        return render_template('location_updated.html', status=None)
+@app.route('/select_primer_to_update/<primerName>/<primerLoc>')
+def primer_to_update(primerName, primerLoc):
+    print primerName
+    print primerLoc
+    primerInfo = primerName + '|' + primerLoc
+    print primerInfo
+    return redirect('/update_location_from_table/%s' % (primerInfo))
+
+@app.route('/update_location_from_table/<primerInfo>', methods=['GET','POST'])
+def updateLocationFromTable(primerInfo):
+    if request.method == 'POST':
+        primerName = primerInfo
+        vessel = request.form.get('vessel')
+        well = request.form.get('well')
+        force = request.form.get('force')
+        try:
+            assert primerName
+            loc = Location(vessel, well)
+        except:
+            print 'Please fill in all fields (PrimerName VesselNumber Well)'
+            return render_template('location_updated.html', status=None)
+        with open(app.config['CONFIG_FILE']) as conf:
+            config = json.load(conf, object_hook=ascii_encode_dict)
+            db = PrimerDB(config['database'])
+        print primerName, loc, db, force
+        # run zippy and render
+        updateStatus = updateLocation(primerName, loc, db, force)
+        return render_template('location_updated.html', status=updateStatus)
+    else:
+        print primerInfo
+        splitInfo = primerInfo.split('|')
+        primerName = splitInfo[0]
+        primerLoc = splitInfo[1]
+        print primerName
+        print primerLoc
+        return render_template('update_location_from_table.html', primerName=primerName, primerLoc=primerLoc)
+
+@app.route('/select_primer_to_rename/<primerName>/<primerLoc>', methods=['POST'])
+def primer_to_rename(primerName, primerLoc):
+    newName = request.form.get('name')
+    print primerName
+    print primerLoc
+    print newName
+    primerInfo = primerName + '|' + primerLoc + '|' + newName
+    print primerInfo
+    return redirect('/update_primer_name/%s' % (primerInfo))
+
+@app.route('/update_primer_name/<primerInfo>')
+def update_name_of_primer(primerInfo):
+    splitInfo = primerInfo.split('|')
+    currentName = splitInfo[0]
+    primerLoc = splitInfo[1]
+    newName = splitInfo[2]
     with open(app.config['CONFIG_FILE']) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
         db = PrimerDB(config['database'])
-    print primerName, loc, db, force
-    # run zippy and render
-    updateStatus = updateLocation(primerName, loc, db, force)
-    return render_template('location_updated.html', status=updateStatus)
+        nameChange = updatePrimerName(currentName, newName, db)
+        print nameChange
+        if nameChange:
+            flash('Primer "%s" renamed "%s"' % (currentName, newName), 'success')
+        else:
+            flash('Primer renaming failed', 'warning')
+    return render_template('update_location_from_table.html', primerName=newName, primerLoc=primerLoc)
 
-
-@app.route('/search_by_name/', methods=['POST'])
+@app.route('/specify_searchname/', methods=['POST'])
 def searchName():
     searchName = request.form.get('searchName')
+    session['searchName'] = searchName
+    return redirect('/search_by_name/')
+
+@app.route('/search_by_name/')
+def search_by_name():
+    searchName = session['searchName']
     with open(app.config['CONFIG_FILE']) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
         db = PrimerDB(config['database'])

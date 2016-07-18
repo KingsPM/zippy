@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+  {% set splitLoc = primerLoc.split('-') %}
+  <div align="center">
+    <h3><span class="pop">{{primerName}}</span> is currently stored at <span class="pop">{{primerLoc}}</span></h3>
+      <p>The primer name or storage location can be updated below</p>
+      <div class="box">
+        <form action="/select_primer_to_rename/{{primerName}}/{{primerLoc}}" method="post" enctype="multipart/form-data">
+          Primer Name &nbsp<input type="text" name="name" value={{primerName}}>
+          <input type="submit" id="wideButton" value="Update name">
+        </form>
+      </div>
+      <div class="box">
+        <form action="/update_location_from_table/{{primerName}}" method="post" enctype="multipart/form-data">
+          Vessel &nbsp<input type="text" name="vessel" value={{splitLoc[0]}} maxlength="3" size=3>
+          Well &nbsp<input type="text" name="well" value={{splitLoc[1]}}>
+          <input type="checkbox" name="force" value="True">overwrite
+          <input type="submit" id="wideButton" value="Update location">
+        </form>
+      </div>
+  </div>
+  <div class="holdBottom">
+    <a id="revWideButton" href="/search_by_name/">Return to search</a>
+  </div>
+
+{% endblock %}

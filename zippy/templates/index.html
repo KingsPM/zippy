@@ -30,9 +30,9 @@
         </div>
         <div id="left">
             <h3>Name query</h3>
-            <form action="/search_by_name/" method="post" enctype="multipart/form-data">
+            <form action="/specify_searchname/" method="post" enctype="multipart/form-data">
                 <span class="pop">Primer pair name &nbsp</span><input type="text" name="searchName"><br><br>
-                <input type="submit" id="revButton" value="Search">
+                <input type="submit" id="revSubmit" value="Search">
             </form>
         </div>
         <div>
@@ -44,7 +44,7 @@
                 <span class="pop">Vessel &nbsp</span><input type="text" name="vessel" maxlength="3" size=3>
                 <span class="pop">Well &nbsp</span><input type="text" name="well" maxlength="3" size=3><br><br>
                 <input type="checkbox" name="force" value="True">overwrite<br><br>
-                <input type="submit" id="revButton" value="Update">
+                <input type="submit" id="revSubmit" value="Update">
             </form>
         </div>
     </div>

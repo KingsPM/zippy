@@ -491,6 +491,16 @@ def searchByName(searchName, db):
     print >> sys.stderr, 'Found {} primer pairs with string "{}"'.format(len(primersInDB),searchName)
     return primersInDB
 
+# update name of primer in database
+def updatePrimerName(primerName, newName, db):
+    nameUpdate = db.updateName(primerName,newName)
+    if nameUpdate:
+        print sys.stderr, 'Primer %s renamed %s' % (primerName, newName)
+        return nameUpdate
+    else:
+        print sys.stderr, 'Primer renaming failed'
+        return nameUpdate
+
 # future
 def blacklistPair(pairname, db):
     raise NotImplementedError

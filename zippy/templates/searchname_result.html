@@ -7,38 +7,24 @@
 				<th>Pair name</th>
 				<th>Amplicon</th>
 				<th>Tm range</th>
-				<th>Locations </th>
 				<th>Left Primer</th>
 				<th>Left Sequence</th>
-				<th>Left Location</br>(Vessel-Well)</th>
+				<th>Left Location</th>
 				<th>Right Primer</th>
 				<th>Right Sequence</th>
-				<th>Right Location</br>(Vessel-Well)</th>
+				<th>Right Location</th>
 			</tr>
 			{% for pair in searchResult %}
 				<tr>
 					<td><b>{{pair.name}}</b></td>
 					<td><b>{{pair[0].targetposition.chrom}}:{{pair[0].targetposition.offset+pair[0].targetposition.length}}-{{pair[1].targetposition.offset}} ({{pair[1].targetposition.offset+pair[1].targetposition.length-pair[0].targetposition.offset}} bp)</b></td>
 					<td>{{pair.TmRange()}}˚C</td>
-					<td>{{pair[0].location}} {{pair[1].location}}</td>
-					<td><i>{{pair[0].name}}</i></td>
+					<td><i><a class="pop" href="/select_primer_to_update/{{pair[0].name}}/{{pair[0].location}}">{{pair[0].name}}</a></i></td>
 					<td>{{pair[0].tag}}-{{pair[0].seq}}</td>
-					<td>
-						<form action="/update_location_from_table/{{pair[0].name}}" method="post" enctype="multipart/form-data">
-							<input type="text" name="combinedlocation" value="{{pair[0].location}}">
-							<br><input type="checkbox" name="force" value="True">overwrite
-							<input type="submit" id="smallButton" value="Update">
-						</form>
-					</td>
-					<td><i>{{pair[1].name}}</i></td>
+					<td>{{pair[0].location}}</td>
+					<td><i><a class="pop" href="/select_primer_to_update/{{pair[1].name}}/{{pair[1].location}}">{{pair[1].name}}</a></i></td>
 					<td>{{pair[1].tag}}-{{pair[1].seq}}</td>
-					<td>
-						<form action="/update_location_from_table/{{pair[1].name}}" method="post" enctype="multipart/form-data">
-							<input type="text" name="combinedlocation" value={{pair[1].location}}>
-							<br><input type="checkbox" name="force" value="True">overwrite
-							<input type="submit" id="smallButton" value="Update">
-						</form>
-					</td>
+					<td>{{pair[1].location}}</td>
 					<!-- <td>
 						<form action="/update_location/" method="post" enctype="multipart/form-data">
 							<span class="pop">Vessel &nbsp</span><input type="text" name="vessel" value="A" maxlength="3" size=3>
