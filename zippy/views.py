@@ -186,7 +186,13 @@ def updateLocationFromTable(primerInfo):
         print primerName, loc, db, force
         # run zippy and render
         updateStatus = updateLocation(primerName, loc, db, force)
-        return render_template('location_updated.html', status=updateStatus)
+        if updateStatus[0] == 'occupied':
+            flash('Location already occupied by %s' % (' and '.join(updateStatus[1])), 'warning')
+        elif updateStatus[0] == 'success':
+            flash('%s location sucessfully set to %s' % (primerName, str(loc)), 'success')
+        else:
+            flash('%s location update to %s failed' % (primerName, str(loc)), 'warning')
+        return render_template('update_location_from_table.html', primerName=primerName, primerLoc=vessel + '-' + well)
     else:
         print primerInfo
         splitInfo = primerInfo.split('|')
@@ -212,6 +218,9 @@ def update_name_of_primer(primerInfo):
     currentName = splitInfo[0]
     primerLoc = splitInfo[1]
     newName = splitInfo[2]
+    if newName == currentName:
+        flash('Primer renaming failed - new name is the same as current', 'warning')
+        return render_template('update_location_from_table.html', primerName=newName, primerLoc=primerLoc)
     with open(app.config['CONFIG_FILE']) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
         db = PrimerDB(config['database'])

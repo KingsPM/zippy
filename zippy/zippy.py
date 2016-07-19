@@ -479,11 +479,14 @@ def updateLocation(primername, location, database, force=False):
     occupied = database.getLocation(location)
     if not occupied or force:
         if database.storePrimer(primername,location,force):
-            return '%s location sucessfully set to %s' % (primername, str(location))
+            print sys.stderr, '%s location sucessfully set to %s' % (primername, str(location))
+            return ('success', location)
         else:
-            return 'WARNING: %s location update to %s failed' % (primername, str(location))
+            print sys.stderr, 'WARNING: %s location update to %s failed' % (primername, str(location))
+            return ('fail', location)
     else:
-        return 'Location already occupied by %s' % (' and '.join(occupied))
+        print sys.stderr, 'Location already occupied by %s' % (' and '.join(occupied))
+        return ('occupied', occupied)
 
 # search primer pair by name substring matching
 def searchByName(searchName, db):
