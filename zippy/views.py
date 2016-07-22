@@ -10,7 +10,7 @@ from flask import Flask, render_template, request, redirect, send_from_directory
 from celery import Celery
 from werkzeug.utils import secure_filename
 from . import app
-from .zippy import zippyBatchQuery, zippyPrimerQuery, updateLocation, searchByName, updatePrimerName
+from .zippy import zippyBatchQuery, zippyPrimerQuery, updateLocation, searchByName, updatePrimerName, blacklistPair
 from .zippylib import ascii_encode_dict
 from .zippylib.primer import Location
 from .zippylib.database import PrimerDB
@@ -246,3 +246,14 @@ def search_by_name():
         db = PrimerDB(config['database'])
         searchResult = searchByName(searchName, db)
     return render_template('searchname_result.html', searchResult=searchResult, searchName=searchName)
+
+@app.route('/blacklist_pair/<pairname>', methods=['POST'])
+def blacklist_pair(pairname):
+    print 'This is the pairname: ' + pairname
+    with open(app.config['CONFIG_FILE']) as conf:
+        config = json.load(conf, object_hook=ascii_encode_dict)
+        db = PrimerDB(config['database'])
+        blacklisted = blacklistPair(pairname, db)
+        for b in blacklisted:
+            flash('%s added to blacklist' % (b,), 'success')
+    return redirect('/search_by_name/')

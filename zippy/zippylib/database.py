@@ -134,7 +134,7 @@ class PrimerDB(object):
                 bl_uniqueid = [ row[0] for row in cursor.fetchall() ]
                 # get list of pairs from pairs table with uniqueid
                 second_cursor = self.db.cursor()
-                second_cursor.execute('PRAGMA foreign_keys = ON')
+                second_cursor.execute('PRAGMA foreign_keys = OFF')
                 pairlist = []
                 for uid in bl_uniqueid:
                     # add uniqueid to blacklist

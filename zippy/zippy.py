@@ -506,7 +506,9 @@ def updatePrimerName(primerName, newName, db):
 
 # future
 def blacklistPair(pairname, db):
-    raise NotImplementedError
+    blacklisted = db.blacklist(pairname)
+    print sys.stderr, '%s added to blacklist' % (blacklisted,)
+    return blacklisted
 
 # ==============================================================================
 # === CLI ======================================================================

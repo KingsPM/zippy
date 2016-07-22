@@ -105,6 +105,7 @@ input[type=submit] {
   text-decoration: none;
   cursor: pointer;
   width: 100px;
+  vertical-align: middle;
 }
 
 input[type=submit]:hover {
@@ -132,7 +133,7 @@ input[type=submit]:active {
 
 #smallButton {
   padding: 2px;
-  width: 50px;
+  width: 100px;
 }
 
 #wideButton {
@@ -194,6 +195,19 @@ input[type=submit]:active {
 	font-style: italic;
   text-decoration: none;
 }
+
+.pop-link {
+	color: #00802b;
+	font-weight: bold;
+	font-style: italic;
+  text-decoration: none;
+}
+
+.pop-link:hover {
+	color: #00e64d;
+	font-style: oblique;
+}
+
 
 .flash {
   border-radius:10px;

@@ -13,18 +13,24 @@
 				<th>Right Primer</th>
 				<th>Right Sequence</th>
 				<th>Right Location</th>
+				<th>Blacklist</th>
 			</tr>
 			{% for pair in searchResult %}
 				<tr>
 					<td><b>{{pair.name}}</b></td>
 					<td><b>{{pair[0].targetposition.chrom}}:{{pair[0].targetposition.offset+pair[0].targetposition.length}}-{{pair[1].targetposition.offset}} ({{pair[1].targetposition.offset+pair[1].targetposition.length-pair[0].targetposition.offset}} bp)</b></td>
 					<td>{{pair.TmRange()}}˚C</td>
-					<td><i><a class="pop" href="/select_primer_to_update/{{pair[0].name}}/{{pair[0].location}}">{{pair[0].name}}</a></i></td>
+					<td><i><a class="pop-link" href="/select_primer_to_update/{{pair[0].name}}/{{pair[0].location}}">{{pair[0].name}}</a></i></td>
 					<td>{{pair[0].tag}}-{{pair[0].seq}}</td>
 					<td>{{pair[0].location}}</td>
-					<td><i><a class="pop" href="/select_primer_to_update/{{pair[1].name}}/{{pair[1].location}}">{{pair[1].name}}</a></i></td>
+					<td><i><a class="pop-link" href="/select_primer_to_update/{{pair[1].name}}/{{pair[1].location}}">{{pair[1].name}}</a></i></td>
 					<td>{{pair[1].tag}}-{{pair[1].seq}}</td>
 					<td>{{pair[1].location}}</td>
+					<td>
+						<form action="/blacklist_pair/{{pair.name}}" method="post">
+							<input type="submit" id="smallButton" value="Blacklist pair">
+						</form>
+					</td>
 					<!-- <td>
 						<form action="/update_location/" method="post" enctype="multipart/form-data">
 							<span class="pop">Vessel &nbsp</span><input type="text" name="vessel" value="A" maxlength="3" size=3>
