@@ -12,7 +12,7 @@
       </div>
       <div class="box">
         <form action="/update_location_from_table/{{primerName}}" method="post" enctype="multipart/form-data">
-          Vessel &nbsp<input type="text" name="vessel" value={{splitLoc[0]}} maxlength="3" size=3>
+          Vessel &nbsp<input type="text" name="vessel" value={{splitLoc[0]}} maxlength="4" size=4>
           Well &nbsp<input type="text" name="well" value={{splitLoc[1]}}>
           <input type="checkbox" name="force" value="True">overwrite
           <input type="submit" id="wideButton" value="Update location">

@@ -28,24 +28,25 @@
         <div>
             <p>&nbsp</p><br><hr><br><br>
         </div>
-        <div id="left">
-            <h3>Name query</h3>
+        <div id= centre;>
+            <h3>Primer Pair Query</h3>
+            <p>Search by primer pair name or date (yyyy-mm-dd)</p>
             <form action="/specify_searchname/" method="post" enctype="multipart/form-data">
-                <span class="pop">Primer pair name &nbsp</span><input type="text" name="searchName"><br><br>
+                <span class="pop">Search for &nbsp</span><input type="text" name="searchName"><br><br>
                 <input type="submit" id="revSubmit" value="Search">
             </form>
         </div>
         <div>
         </div>
-        <div id="right">
+        <!-- <div id="right">
             <h3>Storage Location</h3>
             <form action="/update_location/" method="post" enctype="multipart/form-data">
                 <span class="pop">Primer name &nbsp</span><input type="text" name="primername" size=20>
                 <span class="pop">Vessel &nbsp</span><input type="text" name="vessel" maxlength="3" size=3>
-                <span class="pop">Well &nbsp</span><input type="text" name="well" maxlength="3" size=3><br><br>
+                <span class="pop">Well &nbsp</span><input type="text" name="well"><br><br>
                 <input type="checkbox" name="force" value="True">overwrite<br><br>
                 <input type="submit" id="revSubmit" value="Update">
             </form>
-        </div>
+        </div> -->
     </div>
 {% endblock %}

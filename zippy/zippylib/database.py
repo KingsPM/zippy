@@ -234,8 +234,19 @@ class PrimerDB(object):
             raise
         else:
             cursor = self.db.cursor()
-            if type(query) in [str,unicode]:  # us primerpair name
-                subSearchName = '%'+query+'%'
+            subSearchName = '%'+query+'%'
+            datematch = re.compile("([-0-9]+)")
+            print >> sys.stderr, query
+            if datematch.match(query): # query date
+                cursor.execute('''SELECT DISTINCT p.pairid, l.tag, r.tag, l.seq, r.seq, p.left, p.right,
+                    p.chrom, p.start, p.end, l.vessel, l.well, r.vessel, r.well, 0
+                    FROM pairs AS p
+                    LEFT JOIN primer as l ON p.left = l.name
+                    LEFT JOIN primer as r ON p.right = r.name
+                    where p.dateadded LIKE ?
+                    ORDER BY p.pairid;''', \
+                    (subSearchName,))
+            elif type(query) in [str,unicode]:  # use primerpair name
                 cursor.execute('''SELECT DISTINCT p.pairid, l.tag, r.tag, l.seq, r.seq, p.left, p.right,
                     p.chrom, p.start, p.end, l.vessel, l.well, r.vessel, r.well, 0
                     FROM pairs AS p
