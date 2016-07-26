@@ -496,7 +496,7 @@ def searchByName(searchName, db):
 
 # update name of primer in database
 def updatePrimerName(primerName, newName, db):
-    nameUpdate = db.updateName(primerName,newName)
+    nameUpdate = db.updateName(primerName, newName)
     if nameUpdate:
         print sys.stderr, 'Primer %s renamed %s' % (primerName, newName)
         return nameUpdate
@@ -504,7 +504,17 @@ def updatePrimerName(primerName, newName, db):
         print sys.stderr, 'Primer renaming failed'
         return nameUpdate
 
-# future
+# update name of primer pair in database
+def updatePrimerPairName(pairName, newName, db):
+    nameUpdate = db.updatePairName(pairName, newName)
+    if nameUpdate:
+        print sys.stderr, 'Pair %s renamed %s' % (pairName, newName)
+        return nameUpdate
+    else:
+        print sys.stderr, 'Pair renaming failed'
+        return nameUpdate
+
+# blacklist primer pair in database
 def blacklistPair(pairname, db):
     blacklisted = db.blacklist(pairname)
     print sys.stderr, '%s added to blacklist' % (blacklisted,)

@@ -199,7 +199,7 @@ input[type=submit]:active {
 .pop-link {
 	color: #00802b;
 	font-weight: bold;
-	font-style: italic;
+	font-style: normal;
   text-decoration: none;
 }
 

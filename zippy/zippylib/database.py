@@ -427,6 +427,37 @@ class PrimerDB(object):
         finally:
             self.db.close()
 
+    def updatePairName(self,pairName,newName):
+        '''changes the name of a primer stored in the database'''
+        try:
+            self.db = sqlite3.connect(self.sqlite)
+        except:
+            raise
+        else:
+            # update primer name in primer and pairs table
+            try:
+                cursor = self.db.cursor()
+                cursor.execute('''UPDATE OR ABORT pairs SET pairid = ?
+                    WHERE pairid = ?;''', (newName, pairName))
+                self.db.commit()
+            except sqlite3.IntegrityError:
+                return False
+            except:
+                raise
+            # check if updated
+            try:
+                cursor.execute('''SELECT DISTINCT pairid
+                    FROM pairs WHERE pairid = ?;''', (newName,) )
+                rows = cursor.fetchall()
+                assert rows[0][0] == newName
+                return True
+            except AssertionError:
+                return False
+            except:
+                raise
+        finally:
+            self.db.close()
+
     def dump(self,what,**kwargs):
         if what=='amplicons':
             # dump amplicons (all possible)

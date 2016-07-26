@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-	<p>The following primer pairs matched <span class="pop">{{searchName}}</span> in their name: </p>
+	<p>The following primer pairs matched <span class="pop">{{searchName}}</span> in the database: </p>
 	{% if searchResult is not equalto [] %}
 		<table>
 			<tr>
@@ -13,11 +13,10 @@
 				<th>Right Primer</th>
 				<th>Right Sequence</th>
 				<th>Right Location</th>
-				<th>Blacklist</th>
 			</tr>
 			{% for pair in searchResult %}
 				<tr>
-					<td><b>{{pair.name}}</b></td>
+					<td><a class="pop-link" href="/select_pair_to_update/{{pair.name}}">{{pair.name}}</a></td>
 					<td><b>{{pair[0].targetposition.chrom}}:{{pair[0].targetposition.offset+pair[0].targetposition.length}}-{{pair[1].targetposition.offset}} ({{pair[1].targetposition.offset+pair[1].targetposition.length-pair[0].targetposition.offset}} bp)</b></td>
 					<td>{{pair.TmRange()}}˚C</td>
 					<td><i><a class="pop-link" href="/select_primer_to_update/{{pair[0].name}}/{{pair[0].location}}">{{pair[0].name}}</a></i></td>
@@ -26,19 +25,6 @@
 					<td><i><a class="pop-link" href="/select_primer_to_update/{{pair[1].name}}/{{pair[1].location}}">{{pair[1].name}}</a></i></td>
 					<td>{{pair[1].tag}}-{{pair[1].seq}}</td>
 					<td>{{pair[1].location}}</td>
-					<td>
-						<form action="/blacklist_pair/{{pair.name}}" method="post">
-							<input type="submit" id="smallButton" value="Blacklist pair">
-						</form>
-					</td>
-					<!-- <td>
-						<form action="/update_location/" method="post" enctype="multipart/form-data">
-							<span class="pop">Vessel &nbsp</span><input type="text" name="vessel" value="A" maxlength="3" size=3>
-							<span class="pop">Well &nbsp</span><input type="text" name="well" value="1" maxlength="3" size=3><br><br>
-							<input type="checkbox" name="force" value="True">overwrite<br><br>
-							<input type="submit" id="revButton" value="Update">
-						</form>
-					</td> -->
 				</tr>
 			{% endfor %}
 		</table>

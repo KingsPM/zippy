@@ -10,7 +10,7 @@ from flask import Flask, render_template, request, redirect, send_from_directory
 from celery import Celery
 from werkzeug.utils import secure_filename
 from . import app
-from .zippy import zippyBatchQuery, zippyPrimerQuery, updateLocation, searchByName, updatePrimerName, blacklistPair
+from .zippy import zippyBatchQuery, zippyPrimerQuery, updateLocation, searchByName, updatePrimerName, updatePrimerPairName, blacklistPair
 from .zippylib import ascii_encode_dict
 from .zippylib.primer import Location
 from .zippylib.database import PrimerDB
@@ -158,6 +158,29 @@ def updatePrimerLocation():
     # run zippy and render
     updateStatus = updateLocation(primername, loc, db, force)
     return render_template('location_updated.html', status=updateStatus)
+
+@app.route('/select_pair_to_update/<pairName>')
+def pair_to_update(pairName):
+    return render_template('update_pair.html', pairName=pairName)
+
+@app.route('/update_pair_name/<pairName>', methods=['POST'])
+def update_pair_name(pairName):
+    newName = request.form.get('name')
+    print pairName
+    print newName
+    if newName == pairName:
+        flash('Pair renaming failed - new name is the same as current', 'warning')
+        return render_template('update_pair.html', pairName=pairName)
+    with open(app.config['CONFIG_FILE']) as conf:
+        config = json.load(conf, object_hook=ascii_encode_dict)
+        db = PrimerDB(config['database'])
+        nameChange = updatePrimerPairName(pairName, newName, db)
+        print nameChange
+        if nameChange:
+            flash('Pair "%s" renamed "%s"' % (pairName, newName), 'success')
+        else:
+            flash('Pair renaming failed', 'warning')
+    return render_template('update_pair.html', pairName=newName)
 
 @app.route('/select_primer_to_update/<primerName>/<primerLoc>')
 def primer_to_update(primerName, primerLoc):
