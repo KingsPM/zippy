@@ -10,7 +10,7 @@ from flask import Flask, render_template, request, redirect, send_from_directory
 from celery import Celery
 from werkzeug.utils import secure_filename
 from . import app
-from .zippy import zippyBatchQuery, zippyPrimerQuery, updateLocation, searchByName, updatePrimerName, updatePrimerPairName, blacklistPair
+from .zippy import zippyBatchQuery, zippyPrimerQuery, updateLocation, searchByName, updatePrimerName, updatePrimerPairName, blacklistPair, readprimerlocations
 from .zippylib import ascii_encode_dict
 from .zippylib.primer import Location
 from .zippylib.database import PrimerDB
@@ -280,3 +280,28 @@ def blacklist_pair(pairname):
         for b in blacklisted:
             flash('%s added to blacklist' % (b,), 'success')
     return redirect('/search_by_name/')
+
+@app.route('/upload_batch_locations/', methods=['POST'])
+def upload_samplesheet():
+    if request.method == 'POST':
+        locationsheet = request.files['locationsheet']
+        if not locationsheet:
+            flash('No csvfile submitted. Please try again','warning')
+        else:
+            saveloc = 'uploads/'+locationsheet.filename
+            locationsheet.save(saveloc)
+            updateList = readprimerlocations(saveloc)
+            for item in updateList:
+                print 'Primer:locations to update: ', item
+                with open(app.config['CONFIG_FILE']) as conf:
+                    config = json.load(conf, object_hook=ascii_encode_dict)
+                    db = PrimerDB(config['database'])
+                    updateStatus = updateLocation(item[0], item[1], db, True) # Force is set to True, will force primers into any occupied locations
+                    if updateStatus[0] == 'occupied':
+                        flash('Location already occupied by %s' % (' and '.join(updateStatus[1])), 'warning')
+                    elif updateStatus[0] == 'success':
+                        flash('%s location sucessfully set to %s' % (item[0], str(item[1])), 'success')
+                    else:
+                        flash('%s location update to %s failed' % (item[0], str(item[1])), 'warning')
+            print 'Updated locations using :', updateList
+    return redirect('/index')

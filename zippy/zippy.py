@@ -21,6 +21,7 @@ import sys
 import json
 import tempfile
 import hashlib
+import csv
 from zippylib.files import VCF, BED, GenePred, Interval, Data, readTargets, readBatch
 from zippylib.primer import Genome, MultiFasta, Primer3, Primer, PrimerPair, Location, parsePrimerName
 from zippylib.reports import Test
@@ -519,6 +520,27 @@ def blacklistPair(pairname, db):
     blacklisted = db.blacklist(pairname)
     print sys.stderr, '%s added to blacklist' % (blacklisted,)
     return blacklisted
+
+def readprimerlocations(locationfile):
+    linecount = 0
+    header = []
+    updateList = []
+    with open(locationfile) as csvfile:
+        readfile = csv.reader(csvfile, delimiter=',')
+        for line in readfile:
+            if linecount == 0:
+                header = line
+            else:
+                try:
+                    row = dict(zip(header,line))
+                    primer = row['Primer Name']
+                    box = row['Box'][3:] if row['Box'].startswith('Box') or row['Box'].startswith('box') else row['Box']
+                    well = row['Well']
+                    updateList.append([primer, Location(box, well)])
+                except:
+                    raise Exception('File format not as expected')
+            linecount += 1
+    return updateList
 
 # ==============================================================================
 # === CLI ======================================================================

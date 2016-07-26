@@ -28,7 +28,7 @@
         <div>
             <p>&nbsp</p><br><hr><br><br>
         </div>
-        <div id= centre;>
+        <div id="left";>
             <h3>Primer Pair Query</h3>
             <p>Search by primer pair name or date (yyyy-mm-dd)</p>
             <form action="/specify_searchname/" method="post" enctype="multipart/form-data">
@@ -38,15 +38,13 @@
         </div>
         <div>
         </div>
-        <!-- <div id="right">
+        <div id="right">
             <h3>Storage Location</h3>
-            <form action="/update_location/" method="post" enctype="multipart/form-data">
-                <span class="pop">Primer name &nbsp</span><input type="text" name="primername" size=20>
-                <span class="pop">Vessel &nbsp</span><input type="text" name="vessel" maxlength="3" size=3>
-                <span class="pop">Well &nbsp</span><input type="text" name="well"><br><br>
-                <input type="checkbox" name="force" value="True">overwrite<br><br>
-                <input type="submit" id="revSubmit" value="Update">
+            <p>Upload a batch of primer storage locations as CSV file</p>
+            <form action="/upload_batch_locations/" method="post" enctype="multipart/form-data">
+                <span class="pop">CSV file &nbsp</span><input type="file" name="locationsheet"><br><br>
+                <input type="submit" id="revSubmit" value="Upload">
             </form>
-        </div> -->
+        </div>
     </div>
 {% endblock %}
