@@ -21,6 +21,7 @@ import sys
 import json
 import tempfile
 import hashlib
+import csv
 from zippylib.files import VCF, BED, GenePred, Interval, Data, readTargets, readBatch
 from zippylib.primer import Genome, MultiFasta, Primer3, Primer, PrimerPair, Location, parsePrimerName
 from zippylib.reports import Test
@@ -30,6 +31,7 @@ from zippylib.reports import Worksheet
 from argparse import ArgumentParser
 from copy import deepcopy
 from collections import defaultdict, Counter
+from urllib import unquote
 import cPickle as pickle
 
 '''file MD5'''
@@ -63,6 +65,11 @@ def importPrimerLocations(inputfile):
                     else:
                         primerlocs[l['primername']] = loc
     return primerlocs
+
+'''converts comma seperated variant descriptor to pseudo human readable format'''
+def shortHumanReadable(x):
+    fields = unquote(x).split(',')
+    return '_'.join([ fields[0], hashlib.sha1(','.join(fields[:-1])).hexdigest()[:6].upper() ])
 
 '''reads fasta/tab inputfile, searches genome for targets, decides if valid pairs'''
 def importPrimerPairs(inputfile,config,primer3=True):
@@ -221,7 +228,7 @@ def importPrimerPairs(inputfile,config,primer3=True):
     return validPairs
 
 '''get primers from intervals'''
-def getPrimers(intervals, db, design, config, deep=True):
+def getPrimers(intervals, db, design, config, deep=True, rename=None):
     ivpairs = defaultdict(list)  # found/designed primer pairs (from database or design)
     blacklist = db.blacklist() if db else []
     try:
@@ -280,7 +287,6 @@ def getPrimers(intervals, db, design, config, deep=True):
                             print >> fh, pair[1].fasta('_'.join([ k.name, str(pairnumber), 'fwd' if k.strand < 0 else 'rev' ]))
                 pairs = importPrimerPairs(fh.name, config, primer3=True)
                 os.unlink(fh.name)  # remove fasta file
-
                 ## Remove non-specific and blacklisted primer pairs
                 specificPrimerPairs = []
                 blacklisted = 0
@@ -317,6 +323,9 @@ def getPrimers(intervals, db, design, config, deep=True):
                             # assign to interval
                             ivpairs[intervalindex[pair.name]].append(pair)
                             intervalprimers[pair.name].add(pair.uniqueid())
+                            # rename (for variant based naming which is too rich)
+                            if rename:
+                                ivpairs[intervalindex[pair.name]][-1].rename(rename)
                         else:
                             # add to blacklist if design limits fail
                             blacklist.append(pair.uniqueid())
@@ -341,23 +350,32 @@ def getPrimers(intervals, db, design, config, deep=True):
     print >> sys.stderr, '{:<20} {:9} {:<10}'.format('INTERVAL', 'AMPLICONS', 'STATUS')
     print >> sys.stderr, '-'*41
     for iv,p in sorted(ivpairs.items(),key=lambda x:x[0].name):
-        print >> sys.stderr, '{:<20} {:9} {:<10}'.format(iv.name, len(p), "FAIL" if len(p)<config['report']['pairs'] else "OK")
+        print >> sys.stderr, '{:<20} {:9} {:<10}'.format(unquote(iv.name), len(p), "FAIL" if len(p)<config['report']['pairs'] else "OK")
 
     ## get best primer pairs
     ##### PRIORITISE AND ALWAYS PRINT DATABASE PRIMERS
     print >> sys.stderr, '========'
-    primerTable, resultList, missedIntervals = [], [], []
+    primerTable = []  # primer table (text)
+    primerVariants = defaultdict(list)  # primerpair -> intervalnames/variants dict
+    missedIntervals = []  # list of missed intervals/variants
     for iv in sorted(ivpairs.keys()):
+        print "IV", unquote(iv.name)
         if not ivpairs[iv]:
             missedIntervals.append(iv)
         for i, p in enumerate(sorted(ivpairs[iv])):
             if i == config['report']['pairs']:
                 break  # only report number of primer pairs requested
-            resultList.append(p)
+            # log primer design
             if p.designrank() >= 0:
                 p.log(config['logfile'])
-            primerTable.append([iv.name] + str(p).split('\t'))
-    return primerTable, resultList, missedIntervals
+            # save result (with interval names)
+            primerVariants[p].append(iv)
+            # save to primer table
+            primerTable.append([unquote(iv.name)] + str(p).split('\t'))
+    # update primer pairs with covered variants
+    for pp, v in primerVariants.items():
+        pp.variants = v
+    return primerTable, primerVariants.keys(), missedIntervals
 
 # ==============================================================================
 # === convenience functions for webservice =====================================
@@ -405,7 +423,8 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
     for sample, intervals in sorted(sampleVariants.items(),key=lambda x: x[0]):
         print >> sys.stderr, "Getting primers for {} variants in sample {}".format(len(intervals),sample)
         # get/design primers
-        primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config,deep)
+        print >> sys.stderr, intervals
+        primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config,deep,rename=shortHumanReadable)
         if missedIntervals:
             allMissedIntervals[sample] = missedIntervals
             missedIntervalNames += [ i.name for i in missedIntervals ]
@@ -449,7 +468,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
         # Batch PCR worksheet
         writtenFiles.append(outfile+'.pdf')
         print >> sys.stderr, "Writing worksheet to {}...".format(writtenFiles[-1])
-        ws = Worksheet(tests,name='Validation batch PCR')  # load worksheet
+        ws = Worksheet(tests,name='Variant Confirmations')  # load worksheet
         ws.addControls()  # add controls
         ws.fillPlates(size=config['report']['platesize'],randomize=True)
         ws.createWorkSheet(writtenFiles[-1], worklist=worksheetName, **config['report'])
@@ -471,7 +490,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
             with open(writtenFiles[-1],'w') as fh:
                 print >> fh, '\t'.join(['sample','variant'])
                 for sample, missed in sorted(allMissedIntervals.items()):
-                    print >> fh, '\n'.join([ '\t'.join([sample,i.name]) for i in missed ])
+                    print >> fh, '\n'.join([ '\t'.join([sample,unquote(i.name)]) for i in missed ])
     return writtenFiles, sorted(list(set(missedIntervalNames)))
 
 # update storage location for primer
@@ -479,11 +498,14 @@ def updateLocation(primername, location, database, force=False):
     occupied = database.getLocation(location)
     if not occupied or force:
         if database.storePrimer(primername,location,force):
-            return '%s location sucessfully set to %s' % (primername, str(location))
+            print sys.stderr, '%s location sucessfully set to %s' % (primername, str(location))
+            return ('success', location)
         else:
-            return 'WARNING: %s location update to %s failed' % (primername, str(location))
+            print sys.stderr, 'WARNING: %s location update to %s failed' % (primername, str(location))
+            return ('fail', location)
     else:
-        return 'Location already occupied by %s' % (' and '.join(occupied))
+        print sys.stderr, 'Location already occupied by %s' % (' and '.join(occupied))
+        return ('occupied', occupied)
 
 # search primer pair by name substring matching
 def searchByName(searchName, db):
@@ -491,9 +513,52 @@ def searchByName(searchName, db):
     print >> sys.stderr, 'Found {} primer pairs with string "{}"'.format(len(primersInDB),searchName)
     return primersInDB
 
-# future
+# update name of primer in database
+def updatePrimerName(primerName, newName, db):
+    nameUpdate = db.updateName(primerName, newName)
+    if nameUpdate:
+        print sys.stderr, 'Primer %s renamed %s' % (primerName, newName)
+        return nameUpdate
+    else:
+        print sys.stderr, 'Primer renaming failed'
+        return nameUpdate
+
+# update name of primer pair in database
+def updatePrimerPairName(pairName, newName, db):
+    nameUpdate = db.updatePairName(pairName, newName)
+    if nameUpdate:
+        print sys.stderr, 'Pair %s renamed %s' % (pairName, newName)
+        return nameUpdate
+    else:
+        print sys.stderr, 'Pair renaming failed'
+        return nameUpdate
+
+# blacklist primer pair in database
 def blacklistPair(pairname, db):
-    raise NotImplementedError
+    blacklisted = db.blacklist(pairname)
+    print sys.stderr, '%s added to blacklist' % (blacklisted,)
+    return blacklisted
+
+def readprimerlocations(locationfile):
+    linecount = 0
+    header = []
+    updateList = []
+    with open(locationfile) as csvfile:
+        readfile = csv.reader(csvfile, delimiter=',')
+        for line in readfile:
+            if linecount == 0:
+                header = line
+            else:
+                try:
+                    row = dict(zip(header,line))
+                    primer = row['Primer Name']
+                    box = row['Box'][3:] if row['Box'].startswith('Box') or row['Box'].startswith('box') else row['Box']
+                    well = row['Well']
+                    updateList.append([primer, Location(box, well)])
+                except:
+                    raise Exception('File format not as expected')
+            linecount += 1
+    return updateList
 
 # ==============================================================================
 # === CLI ======================================================================

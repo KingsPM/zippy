@@ -134,7 +134,7 @@ class PrimerDB(object):
                 bl_uniqueid = [ row[0] for row in cursor.fetchall() ]
                 # get list of pairs from pairs table with uniqueid
                 second_cursor = self.db.cursor()
-                second_cursor.execute('PRAGMA foreign_keys = ON')
+                second_cursor.execute('PRAGMA foreign_keys = OFF')
                 pairlist = []
                 for uid in bl_uniqueid:
                     # add uniqueid to blacklist
@@ -234,7 +234,19 @@ class PrimerDB(object):
             raise
         else:
             cursor = self.db.cursor()
-            if type(query) in [str,unicode]:  # us primerpair name
+            datematch = re.compile("([0-9\s-]+)$")
+            print >> sys.stderr, query
+            if datematch.match(str(query)): # query date
+                subSearchName = '%'+query+'%'
+                cursor.execute('''SELECT DISTINCT p.pairid, l.tag, r.tag, l.seq, r.seq, p.left, p.right,
+                    p.chrom, p.start, p.end, l.vessel, l.well, r.vessel, r.well, 0
+                    FROM pairs AS p
+                    LEFT JOIN primer as l ON p.left = l.name
+                    LEFT JOIN primer as r ON p.right = r.name
+                    where p.dateadded LIKE ?
+                    ORDER BY p.pairid;''', \
+                    (subSearchName,))
+            elif type(query) in [str,unicode]:  # use primerpair name
                 subSearchName = '%'+query+'%'
                 cursor.execute('''SELECT DISTINCT p.pairid, l.tag, r.tag, l.seq, r.seq, p.left, p.right,
                     p.chrom, p.start, p.end, l.vessel, l.well, r.vessel, r.well, 0
@@ -380,6 +392,72 @@ class PrimerDB(object):
         finally:
             self.db.close()
         return True
+
+    def updateName(self,primerName,newName):
+        '''changes the name of a primer stored in the database'''
+        try:
+            self.db = sqlite3.connect(self.sqlite)
+        except:
+            raise
+        else:
+            # update primer name in primer and pairs table
+            try:
+                cursor = self.db.cursor()
+                cursor.execute('''UPDATE OR ABORT pairs SET left = ?
+                    WHERE left = ?;''', (newName, primerName))
+                cursor.execute('''UPDATE OR ABORT pairs SET right = ?
+                    WHERE right = ?;''', (newName, primerName))
+                cursor.execute('''UPDATE OR ABORT primer SET name = ?
+                    WHERE name = ?;''', (newName, primerName))
+                self.db.commit()
+            except sqlite3.IntegrityError:
+                return False
+            except:
+                raise
+            # check if updated
+            try:
+                cursor.execute('''SELECT DISTINCT name
+                    FROM primer WHERE name = ?;''', (newName,) )
+                rows = cursor.fetchall()
+                assert rows[0][0] == newName
+                return True
+            except AssertionError:
+                return False
+            except:
+                raise
+        finally:
+            self.db.close()
+
+    def updatePairName(self,pairName,newName):
+        '''changes the name of a primer stored in the database'''
+        try:
+            self.db = sqlite3.connect(self.sqlite)
+        except:
+            raise
+        else:
+            # update primer name in primer and pairs table
+            try:
+                cursor = self.db.cursor()
+                cursor.execute('''UPDATE OR ABORT pairs SET pairid = ?
+                    WHERE pairid = ?;''', (newName, pairName))
+                self.db.commit()
+            except sqlite3.IntegrityError:
+                return False
+            except:
+                raise
+            # check if updated
+            try:
+                cursor.execute('''SELECT DISTINCT pairid
+                    FROM pairs WHERE pairid = ?;''', (newName,) )
+                rows = cursor.fetchall()
+                assert rows[0][0] == newName
+                return True
+            except AssertionError:
+                return False
+            except:
+                raise
+        finally:
+            self.db.close()
 
     def dump(self,what,**kwargs):
         if what=='amplicons':

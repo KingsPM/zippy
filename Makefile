@@ -47,9 +47,6 @@ zippy-install:
 	# virtualenv
 	mkdir -p $(ZIPPYPATH)
 	cd $(ZIPPYPATH) && virtualenv venv
-	$(ZIPPYPATH)/venv/bin/pip install cython
-	$(ZIPPYPATH)/venv/bin/pip install pysam
-	$(ZIPPYPATH)/venv/bin/pip install primer3-py==0.5.0
 	$(ZIPPYPATH)/venv/bin/pip install -r package-requirements.txt
 	# create empty database
 	mkdir -p $(ZIPPYVAR)
@@ -110,15 +107,10 @@ annotation: variation-download refgene-download
 
 variation-download:
 	mkdir -p $(ZIPPYVAR)/resources && cd $(ZIPPYVAR)/resources && \
-	wget -c ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b147_GRCh37p13/VCF/common_all_20160408.vcf.gz && \
-	wget -c ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b147_GRCh37p13/VCF/common_all_20160408.vcf.gz.tbi
+	wget -c ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b147_GRCh37p13/VCF/00-common_all.vcf.gz && \
+	wget -c ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606_b147_GRCh37p13/VCF/00-common_all.vcf.gz.tbi
 
 refgene-download:
 	mkdir -p $(ZIPPYVAR)/resources && cd $(ZIPPYVAR)/resources && \
 	mysql --user=genome --host=genome-mysql.cse.ucsc.edu -A -N -D hg19 -P 3306 \
-	 -e 'SELECT DISTINCT r.bin,CONCAT(r.name,".",i.version),c.ensembl,r.strand,
-	r.txStart,r.txEnd,r.cdsStart,r.cdsEnd,r.exonCount,r.exonStarts,r.exonEnds,
-	r.score,r.name2,r.cdsStartStat,r.cdsEndStat,r.exonFrames
-	FROM refGene as r, gbCdnaInfo as i, ucscToEnsembl as c
-	WHERE r.name=i.acc AND c.ucsc = r.chrom
-	ORDER BY r.bin;' > refGene
+	 -e "SELECT DISTINCT r.bin,CONCAT(r.name,'.',i.version),c.ensembl,r.strand, r.txStart,r.txEnd,r.cdsStart,r.cdsEnd,r.exonCount,r.exonStarts,r.exonEnds,r.score,r.name2,r.cdsStartStat,r.cdsEndStat,r.exonFrames FROM refGene as r, gbCdnaInfo as i, ucscToEnsembl as c WHERE r.name=i.acc AND c.ucsc = r.chrom ORDER BY r.bin;" > refGene

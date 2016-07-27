@@ -17,7 +17,7 @@ import subprocess
 from collections import defaultdict, OrderedDict, Counter
 from .interval import Interval
 from string import maketrans
-
+from urllib import unquote
 revcmp = maketrans('ACGTNacgtn','TGCANtgcan')
 
 '''returns common prefix (substring)'''
@@ -184,6 +184,7 @@ class PrimerPair(list):
         self.length = length  # pair of primers by default
         self.reversed = reverse
         self.name = name
+        self.variants = []  # list of intervals with metadata from input table
         if not name and all(self):
             commonPrefix(self[0].name, self[1].name)
 
@@ -213,7 +214,7 @@ class PrimerPair(list):
         return super(PrimerPair, self).insert(i, x)
 
     def __hash__(self):
-        return hash(self.__repr__())
+        return hash(self.__str__())
 
     def __eq__(self,other):
         return self.name == other.name
@@ -259,6 +260,14 @@ class PrimerPair(list):
             self[0].targetposition.chrom if self[0] and self[1] and self[0].targetposition else '',
             self[0].targetposition.offset+self[0].targetposition.length if self[0] and self[1] and self[0].targetposition else '',
             self[1].targetposition.offset if self[0] and self[1] and self[1].targetposition else '')
+
+    def targetLength(self,includePrimers=False):
+        if self[0] and self[1] and self[0].targetposition and self[0].targetposition:
+            if includePrimers:
+                return self[1].targetposition.offset+self[1].targetposition.length-self[0].targetposition.offset
+            else:
+                return self[1].targetposition.offset-(self[0].targetposition.offset+self[0].targetposition.length)
+        return None
 
     def locations(self):
         return [ self[0].location if self[0] else None, self[1].location if self[1] else None ]
@@ -371,11 +380,18 @@ class PrimerPair(list):
         firstDifferent = min([ i for i,x in enumerate(zip(self[0].name,self[1].name)) if len(set(x))!=1 ])
         newName = self[0].name[:firstDifferent].rstrip('_-')
         if newName != self.name and len(newName) >= len(self.name):
-            print >> sys.stderr, 'WARNING: Renamed PrimerPair {} -> {} in database'.format(self.name, newName)
+            print >> sys.stderr, 'INFO: Renamed PrimerPair {} -> {}'.format(self.name, newName)
             self.name = newName
             return True
         return False
 
+    def rename(self,renamer):
+        oldname = self.name
+        newname = renamer if type(renamer) is str else renamer(self.name)
+        self.name = re.sub('^'+oldname,newname,self.name)
+        for i in range(len(self)):
+            self[i].name = re.sub('^'+oldname,newname,self[i].name)
+        return
 
 '''fasta/primer'''
 class Primer(object):

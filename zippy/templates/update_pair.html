@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+  <div align="center">
+    <h3><span class="pop">{{pairName}}</span></h3>
+      <p>The primer pair name can be updated below. If this primer pair is ineffective then the pair can be blacklisted.</p>
+      <div id="left">
+        <form action="/update_pair_name/{{pairName}}" method="post" enctype="multipart/form-data">
+          Pair Name &nbsp<input type="text" name="name" value={{pairName}}>
+          <input type="submit" id="wideButton" value="Update name">
+        </form>
+      </div>
+      <div id="right">
+        <form action="/blacklist_pair/{{pairName}}" method="post" onsubmit="return confirm('Are you sure you want to blacklist this primer pair?');">
+          <input type="submit" id="revWideButton" value="Blacklist pair">
+        </form>
+      </div>
+  </div>
+  <div class="holdBottom">
+    <a id="revWideButton" href="/search_by_name/">Return to search</a>
+  </div>
+
+{% endblock %}
