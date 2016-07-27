@@ -17,7 +17,7 @@ import subprocess
 from collections import defaultdict, OrderedDict, Counter
 from .interval import Interval
 from string import maketrans
-
+from urllib import unquote
 revcmp = maketrans('ACGTNacgtn','TGCANtgcan')
 
 '''returns common prefix (substring)'''
@@ -380,11 +380,18 @@ class PrimerPair(list):
         firstDifferent = min([ i for i,x in enumerate(zip(self[0].name,self[1].name)) if len(set(x))!=1 ])
         newName = self[0].name[:firstDifferent].rstrip('_-')
         if newName != self.name and len(newName) >= len(self.name):
-            print >> sys.stderr, 'WARNING: Renamed PrimerPair {} -> {} in database'.format(self.name, newName)
+            print >> sys.stderr, 'INFO: Renamed PrimerPair {} -> {}'.format(self.name, newName)
             self.name = newName
             return True
         return False
 
+    def rename(self,renamer):
+        oldname = self.name
+        newname = renamer if type(renamer) is str else renamer(self.name)
+        self.name = re.sub('^'+oldname,newname,self.name)
+        for i in range(len(self)):
+            self[i].name = re.sub('^'+oldname,newname,self[i].name)
+        return
 
 '''fasta/primer'''
 class Primer(object):

@@ -15,7 +15,7 @@ import time, datetime
 from math import ceil
 from copy import deepcopy
 from random import shuffle
-from itertools import product, groupby
+from itertools import product, groupby, chain
 from functools import partial
 from hashlib import sha1
 from collections import Counter
@@ -266,7 +266,7 @@ class Report(object):
     def pageBreak(self):
         self.elements.append(PageBreak())
 
-    def samplePrimerLists(self,s,p):
+    def samplePrimerLists(self,s,p,counts=Counter()):
         TABLE_STYLE = TableStyle([
             ('FONTSIZE',(0,1),(-1,-1),8),  # body
             ('FONTSIZE',(0,0),(-1,0),10),  # title line
@@ -282,7 +282,7 @@ class Report(object):
         doubleLine = ParagraphStyle('suffixes', fontSize=5, leading=5)  # suffix column
         centered = ParagraphStyle('locations', fontSize=8, leading=5, alignment=1)  # Location column
         centeredsmall = ParagraphStyle('locations', fontSize=6, leading=6, alignment=1)  # Location column
-        data = [[str(len(s)),'Samples','',str(len(p)),'Primer Pair', 'Suffixes', 'Locations']]
+        data = [[str(len(s)),'Samples','',str(len(p)),'Primer Pairs', 'Suffixes', 'Locations']]
         for i in range(max(len(s),len(p))):
             if i<len(p):
                 if any(p[i][2]):
@@ -290,8 +290,8 @@ class Report(object):
                     locationParagraph = Paragraph(locationString, centered if len(locationString) < 10 else centeredsmall)
                 else:
                     locationParagraph = Paragraph(' ',centered)
-            data.append([ '', s[i] if i<len(s) else '', '', ''] + \
-            ([ p[i][0], Paragraph('<br/>'.join(p[i][1]),doubleLine), locationParagraph ] if i<len(p) else ['','','']))
+            data.append(([ counts[s[i]] if counts else '', s[i] ] if i<len(s) else ['','']) + [''] + \
+                ([ counts[p[i][0]] if counts else '', p[i][0], Paragraph('<br/>'.join(p[i][1]),doubleLine), locationParagraph ] if i<len(p) else ['','','','']))
         self.elements.append(Spacer(1, 2))
         t = Table(data, colWidths=[0.6*cm,5*cm,0.3*cm,0.6*cm,5.3*cm,1.6*cm,2.1*cm], rowHeights=0.6*cm)
         t.setStyle(TABLE_STYLE)
@@ -514,6 +514,15 @@ class Worksheet(list):
         self += controlsamples.values()
         return
 
+    ''' count reactions '''
+    def reactionCount(self):
+        reactions = Counter()
+        for plate in self.plates:
+            for test in plate.testList():
+                reactions[test.sample] += 1
+                reactions[test.primerpair] += 1
+        return reactions
+
     '''PDF worksheet'''
     def createWorkSheet(self,fi,primertest=False,worklist='',**kwargs):
         logo = kwargs['logo'] if 'logo' in kwargs.keys() and kwargs['logo'] else None
@@ -523,8 +532,8 @@ class Worksheet(list):
         r = Report(fi,title=self.name,logo=logo,site=site,auth=auth,docid=docid,worklist=worklist)
         # add plates
         samples, primers, plates = [], [], []
-        for p in self.plates:
-            s, p, m = p.platemap()  # gets samples, (pairname, (primersuffixes), (locations)), platemap
+        for plate in self.plates:
+            s, p, m = plate.platemap()  # gets samples, (pairname, (primersuffixes), (locations)), platemap
             samples += s
             primers += p  # PrimerPair Objects
             plates.append(m)
@@ -537,7 +546,7 @@ class Worksheet(list):
             for p in set(primers) }
         orderedPrimers = [ (x[0].name, x[0].primerSuffixes(), tuple(x[0].locations())) for x in sorted(primerOrder.items(), key=lambda x: x[1]) ]
         # store ordered list of sample (str) and primers (primername, primersuffixes, locations)
-        r.samplePrimerLists(orderedSamples,orderedPrimers)
+        r.samplePrimerLists(orderedSamples,orderedPrimers,counts=self.reactionCount())
         # reaction volume list
         r.volumeLists(sum([len(p) for p in self.plates]),kwargs['volumes']['mastermix'],kwargs['volumes']['qsolution'],kwargs['volumes']['excess'],kwargs['volumes']['program'])
         # add checkboxes
@@ -583,7 +592,8 @@ class Worksheet(list):
                 for i,row in enumerate(p.M):
                     for j,cell in enumerate(row):
                         if cell:
-                            d = cell.primerpairobject.uniqueid()[:10]  # uniqueid (could collide as not a 32 byte string, collision detection below)
+                            # barcode id (with collision check, as trucated 32 byte string)
+                            d = cell.primerpairobject.uniqueid()[:10]  # truncated uniqueid (1,099,511,627,776)
                             if d in digests.keys():
                                 try:
                                     assert cell.primerpair == digests[d]
@@ -593,11 +603,13 @@ class Worksheet(list):
                                     continue  # dont print same barcode multiple times
                             else:
                                 digests[d] = cell.primerpair
+                            # Location string
+                            locations = ' '.join([ str(l) if l else '' for l in cell.primerpairobject.locations() ])
                             # get tag name
                             tagstring = '/'.join(set([ x.tag for x in cell.primerpairobject ]))
                             print >> fh, "^XA"  # start label
-                            print >> fh, "^PR1,D,A"  # slower print speed
-                            print >> fh, "^FO20,50^AB^FD{}^FS".format(self.date[:self.date.rfind('.')])  # date to the second
+                            print >> fh, "^PR1,A,A"  # slower print speed
+                            print >> fh, "^FO20,50^AB^FD{}  {}^FS".format(self.date[:self.date.rfind('.')],locations)  # date and location
                             print >> fh, "^FO20,70^AB,25^FD{}^FS".format(cell.primerpair)  # primer name
                             print >> fh, "^FO20,100^BY1.5^BCN,80,Y,N,N^FD{}^FS".format(d)  # Barcode uniqueid
                             print >> fh, "^XZ"  # end label
@@ -614,6 +626,9 @@ class Plate(object):
 
     def __len__(self):
         return sum([ len([ f for f in r if f]) for r in self.M ])
+
+    def testList(self):
+        return [ t for t in chain.from_iterable(zip(*self.M)) if t is not None ]
 
     def platemap(self):
         s, p = set(), set()

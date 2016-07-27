@@ -30,6 +30,7 @@ from zippylib.reports import Worksheet
 from argparse import ArgumentParser
 from copy import deepcopy
 from collections import defaultdict, Counter
+from urllib import unquote
 import cPickle as pickle
 
 '''file MD5'''
@@ -63,6 +64,11 @@ def importPrimerLocations(inputfile):
                     else:
                         primerlocs[l['primername']] = loc
     return primerlocs
+
+'''converts comma seperated variant descriptor to pseudo human readable format'''
+def shortHumanReadable(x):
+    fields = unquote(x).split(',')
+    return '_'.join([ fields[0], hashlib.sha1(','.join(fields[:-1])).hexdigest()[:6].upper() ])
 
 '''reads fasta/tab inputfile, searches genome for targets, decides if valid pairs'''
 def importPrimerPairs(inputfile,config,primer3=True):
@@ -221,7 +227,7 @@ def importPrimerPairs(inputfile,config,primer3=True):
     return validPairs
 
 '''get primers from intervals'''
-def getPrimers(intervals, db, design, config, deep=True):
+def getPrimers(intervals, db, design, config, deep=True, rename=None):
     ivpairs = defaultdict(list)  # found/designed primer pairs (from database or design)
     blacklist = db.blacklist() if db else []
     try:
@@ -280,7 +286,6 @@ def getPrimers(intervals, db, design, config, deep=True):
                             print >> fh, pair[1].fasta('_'.join([ k.name, str(pairnumber), 'fwd' if k.strand < 0 else 'rev' ]))
                 pairs = importPrimerPairs(fh.name, config, primer3=True)
                 os.unlink(fh.name)  # remove fasta file
-
                 ## Remove non-specific and blacklisted primer pairs
                 specificPrimerPairs = []
                 blacklisted = 0
@@ -317,6 +322,9 @@ def getPrimers(intervals, db, design, config, deep=True):
                             # assign to interval
                             ivpairs[intervalindex[pair.name]].append(pair)
                             intervalprimers[pair.name].add(pair.uniqueid())
+                            # rename (for variant based naming which is too rich)
+                            if rename:
+                                ivpairs[intervalindex[pair.name]][-1].rename(rename)
                         else:
                             # add to blacklist if design limits fail
                             blacklist.append(pair.uniqueid())
@@ -341,7 +349,7 @@ def getPrimers(intervals, db, design, config, deep=True):
     print >> sys.stderr, '{:<20} {:9} {:<10}'.format('INTERVAL', 'AMPLICONS', 'STATUS')
     print >> sys.stderr, '-'*41
     for iv,p in sorted(ivpairs.items(),key=lambda x:x[0].name):
-        print >> sys.stderr, '{:<20} {:9} {:<10}'.format(iv.name, len(p), "FAIL" if len(p)<config['report']['pairs'] else "OK")
+        print >> sys.stderr, '{:<20} {:9} {:<10}'.format(unquote(iv.name), len(p), "FAIL" if len(p)<config['report']['pairs'] else "OK")
 
     ## get best primer pairs
     ##### PRIORITISE AND ALWAYS PRINT DATABASE PRIMERS
@@ -350,7 +358,7 @@ def getPrimers(intervals, db, design, config, deep=True):
     primerVariants = defaultdict(list)  # primerpair -> intervalnames/variants dict
     missedIntervals = []  # list of missed intervals/variants
     for iv in sorted(ivpairs.keys()):
-        print "IV", iv.name
+        print "IV", unquote(iv.name)
         if not ivpairs[iv]:
             missedIntervals.append(iv)
         for i, p in enumerate(sorted(ivpairs[iv])):
@@ -362,7 +370,7 @@ def getPrimers(intervals, db, design, config, deep=True):
             # save result (with interval names)
             primerVariants[p].append(iv)
             # save to primer table
-            primerTable.append([iv.name] + str(p).split('\t'))
+            primerTable.append([unquote(iv.name)] + str(p).split('\t'))
     # update primer pairs with covered variants
     for pp, v in primerVariants.items():
         pp.variants = v
@@ -414,7 +422,8 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
     for sample, intervals in sorted(sampleVariants.items(),key=lambda x: x[0]):
         print >> sys.stderr, "Getting primers for {} variants in sample {}".format(len(intervals),sample)
         # get/design primers
-        primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config,deep)
+        print >> sys.stderr, intervals
+        primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config,deep,rename=shortHumanReadable)
         if missedIntervals:
             allMissedIntervals[sample] = missedIntervals
             missedIntervalNames += [ i.name for i in missedIntervals ]
@@ -480,7 +489,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
             with open(writtenFiles[-1],'w') as fh:
                 print >> fh, '\t'.join(['sample','variant'])
                 for sample, missed in sorted(allMissedIntervals.items()):
-                    print >> fh, '\n'.join([ '\t'.join([sample,i.name]) for i in missed ])
+                    print >> fh, '\n'.join([ '\t'.join([sample,unquote(i.name)]) for i in missed ])
     return writtenFiles, sorted(list(set(missedIntervalNames)))
 
 # update storage location for primer
