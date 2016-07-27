@@ -70,7 +70,7 @@ def location_updated(status):
     return render_template('location_updated.html', status)
 
 
-@app.route('/upload/', methods=['POST'])
+@app.route('/upload/', methods=['POST', 'GET'])
 def upload():
     # read form
     uploadFile = request.files['filePath']
