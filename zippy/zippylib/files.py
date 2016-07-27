@@ -16,7 +16,7 @@ from collections import Counter, defaultdict
 from hashlib import sha1
 from . import ConfigError
 from .interval import *
-
+from urllib import quote, unquote
 
 '''GenePred parser with automatic segment numbering and tiling'''
 class GenePred(IntervalList):
@@ -200,17 +200,19 @@ class SNPpy(IntervalList):
                         except:
                             raise Exception('UnknownColumn')
                     chrom = row['chromosome'][3:] if row['chromosome'].startswith('chr') else row['chromosome']
-                    if '-' in row['position']:  # interval
+                    # parse variant name
+                    variantDescription = [ row['geneID'] ]
+                    if '-' in row['position']:  # interval (gene,chrom,exon,hgvs/pos,zyg)
                         chromStart, chromEnd = map(int,row['position'].split('-'))
-                        variantName = '_'.join([row['geneID'],row['chromosome'],row['position']])  # use exon number
-                    else:  # variant
-                        chromStart = int(row['position'])
-                        chromEnd = chromStart+hgvsLength(row['HGVS_c'])
-                        try:
-                            variantName = '_'.join([row['geneID'],row['rank'].split('/')[0]])  # use exon number
-                        except:
-                            variantName = '_'.join([row['geneID'],row['transcriptID'],row['HGVS_c']]).replace('>','to')
-                    iv = Interval(chrom,chromStart,chromEnd,name=variantName,sample=row['sampleID'])
+                        variantDescription += [ row['chromosome'] ]
+                    else:  # variant (gene,tx,exon,hgvs/pos,zyg)
+                        chromStart, chromEnd = int(row['position']), int(row['position'])+hgvsLength(row['HGVS_c'])
+                        variantDescription += [ row['transcriptID'] ]
+                    if 'rank' in row.keys() and '/' in row['rank']:
+                        variantDescription += 'exon'+row['rank'].split('/')[:1]  # exonnumber
+                    variantDescription += [ row['HGVS_c'] if 'HGVS_c' in row.keys() and row['HGVS_c'] else row['position'] ]  # HGVS
+                    variantDescription += [ ':'.join([ row[k] for k in sorted(row.keys()) if k.startswith('GT') ]) ]  # zygosity
+                    iv = Interval(chrom,chromStart,chromEnd,name=quote(','.join(variantDescription)),sample=row['sampleID'])
                 except:
                     print >> sys.stderr, line
                     print >> sys.stderr, row

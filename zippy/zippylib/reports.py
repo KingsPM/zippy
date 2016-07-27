@@ -15,29 +15,27 @@ import time, datetime
 from math import ceil
 from copy import deepcopy
 from random import shuffle
-from itertools import product
+from itertools import product, groupby, chain
 from functools import partial
 from hashlib import sha1
 from collections import Counter
 from . import PlateError, char_range, imageDir, githash
 from .primer import parsePrimerName, PrimerPair, Primer
+from urllib import unquote
 
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm, inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, BaseDocTemplate, Frame, Paragraph, Spacer, Image, Table, TableStyle, PageBreak, NextPageTemplate, PageTemplate
 from reportlab.platypus.flowables import KeepTogether
 from reportlab.rl_config import defaultPageSize
 
-# Page Settings
-PAGE_HEIGHT=defaultPageSize[1]; PAGE_WIDTH=defaultPageSize[0]
-leftMargin = rightMargin = 2.6*cm
-topMargin = 2*cm
-bottomMargin = 2*cm
 
+# Page Settings
+leftMargin = rightMargin = topMargin = bottomMargin = 2*cm
 
 # MolPath version controlled document template
 class MolPathTemplate(canvas.Canvas):
@@ -67,25 +65,27 @@ class MolPathTemplate(canvas.Canvas):
         page_count = len(self.pages)
         for page in self.pages:
             self.__dict__.update(page)
-            self.makePage(page_count)
+            self.makePage(page_count,page['_pagesize'])
             canvas.Canvas.showPage(self)
         canvas.Canvas.save(self)
 
-    def makePage(self, page_count):
+    def makePage(self, page_count, pagesize):
         self.setFont("Helvetica", 9)
-        # docid and site string
+        # docid
         if self.site:
-            self.drawRightString(PAGE_WIDTH-rightMargin, PAGE_HEIGHT-topMargin/2.0, self.site)
+            self.drawRightString(pagesize[0]-rightMargin, pagesize[1]-topMargin/2.0, self.site)
+        # sitestring
         if self.docid:
-            self.drawString(leftMargin, PAGE_HEIGHT-topMargin/2.0, self.docid)
+            self.drawString(leftMargin, pagesize[1]-topMargin/2.0, self.docid)
         # authorised by
         if self.auth:
             self.drawString(leftMargin, bottomMargin/2, "Authorised by %s" % self.auth)
         # version
-        self.drawCentredString(PAGE_WIDTH/2, bottomMargin/2, githash('zippy'))
+        self.drawCentredString(pagesize[0]/2, bottomMargin/2, githash('zippy'))
         # page number
         page = "Page %s of %s" % (self._pageNumber, page_count)
-        self.drawRightString(PAGE_WIDTH-rightMargin, bottomMargin/2, page)
+        self.drawRightString(pagesize[0]-rightMargin, bottomMargin/2, page)
+
 
 # Report
 class Report(object):
@@ -95,15 +95,36 @@ class Report(object):
         self.auth = auth
         self.docid = docid
         # get document
-        self.doc = SimpleDocTemplate(fi,pagesize=A4,
-                        rightMargin=rightMargin,leftMargin=leftMargin,
-                        topMargin=2*cm,bottomMargin=cm)
+        self.doc = BaseDocTemplate(fi,
+                      rightMargin=rightMargin,
+                      leftMargin=leftMargin,
+                      topMargin=topMargin,
+                      bottomMargin=bottomMargin,
+                      leftPadding = 0,
+                      rightPadding = 0,
+                      topPadding = 0,
+                      bottomPadding = 0,
+                      showBoundary=0)
+
         # style sheets
         self.styles = getSampleStyleSheet()
         self.styles.add(ParagraphStyle(name='Justify', alignment=TA_JUSTIFY))
         self.styles.add(ParagraphStyle(name='Warning', backColor = '#FFFF00', borderColor = "#000000"))
         self.styles.add(ParagraphStyle(name='tiny', fontSize=4, leading=4, alignment=TA_CENTER))
         self.styles.add(ParagraphStyle(name='small', fontSize=6, leading=6))
+        self.styles.add(ParagraphStyle(name='normal', fontSize=8, leading=6))
+        self.styles.add(ParagraphStyle(name='big', fontSize=10, leading=6))
+        self.styles.add(ParagraphStyle(name='huge', fontSize=12, leading=6))
+
+        # add Page templates
+        frame1 = Frame(self.doc.leftMargin, self.doc.bottomMargin,
+            self.doc.width, self.doc.height)
+        frame2 = Frame(self.doc.leftMargin, self.doc.bottomMargin,
+            self.doc.height, self.doc.width)
+        ptemplate = PageTemplate(id='portrait',frames =[frame1], onPage=lambda canvas, doc: canvas.setPageSize(A4))
+        ltemplate = PageTemplate(id='landscape',frames =[frame2], onPage=lambda canvas, doc: canvas.setPageSize(landscape(A4)))
+        self.doc.addPageTemplates([ptemplate, ltemplate])
+
         # flowable elements
         self.elements = []
         # Header
@@ -153,9 +174,6 @@ class Report(object):
             ('LEFTPADDING',(1,1),(-1,-1),1),
             ('RIGHTPADDING',(1,1),(-1,-1),1)
             ])
-
-        # self.elements.append(Paragraph('Plate layouts', self.styles["Heading2"]))
-        # self.elements.append(Spacer(1, 2))
         for plateNumber, data in enumerate(plates):
             self.elements.append(Paragraph('Plate%s' % str(plateNumber+1), self.styles["Heading4"]))
             data = [ [ chr(ord('A')+i) ] + r for i,r in enumerate(data) ]  # add row names
@@ -169,7 +187,86 @@ class Report(object):
             self.elements.append(KeepTogether(t))
             self.elements.append(Spacer(1, 12))
 
-    def samplePrimerLists(self,s,p):
+    def setNextPageTemplate(self,template):
+        self.elements.append(NextPageTemplate(template))
+
+    # generic dataframe style table (relative column width, pagesize dependent, full width)
+    def genericTable(self, data, landscape=False, rowShading=False, header=True, tableTitle=None, relativeColWidth=None, rowHeight=0.5*cm, mergeColumnFields=None):
+        # global stylesheet
+        stylesheet = [
+            ('ALIGN',(0,0),(-1,-1),'LEFT')
+        ]
+        # header dependent styles
+        if header:
+            stylesheet += [
+                ('FONTSIZE',(0,0),(-1,0),9),
+                ('BACKGROUND', (0,0), (-1,0), colors.bisque),  # header color
+                ('INNERGRID', (0,0), (-1,0), 0.25, colors.black), # header inner grid
+                ('BOX', (0,0), (-1,0), 1, colors.black)  # header box
+            ]
+        # Data cell styles
+        firstData = (0,1) if header else (0,0)
+        stylesheet += [
+            ('FONTSIZE',firstData, (-1,-1),8),
+            ('VALIGN', firstData, (-1,-1), 'MIDDLE') # middle cell alignment for data rows
+        ]
+        # column create boxes (merge cells?)
+        groupBoxes = []  # rows to box
+        if mergeColumnFields is None:
+            mergeColumnFields = list(range(len(data[0])))
+        # get column numbers for unmerged fields (draw individual cells on those)
+        for c in set(range(len(data[0]))) - set(mergeColumnFields):
+            stylesheet += [
+                ('INNERGRID', (c,firstData[1]), (c,-1), 0.25, colors.black),
+                ('BOX', (c,firstData[1]), (c,-1), 0.25, colors.black)
+            ]
+        # MERGE CELLS
+        for i, c in enumerate(mergeColumnFields):
+            rowRanges = range(firstData[1],len(data[firstData[1]:]))  # groups that are treated seperately
+            offsetRow = firstData[1]  # define first row offset
+            for k,g in groupby([ data[r][c] for r in range(firstData[1],len(data)) ]):
+                groupSize = len(list(g))
+                startRow, endRow = offsetRow, offsetRow + groupSize - 1  # set start,end rows for group
+                offsetRow = endRow + 1  # update offsetRow
+                # add Box for cell groups
+                stylesheet += [ ('BOX', (c,startRow), (c,endRow), 0.25, colors.black) ]
+                # create box if first request column to merge cells in
+                if i==0:
+                    groupBoxes += [ ('BOX', (0,startRow), (-1,endRow), 1, colors.black) ]  # data box
+                # merge cells
+                mergeData = [ data[r][c] for r in range(startRow,offsetRow) ]
+                assert len(set(mergeData))==1
+                for n, r in enumerate(range(startRow,offsetRow)):
+                    # remove duplicate fields
+                    if n:
+                        data[r][c] = ''
+        stylesheet += groupBoxes  # add group boxes
+        if rowShading:
+            for r in range(firstData[1],len(data)):
+                stylesheet += [('BACKGROUND',(0,r),(-1,r),colors.lightgrey)] if r % 2 == 0 else [('BACKGROUND',(0,r),(-1,r),colors.snow)]
+        # add title
+        if tableTitle:
+            self.elements.append(Paragraph(tableTitle, self.styles["Heading4"]))
+            self.elements.append(Spacer(1, 2))
+        # define columnWidths
+        frameWidth = self.doc.height if landscape else self.doc.width
+        if relativeColWidth:
+            # define relative columns widths
+            colw = [ x*frameWidth/sum(relativeColWidth) for x in relativeColWidth ]
+        else:
+            colw = frameWidth/float(len(data[0]))
+
+        # create table
+        rowHeights = [rowHeight*1.2] + [rowHeight]*(len(data)-1) if header else [rowHeight] * len(data)
+        t = Table(data, colWidths=colw, rowHeights=rowHeights, repeatRows=1 if header else 0)
+        t.setStyle(TableStyle(stylesheet))
+        self.elements.append(t)
+        self.elements.append(Spacer(1, 12))
+
+    def pageBreak(self):
+        self.elements.append(PageBreak())
+
+    def samplePrimerLists(self,s,p,counts=Counter()):
         TABLE_STYLE = TableStyle([
             ('FONTSIZE',(0,1),(-1,-1),8),  # body
             ('FONTSIZE',(0,0),(-1,0),10),  # title line
@@ -185,7 +282,7 @@ class Report(object):
         doubleLine = ParagraphStyle('suffixes', fontSize=5, leading=5)  # suffix column
         centered = ParagraphStyle('locations', fontSize=8, leading=5, alignment=1)  # Location column
         centeredsmall = ParagraphStyle('locations', fontSize=6, leading=6, alignment=1)  # Location column
-        data = [[str(len(s)),'Samples','',str(len(p)),'Primer Pair', 'Suffixes', 'Locations']]
+        data = [[str(len(s)),'Samples','',str(len(p)),'Primer Pairs', 'Suffixes', 'Locations']]
         for i in range(max(len(s),len(p))):
             if i<len(p):
                 if any(p[i][2]):
@@ -193,8 +290,8 @@ class Report(object):
                     locationParagraph = Paragraph(locationString, centered if len(locationString) < 10 else centeredsmall)
                 else:
                     locationParagraph = Paragraph(' ',centered)
-            data.append([ '', s[i] if i<len(s) else '', '', ''] + \
-            ([ p[i][0], Paragraph('<br/>'.join(p[i][1]),doubleLine), locationParagraph ] if i<len(p) else ['','','']))
+            data.append(([ counts[s[i]] if counts else '', s[i] ] if i<len(s) else ['','']) + [''] + \
+                ([ counts[p[i][0]] if counts else '', p[i][0], Paragraph('<br/>'.join(p[i][1]),doubleLine), locationParagraph ] if i<len(p) else ['','','','']))
         self.elements.append(Spacer(1, 2))
         t = Table(data, colWidths=[0.6*cm,5*cm,0.3*cm,0.6*cm,5.3*cm,1.6*cm,2.1*cm], rowHeights=0.6*cm)
         t.setStyle(TABLE_STYLE)
@@ -228,34 +325,82 @@ class Report(object):
         self.elements.append(KeepTogether(t))
         self.elements.append(Spacer(1, 12))
 
-    def checkBoxes(self,titles):
-        # right justified checkboxes with appropriate names
-        TABLE_STYLE = TableStyle([
-            ('ALIGN',(0,0),(-1,-1),'RIGHT'),
-            ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
-            ('FONTSIZE',(0,1),(-1,-1),8),
-            ('BOX', (0,0), (-1,-1), 1, colors.black),
-            ('INNERGRID', (0,0), (-1,-1), 0.25, colors.black),
-            ('LINEABOVE', (0,1), (-1,1), 1, colors.black),
-            ('BACKGROUND', (0,0), (-1,0), colors.bisque)
-            ])
+    def checkBoxes(self,title='Checks',table=[],tableHeader=['Task','Date','Checker'],tickbox=[],tickboxNames=['YES','NO'],textLines={}):
+        # title
+        if title:
+            self.elements.append(Paragraph(title, self.styles["Heading4"]))
+            self.elements.append(Spacer(1, 2))
+        # Task table
+        if table:
+            # right justified checkboxes with appropriate names
+            TABLE_STYLE = TableStyle([
+                ('ALIGN',(0,0),(-1,-1),'RIGHT'),
+                ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+                ('FONTSIZE',(0,1),(-1,-1),8),
+                ('BOX', (0,0), (-1,-1), 1, colors.black),
+                ('INNERGRID', (0,0), (-1,-1), 0.25, colors.black),
+                ('LINEABOVE', (0,1), (-1,1), 1, colors.black),
+                ('BACKGROUND', (0,0), (-1,0), colors.bisque)
+                ])
+            data = [tableHeader]
+            for i in range(len(table)):
+                data.append([ table[i], '', '' ])
+            t = Table(data, colWidths=[7.5*cm,4*cm,4*cm], rowHeights=0.6*cm)
+            t.setStyle(TABLE_STYLE)
+            self.elements.append(KeepTogether(t))
+            self.elements.append(Spacer(1, 6))
 
-        self.elements.append(Paragraph('Checks', self.styles["Heading4"]))
-        self.elements.append(Spacer(1, 2))
-        data = [[ 'Task', 'Date', 'Checker', 'Notes']]
-        for i in range(len(titles)):
-            data.append([ titles[i], '', '' ])
-        t = Table(data, colWidths=[4*cm,3*cm,3*cm,5.5*cm], rowHeights=0.6*cm)
-        t.setStyle(TABLE_STYLE)
-        self.elements.append(KeepTogether(t))
-        self.elements.append(Spacer(1, 12))
+        if tickbox:
+            stylesheet = [
+                ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+                ('ALIGN',(1,0),(-1,-1),'LEFT'),
+                ('ALIGN',(0,0), (0,-1),'RIGHT'),
+                ('FONTSIZE',(0,0),(-1,-1),9)
+            ]
+            # set column width
+            colWidths = [3*cm]
+            for t in tickboxNames:
+                colWidths += [0.6*cm,1.2*cm]
+            # set row heights
+            rowHeights = []
+            # compile data
+            data = []
+            for i, b in enumerate(tickbox):
+                data.append([ b ])
+                for j, t in enumerate(tickboxNames):
+                    data[-1] += [ '', t ]
+                    stylesheet += [ ('BOX', (2*j+1,i*2), (2*j+1,i*2), 1, colors.black) ]
+                data.append(['']*len(data[-1]))  # empty line
+                rowHeights += [0.6*cm,0.3*cm]
+            t = Table(data, colWidths=colWidths, rowHeights=rowHeights)
+            t.setStyle(TableStyle(stylesheet))
+            self.elements.append(KeepTogether(t))
+            self.elements.append(Spacer(1, 6))
+
+        if textLines:
+            stylesheet = [
+                ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+                ('ALIGN',(1,0),(-1,-1),'LEFT'),
+                ('ALIGN',(0,0), (0,-1),'RIGHT'),
+                ('FONTSIZE',(0,0),(0,-1),12),
+                ('LINEBELOW', (1,0), (1,-1), 1.0, colors.black)
+            ]
+            data = []
+            for t,l in textLines.items():
+                for i in range(l):
+                    data.append([ t+':' if i==0 else '', ''])
+            t = Table(data, colWidths=[4*cm,11.5*cm], rowHeights=0.6*cm)
+            t.setStyle(TableStyle(stylesheet))
+            self.elements.append(KeepTogether(t))
+            self.elements.append(Spacer(1, 6))
+        self.elements.append(Spacer(1, 6))
 
     def build(self):
         self.doc.build(self.elements, \
             canvasmaker=partial(MolPathTemplate, site=self.site, auth=self.auth, docid=self.docid))
 
 
-'''PCR test (PrimerPair, samplename]'''
+'''PCR test (PrimerPair (with variants), samplename]'''
 class Test(object):
     def __init__(self,primerpair,sample,**kwargs):
         self.sample = sample
@@ -266,21 +411,9 @@ class Test(object):
         return "%s(%r)" % (self.__class__, self.__dict__)
 
     def __str__(self):
-        try:
-            testString = [
-                str(self.__class__),
-                self.sample,
-                self.primerpair,
-                str(self.control),
-                ','.join(map(str,self.primerpairobject.locations()))
-            ]
-        except:
-            raise
-        else:
-            return ' '.join(testString)
+        return "{} {} {}".format(self.sample, self.primerpair, ','.join(map(repr,self.primerpairobject.variants)))
 
     def __hash__(self):
-        #hash((self.sample,self.primerpair,self.control))
         return hash(self.sample) ^ hash(self.primerpair) ^ hash(self.control)
 
     def __eq__(self,other):
@@ -379,6 +512,15 @@ class Worksheet(list):
         self += controlsamples.values()
         return
 
+    ''' count reactions '''
+    def reactionCount(self):
+        reactions = Counter()
+        for plate in self.plates:
+            for test in plate.testList():
+                reactions[test.sample] += 1
+                reactions[test.primerpair] += 1
+        return reactions
+
     '''PDF worksheet'''
     def createWorkSheet(self,fi,primertest=False,worklist='',**kwargs):
         logo = kwargs['logo'] if 'logo' in kwargs.keys() and kwargs['logo'] else None
@@ -388,8 +530,8 @@ class Worksheet(list):
         r = Report(fi,title=self.name,logo=logo,site=site,auth=auth,docid=docid,worklist=worklist)
         # add plates
         samples, primers, plates = [], [], []
-        for p in self.plates:
-            s, p, m = p.platemap()  # gets samples, (pairname, (primersuffixes), (locations)), platemap
+        for plate in self.plates:
+            s, p, m = plate.platemap()  # gets samples, (pairname, (primersuffixes), (locations)), platemap
             samples += s
             primers += p  # PrimerPair Objects
             plates.append(m)
@@ -402,15 +544,39 @@ class Worksheet(list):
             for p in set(primers) }
         orderedPrimers = [ (x[0].name, x[0].primerSuffixes(), tuple(x[0].locations())) for x in sorted(primerOrder.items(), key=lambda x: x[1]) ]
         # store ordered list of sample (str) and primers (primername, primersuffixes, locations)
-        r.samplePrimerLists(orderedSamples,orderedPrimers)
+        r.samplePrimerLists(orderedSamples,orderedPrimers,counts=self.reactionCount())
         # reaction volume list
         r.volumeLists(sum([len(p) for p in self.plates]),kwargs['volumes']['mastermix'],kwargs['volumes']['qsolution'],kwargs['volumes']['excess'],kwargs['volumes']['program'])
         # add checkboxes
         checkTasks = ['New primers ordered', 'Plate orientation checked', 'Primer checked and storage assigned'] if primertest \
             else ['Plate orientation checked', 'DNA barcodes relabeled']
-        r.checkBoxes(checkTasks)
+        r.checkBoxes(title='',table=checkTasks)
         # plate layout
         r.plateLayouts(plates)
+        # print result table
+        if primertest:
+            fields = [[ 'Primer Pair', 'Amplicon Size', 'Result']]
+            for i,t in enumerate([ x for x in sorted(self,key=lambda x: (x.sample,x.primerpair)) if not x.control ]):
+                fields += [[ t.primerpair, str(t.primerpairobject.targetLength(includePrimers=True))+' bp', '']]
+            # create result table
+            r.pageBreak()
+            r.genericTable(fields,tableTitle='Results',landscape=False, mergeColumnFields=[], relativeColWidth=[2,1,3])
+            # add checkboxes
+            checkTasks = ['Primer checked and storage assigned']
+            r.checkBoxes(title='',table=checkTasks)
+        else:
+            fields = [['DNA #', 'Patient Name', 'Primer Pair', 'Variant', 'Zygosity', 'Result', 'Check']]
+            for i,t in enumerate([ x for x in sorted(self,key=lambda x: (x.sample,x.primerpair)) if not x.control ]):
+                for v in t.primerpairobject.variants:
+                    fields += [[ t.sample, '', t.primerpair, ' '.join(unquote(v.name).split(',')[:-1]), unquote(v.name).split(',')[-1], '', '']]
+            # create result table
+            r.setNextPageTemplate('landscape')
+            r.pageBreak()
+            r.genericTable(fields,tableTitle='Results',landscape=True, mergeColumnFields=[0,1],relativeColWidth=[0.8,0.8,0.8,2.6,0.5,2.2,0.4])
+            # add checkboxes
+            r.checkBoxes(title='',table=['Primary Reporter', 'Secondary Reporter'],tableHeader=['Reporter','Date','Initial'],
+                tickbox=['Unmatched Sample Check', 'Control Check'], tickboxNames=['YES','NO'],
+                textLines={'Comments': 3})
         # build pdf
         r.build()
 
@@ -424,7 +590,8 @@ class Worksheet(list):
                 for i,row in enumerate(p.M):
                     for j,cell in enumerate(row):
                         if cell:
-                            d = cell.primerpairobject.uniqueid()[:10]  # uniqueid
+                            # barcode id (with collision check, as trucated 32 byte string)
+                            d = cell.primerpairobject.uniqueid()[:10]  # truncated uniqueid (1,099,511,627,776)
                             if d in digests.keys():
                                 try:
                                     assert cell.primerpair == digests[d]
@@ -434,13 +601,15 @@ class Worksheet(list):
                                     continue  # dont print same barcode multiple times
                             else:
                                 digests[d] = cell.primerpair
+                            # Location string
+                            locations = ' '.join([ str(l) if l else '' for l in cell.primerpairobject.locations() ])
                             # get tag name
                             tagstring = '/'.join(set([ x.tag for x in cell.primerpairobject ]))
                             print >> fh, "^XA"  # start label
-                            print >> fh, "^PR1,D,A"  # slower print speed
-                            print >> fh, "^FO20,50^AB^FD{}^FS".format(self.date[:self.date.rfind('.')])  # date to the second
-                            print >> fh, "^FO20,70^AB,25^FD{}  ({})^FS".format(cell.primerpair,tagstring)  # primer name
-                            print >> fh, "^FO20,100^BY1.5^BCN,80,Y,N,N^FD{}^FS".format(d)  # uniqueid
+                            print >> fh, "^PR1,A,A"  # slower print speed
+                            print >> fh, "^FO20,50^AB^FD{}  {}^FS".format(self.date[:self.date.rfind('.')],locations)  # date and location
+                            print >> fh, "^FO20,70^AB,25^FD{}^FS".format(cell.primerpair)  # primer name
+                            print >> fh, "^FO20,100^BY1.5^BCN,80,Y,N,N^FD{}^FS".format(d)  # Barcode uniqueid
                             print >> fh, "^XZ"  # end label
 
 
@@ -455,6 +624,9 @@ class Plate(object):
 
     def __len__(self):
         return sum([ len([ f for f in r if f]) for r in self.M ])
+
+    def testList(self):
+        return [ t for t in chain.from_iterable(zip(*self.M)) if t is not None ]
 
     def platemap(self):
         s, p = set(), set()
