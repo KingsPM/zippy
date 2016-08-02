@@ -584,7 +584,7 @@ def main():
     ## add primers
     parser_add = subparsers.add_parser('add', help='Add previously designed primers to database')
     parser_add.add_argument("primers", default=None, metavar="FASTA/TAB", \
-        help="Primer FASTA to add to database (automatically finds targets)")
+        help="Primers or locations to add to database")
     parser_add.set_defaults(which='add')
 
     ## retrieve
@@ -624,7 +624,7 @@ def main():
     ## update
     parser_update = subparsers.add_parser('update', help='Update status and location of primers')
     parser_update.add_argument('-l', dest="location", nargs=3, \
-        help="Update storage location of primer pair (pairid vessel well)")
+        help="Update storage location of primer pair (primerid vessel well)")
     parser_update.add_argument("--force", dest="force", default=False, action='store_true', \
         help="Force Location update (resets existing)")
     parser_update.add_argument('-b', dest="blacklist", type=str, \
@@ -656,13 +656,15 @@ def main():
 
     if options.which=='add':  # read primers and add to database
         # import primer pairs
-        pairs = importPrimerPairs(options.primers, config, primer3=False)  # import and locate primer pairs
-        print >> sys.stderr, "Storing Primers..."
-        db.addPair(*pairs)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
-        sys.stderr.write('Added {} primer pairs to database\n'.format(len(pairs)))
+        if options.primers.split('.')[-1].startswith('fa'):
+            pairs = importPrimerPairs(options.primers, config, primer3=False)  # import and locate primer pairs
+            print >> sys.stderr, "Storing Primers..."
+            db.addPair(*pairs)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
+            sys.stderr.write('Added {} primer pairs to database\n'.format(len(pairs)))
         # store locations if table
         if not options.primers.split('.')[-1].startswith('fa'):  # assume table format
             locations = importPrimerLocations(options.primers)
+            print >> sys.stderr, "Setting Primer locations..."
             db.addLocations(*locations.items())
             sys.stderr.write('Added {} locations for imported primers\n'.format(len(locations)))
     elif options.which=='dump':  # data dump fucntions (`for bulk downloads`)
@@ -700,6 +702,8 @@ def main():
     elif options.which=='update':  #update location primer pairs are stored
         if options.location:
             primer, vessel, well = options.location
+            print >> sys.stderr, updateLocation(primer, Location(vessel, well), db, options.force)
+        if options.locationtable:
             print >> sys.stderr, updateLocation(primer, Location(vessel, well), db, options.force)
         if options.blacklist:
             print >> sys.stderr, 'BLACKLISTED PAIRS: {}'.format(','.join(db.blacklist(options.blacklist)))
