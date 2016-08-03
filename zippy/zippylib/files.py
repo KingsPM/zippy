@@ -20,7 +20,7 @@ from urllib import quote, unquote
 
 '''GenePred parser with automatic segment numbering and tiling'''
 class GenePred(IntervalList):
-    def __init__(self,fh,getgenes=None,interval=None,overlap=None,flank=0,combine=True):
+    def __init__(self,fh,getgenes=None,interval=None,overlap=None,flank=0,combine=True,noncoding=False):
         IntervalList.__init__(self, [], source='GenePred')
         counter = Counter()
         intervalindex = defaultdict(list)
@@ -33,13 +33,19 @@ class GenePred(IntervalList):
                 # create gene and add exons
                 f = line.split()
                 assert f[3] in ['+','-']
-                if getgenes and (f[12] not in getgenes or int(f[6])==int(f[7])):  # ignore non-coding transcripts
+                # coding / noncoding
+                if getgenes and (f[12] not in getgenes or int(f[6])==int(f[7])) and not noncoding:  # ignore non-coding transcripts
                     continue
+                geneStart = int(f[4]) if noncoding else int(f[6])
+                geneEnd = int(f[5]) if noncoding else int(f[7])
                 reverse = f[3].startswith('-')
-                gene = Interval(f[2],int(f[4]),int(f[5]),f[12],reverse)
+                gene = Interval(f[2],geneStart,geneEnd,f[12],reverse)
+                # parse exons
                 for e in zip(f[9].split(','),f[10].split(',')):
+                    exonStart = int(e[0]) if noncoding else max(geneStart,int(e[0]))
+                    exonEnd = int(e[1]) if noncoding else min(geneEnd,int(e[1]))
                     try:
-                        gene.addSubintervals([Interval(f[2],int(e[0]),int(e[1]),f[12],reverse)])
+                        gene.addSubintervals([Interval(f[2],exonStart,exonEnd,f[12],reverse)])
                     except ValueError:
                         pass
                     except:
