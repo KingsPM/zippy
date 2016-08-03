@@ -235,7 +235,6 @@ class PrimerDB(object):
         else:
             cursor = self.db.cursor()
             datematch = re.compile("([0-9\s-]+)$")
-            print >> sys.stderr, query
             if datematch.match(str(query)): # query date
                 subSearchName = '%'+query+'%'
                 cursor.execute('''SELECT DISTINCT p.pairid, l.tag, r.tag, l.seq, r.seq, p.left, p.right,
