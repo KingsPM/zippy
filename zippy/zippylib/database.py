@@ -3,7 +3,7 @@
 __doc__=="""SQLITE Database API"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "2.1.0"
+__version__ = "2.2.1"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -235,7 +235,6 @@ class PrimerDB(object):
         else:
             cursor = self.db.cursor()
             datematch = re.compile("([0-9\s-]+)$")
-            print >> sys.stderr, query
             if datematch.match(str(query)): # query date
                 subSearchName = '%'+query+'%'
                 cursor.execute('''SELECT DISTINCT p.pairid, l.tag, r.tag, l.seq, r.seq, p.left, p.right,

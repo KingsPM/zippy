@@ -10,7 +10,7 @@ __doc__=="""
 __author__ = "David Brawand"
 __credits__ = ['David Brawand','Christopher Wall']
 __license__ = "MIT"
-__version__ = "2.1.0"
+__version__ = "2.2.1"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -423,7 +423,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
     for sample, intervals in sorted(sampleVariants.items(),key=lambda x: x[0]):
         print >> sys.stderr, "Getting primers for {} variants in sample {}".format(len(intervals),sample)
         # get/design primers
-        print >> sys.stderr, intervals
+        #print >> sys.stderr, intervals
         primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config,deep,rename=shortHumanReadable)
         if missedIntervals:
             allMissedIntervals[sample] = missedIntervals
@@ -498,13 +498,13 @@ def updateLocation(primername, location, database, force=False):
     occupied = database.getLocation(location)
     if not occupied or force:
         if database.storePrimer(primername,location,force):
-            print sys.stderr, '%s location sucessfully set to %s' % (primername, str(location))
+            print >> sys.stderr, '%s location sucessfully set to %s' % (primername, str(location))
             return ('success', location)
         else:
-            print sys.stderr, 'WARNING: %s location update to %s failed' % (primername, str(location))
+            print >> sys.stderr, 'WARNING: %s location update to %s failed' % (primername, str(location))
             return ('fail', location)
     else:
-        print sys.stderr, 'Location already occupied by %s' % (' and '.join(occupied))
+        print >> sys.stderr, 'Location already occupied by %s' % (' and '.join(occupied))
         return ('occupied', occupied)
 
 # search primer pair by name substring matching
@@ -517,26 +517,26 @@ def searchByName(searchName, db):
 def updatePrimerName(primerName, newName, db):
     nameUpdate = db.updateName(primerName, newName)
     if nameUpdate:
-        print sys.stderr, 'Primer %s renamed %s' % (primerName, newName)
+        print >> sys.stderr, 'Primer %s renamed %s' % (primerName, newName)
         return nameUpdate
     else:
-        print sys.stderr, 'Primer renaming failed'
+        print >> sys.stderr, 'Primer renaming failed'
         return nameUpdate
 
 # update name of primer pair in database
 def updatePrimerPairName(pairName, newName, db):
     nameUpdate = db.updatePairName(pairName, newName)
     if nameUpdate:
-        print sys.stderr, 'Pair %s renamed %s' % (pairName, newName)
+        print >> sys.stderr, 'Pair %s renamed %s' % (pairName, newName)
         return nameUpdate
     else:
-        print sys.stderr, 'Pair renaming failed'
+        print >> sys.stderr, 'Pair renaming failed'
         return nameUpdate
 
 # blacklist primer pair in database
 def blacklistPair(pairname, db):
     blacklisted = db.blacklist(pairname)
-    print sys.stderr, '%s added to blacklist' % (blacklisted,)
+    print >> sys.stderr, '%s added to blacklist' % (blacklisted,)
     return blacklisted
 
 def readprimerlocations(locationfile):
