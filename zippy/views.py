@@ -288,7 +288,8 @@ def upload_samplesheet():
         if not locationsheet:
             flash('No csvfile submitted. Please try again','warning')
         else:
-            saveloc = 'uploads/'+locationsheet.filename
+            filename = secure_filename(locationsheet.filename)
+            saveloc = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             locationsheet.save(saveloc)
             updateList = readprimerlocations(saveloc)
             for item in updateList:

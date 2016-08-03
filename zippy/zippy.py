@@ -10,7 +10,7 @@ __doc__=="""
 __author__ = "David Brawand"
 __credits__ = ['David Brawand','Christopher Wall']
 __license__ = "MIT"
-__version__ = "2.1.0"
+__version__ = "2.2.1"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -423,7 +423,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
     for sample, intervals in sorted(sampleVariants.items(),key=lambda x: x[0]):
         print >> sys.stderr, "Getting primers for {} variants in sample {}".format(len(intervals),sample)
         # get/design primers
-        print >> sys.stderr, intervals
+        #print >> sys.stderr, intervals
         primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config,deep,rename=shortHumanReadable)
         if missedIntervals:
             allMissedIntervals[sample] = missedIntervals
@@ -498,13 +498,13 @@ def updateLocation(primername, location, database, force=False):
     occupied = database.getLocation(location)
     if not occupied or force:
         if database.storePrimer(primername,location,force):
-            print sys.stderr, '%s location sucessfully set to %s' % (primername, str(location))
+            print >> sys.stderr, '%s location sucessfully set to %s' % (primername, str(location))
             return ('success', location)
         else:
-            print sys.stderr, 'WARNING: %s location update to %s failed' % (primername, str(location))
+            print >> sys.stderr, 'WARNING: %s location update to %s failed' % (primername, str(location))
             return ('fail', location)
     else:
-        print sys.stderr, 'Location already occupied by %s' % (' and '.join(occupied))
+        print >> sys.stderr, 'Location already occupied by %s' % (' and '.join(occupied))
         return ('occupied', occupied)
 
 # search primer pair by name substring matching
@@ -517,26 +517,26 @@ def searchByName(searchName, db):
 def updatePrimerName(primerName, newName, db):
     nameUpdate = db.updateName(primerName, newName)
     if nameUpdate:
-        print sys.stderr, 'Primer %s renamed %s' % (primerName, newName)
+        print >> sys.stderr, 'Primer %s renamed %s' % (primerName, newName)
         return nameUpdate
     else:
-        print sys.stderr, 'Primer renaming failed'
+        print >> sys.stderr, 'Primer renaming failed'
         return nameUpdate
 
 # update name of primer pair in database
 def updatePrimerPairName(pairName, newName, db):
     nameUpdate = db.updatePairName(pairName, newName)
     if nameUpdate:
-        print sys.stderr, 'Pair %s renamed %s' % (pairName, newName)
+        print >> sys.stderr, 'Pair %s renamed %s' % (pairName, newName)
         return nameUpdate
     else:
-        print sys.stderr, 'Pair renaming failed'
+        print >> sys.stderr, 'Pair renaming failed'
         return nameUpdate
 
 # blacklist primer pair in database
 def blacklistPair(pairname, db):
     blacklisted = db.blacklist(pairname)
-    print sys.stderr, '%s added to blacklist' % (blacklisted,)
+    print >> sys.stderr, '%s added to blacklist' % (blacklisted,)
     return blacklisted
 
 def readprimerlocations(locationfile):
@@ -584,7 +584,7 @@ def main():
     ## add primers
     parser_add = subparsers.add_parser('add', help='Add previously designed primers to database')
     parser_add.add_argument("primers", default=None, metavar="FASTA/TAB", \
-        help="Primer FASTA to add to database (automatically finds targets)")
+        help="Primers or locations to add to database")
     parser_add.set_defaults(which='add')
 
     ## retrieve
@@ -624,7 +624,7 @@ def main():
     ## update
     parser_update = subparsers.add_parser('update', help='Update status and location of primers')
     parser_update.add_argument('-l', dest="location", nargs=3, \
-        help="Update storage location of primer pair (pairid vessel well)")
+        help="Update storage location of primer pair (primerid vessel well)")
     parser_update.add_argument("--force", dest="force", default=False, action='store_true', \
         help="Force Location update (resets existing)")
     parser_update.add_argument('-b', dest="blacklist", type=str, \
@@ -656,13 +656,15 @@ def main():
 
     if options.which=='add':  # read primers and add to database
         # import primer pairs
-        pairs = importPrimerPairs(options.primers, config, primer3=False)  # import and locate primer pairs
-        print >> sys.stderr, "Storing Primers..."
-        db.addPair(*pairs)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
-        sys.stderr.write('Added {} primer pairs to database\n'.format(len(pairs)))
+        if options.primers.split('.')[-1].startswith('fa'):
+            pairs = importPrimerPairs(options.primers, config, primer3=False)  # import and locate primer pairs
+            print >> sys.stderr, "Storing Primers..."
+            db.addPair(*pairs)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
+            sys.stderr.write('Added {} primer pairs to database\n'.format(len(pairs)))
         # store locations if table
         if not options.primers.split('.')[-1].startswith('fa'):  # assume table format
             locations = importPrimerLocations(options.primers)
+            print >> sys.stderr, "Setting Primer locations..."
             db.addLocations(*locations.items())
             sys.stderr.write('Added {} locations for imported primers\n'.format(len(locations)))
     elif options.which=='dump':  # data dump fucntions (`for bulk downloads`)
@@ -700,6 +702,8 @@ def main():
     elif options.which=='update':  #update location primer pairs are stored
         if options.location:
             primer, vessel, well = options.location
+            print >> sys.stderr, updateLocation(primer, Location(vessel, well), db, options.force)
+        if options.locationtable:
             print >> sys.stderr, updateLocation(primer, Location(vessel, well), db, options.force)
         if options.blacklist:
             print >> sys.stderr, 'BLACKLISTED PAIRS: {}'.format(','.join(db.blacklist(options.blacklist)))

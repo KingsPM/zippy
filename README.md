@@ -130,6 +130,12 @@ Set/update primer storage location
 - amplicon rescue for non-specific primers on import
 - Bugfixes
 
+### v2.2.0
+- Web interface changes (search by date, batch location update)
+
+### v2.2.1
+- Bugfixes
+
 ### FUTURE
 - Support for primer collections (multiplexing)
 - Asynchronous design process on webinterface
