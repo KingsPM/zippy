@@ -26,6 +26,7 @@ from zippylib.files import VCF, BED, GenePred, Interval, Data, readTargets, read
 from zippylib.primer import Genome, MultiFasta, Primer3, Primer, PrimerPair, Location, parsePrimerName
 from zippylib.reports import Test
 from zippylib.database import PrimerDB
+from zippylib.interval import IntervalList
 from zippylib import ConfigError, Progressbar, banner
 from zippylib.reports import Worksheet
 from argparse import ArgumentParser
@@ -408,9 +409,19 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
     # predesign
     if predesign and genes and db:
         print >> sys.stderr, "Designing primers for {} genes..".format(str(len(genes)))
-        # parse gene intervals from refGene
+        # Create interval list
+        intervals = IntervalList([],source='GenePred')
+        # parse gene intervals from refGene and retain those intersecting variants
         with open(config['design']['annotation']) as fh:
-            intervals = GenePred(fh,getgenes=genes,**config['tiling'])  # get intervals from file or commandline
+            for iv in GenePred(fh,getgenes=genes,**config['tiling']):  # get intervals from file or commandline
+                found = False
+                for sl in sampleVariants.values():
+                    for iv2 in sl:
+                        if iv.overlap(iv2):
+                            intervals.append(iv)
+                            found = True
+                        if found: break
+                    if found: break
         # predesign and store
         primerTable, resultList, missedIntervals = getPrimers(intervals,db,predesign,config,deep)
         if db:
