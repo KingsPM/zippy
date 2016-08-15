@@ -209,7 +209,7 @@ class SNPpy(IntervalList):
                         chromStart, chromEnd = int(row['position']), int(row['position'])+hgvsLength(row['HGVS_c'])
                         variantDescription += [ row['transcriptID'] ]
                     if 'rank' in row.keys() and '/' in row['rank']:
-                        variantDescription += 'exon'+row['rank'].split('/')[:1]  # exonnumber
+                        variantDescription += [ 'exon'+row['rank'].split('/')[0] ] # exonnumber
                     variantDescription += [ row['HGVS_c'] if 'HGVS_c' in row.keys() and row['HGVS_c'] else row['position'] ]  # HGVS
                     variantDescription += [ ':'.join([ row[k] for k in sorted(row.keys()) if k.startswith('GT') ]) ]  # zygosity
                     iv = Interval(chrom,chromStart,chromEnd,name=quote(','.join(variantDescription)),sample=row['sampleID'])
