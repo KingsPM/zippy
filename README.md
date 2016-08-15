@@ -136,6 +136,10 @@ Set/update primer storage location
 ### v2.2.1
 - Bugfixes
 
+### v2.2.2
+- bugfix in exon annotation of batched variants
+- predesign exons now filtered by requested variants for speed
+
 ### FUTURE
 - Support for primer collections (multiplexing)
 - Asynchronous design process on webinterface
