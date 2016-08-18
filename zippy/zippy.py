@@ -551,24 +551,19 @@ def blacklistPair(pairname, db):
     return blacklisted
 
 def readprimerlocations(locationfile):
-    linecount = 0
     header = []
     updateList = []
     with open(locationfile) as csvfile:
         readfile = csv.reader(csvfile, delimiter=',')
         for line in readfile:
-            if linecount == 0:
+            if not header:
                 header = line
             else:
                 try:
                     row = dict(zip(header,line))
-                    primer = row['Primer Name']
-                    box = row['Box'][3:] if row['Box'].startswith('Box') or row['Box'].startswith('box') else row['Box']
-                    well = row['Well']
-                    updateList.append([primer, Location(box, well)])
+                    updateList.append([row['Primer Name'], Location(row['Box'].strip('Bbox'), row['Well'])])
                 except:
-                    raise Exception('File format not as expected')
-            linecount += 1
+                    raise Exception('InputFormatError')
     return updateList
 
 # ==============================================================================
