@@ -152,7 +152,7 @@ def updatePrimerLocation():
         print >> sys.stderr, 'Please fill in all fields (PrimerName VesselNumber Well)'
         return render_template('location_updated.html', status=None)
     # read config
-    with open(app.config['CONFIG_FILE']) as conf:
+        with open(app.config['CONFIG_FILE']) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
         db = PrimerDB(config['database'])
     # run zippy and render
@@ -279,11 +279,10 @@ def upload_samplesheet():
             saveloc = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             locationsheet.save(saveloc)
             updateList = readprimerlocations(saveloc)
-            for item in updateList:
-                print >> sys.stderr, 'Primer:locations to update: ', item
-                with open(app.config['CONFIG_FILE']) as conf:
-                    config = json.load(conf, object_hook=ascii_encode_dict)
-                    db = PrimerDB(config['database'])
+            with open(app.config['CONFIG_FILE']) as conf:
+                config = json.load(conf, object_hook=ascii_encode_dict)
+                db = PrimerDB(config['database'])
+                for item in updateList:
                     updateStatus = updateLocation(item[0], item[1], db, True) # Force is set to True, will force primers into any occupied locations
                     if updateStatus[0] == 'occupied':
                         flash('Location already occupied by %s' % (' and '.join(updateStatus[1])), 'warning')

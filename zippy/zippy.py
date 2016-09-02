@@ -710,7 +710,9 @@ def main():
             primer, vessel, well = options.location
             print >> sys.stderr, updateLocation(primer, Location(vessel, well), db, options.force)
         if options.locationtable:
-            print >> sys.stderr, updateLocation(primer, Location(vessel, well), db, options.force)
+            updateList = readprimerlocations(options.locationtable)
+            for item in updateList:  # [ Primer, Location ]
+                print >> sys.stderr, updateLocation(item[0], item[1], db, options.force)
         if options.blacklist:
             print >> sys.stderr, 'BLACKLISTED PAIRS: {}'.format(','.join(db.blacklist(options.blacklist)))
             print >> sys.stderr, 'REMOVED ORPHANS:   {}'.format(','.join(db.removeOrphans()))
