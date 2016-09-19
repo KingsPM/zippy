@@ -554,7 +554,7 @@ def readprimerlocations(locationfile):
     header = []
     updateList = []
     with open(locationfile) as csvfile:
-        readfile = csv.reader(csvfile, delimiter=',')
+        readfile = csv.reader(csvfile, delimiter='\t')
         for line in readfile:
             if not header:
                 header = line
@@ -631,6 +631,8 @@ def main():
     parser_update = subparsers.add_parser('update', help='Update status and location of primers')
     parser_update.add_argument('-l', dest="location", nargs=3, \
         help="Update storage location of primer pair (primerid vessel well)")
+    parser_update.add_argument('-t', dest="locationtable", \
+        help="Batch update storage locations from TSV (primerid vessel well)")
     parser_update.add_argument("--force", dest="force", default=False, action='store_true', \
         help="Force Location update (resets existing)")
     parser_update.add_argument('-b', dest="blacklist", type=str, \
@@ -708,11 +710,11 @@ def main():
     elif options.which=='update':  #update location primer pairs are stored
         if options.location:
             primer, vessel, well = options.location
-            print >> sys.stderr, updateLocation(primer, Location(vessel, well), db, options.force)
+            updateLocation(primer, Location(vessel, well), db, options.force)
         if options.locationtable:
             updateList = readprimerlocations(options.locationtable)
             for item in updateList:  # [ Primer, Location ]
-                print >> sys.stderr, updateLocation(item[0], item[1], db, options.force)
+                updateLocation(item[0], item[1], db, options.force)
         if options.blacklist:
             print >> sys.stderr, 'BLACKLISTED PAIRS: {}'.format(','.join(db.blacklist(options.blacklist)))
             print >> sys.stderr, 'REMOVED ORPHANS:   {}'.format(','.join(db.removeOrphans()))

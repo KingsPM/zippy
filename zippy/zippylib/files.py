@@ -42,9 +42,9 @@ class GenePred(IntervalList):
                 gene = Interval(f[2],geneStart,geneEnd,f[12],reverse)
                 # parse exons
                 for e in zip(f[9].split(','),f[10].split(',')):
-                    exonStart = int(e[0]) if noncoding else max(geneStart,int(e[0]))
-                    exonEnd = int(e[1]) if noncoding else min(geneEnd,int(e[1]))
                     try:
+                        exonStart = int(e[0]) if noncoding else max(geneStart,int(e[0]))
+                        exonEnd = int(e[1]) if noncoding else min(geneEnd,int(e[1]))
                         gene.addSubintervals([Interval(f[2],exonStart,exonEnd,f[12],reverse)])
                     except ValueError:
                         pass
