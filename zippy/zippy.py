@@ -397,6 +397,10 @@ def getPrimers(intervals, db, design, config, deep=True, rename=None, compatible
             primerTable.append([unquote(intervals[1].name)] + str(rankedPairs[0][3]).split('\t'))
             primerVariants[rankedPairs[0][2]].append(intervals[0])
             primerVariants[rankedPairs[0][3]].append(intervals[1])
+            # add gap interval
+            gapInterval = Interval(intervals[0].chrom, intervals[0].chromStart, intervals[1].chromEnd)
+            gapPrimerPair = PrimerPair([rankedPairs[0][2][0], rankedPairs[0][3][1]], name='gap_'+gapInterval.name )
+            primerTable.append([unquote(gapInterval.name)] + str(gapPrimerPair).split('\t'))
         else:
             missedIntervals = intervals
     else:
