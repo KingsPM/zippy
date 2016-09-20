@@ -237,7 +237,7 @@ def getPrimers(intervals, db, design, config, deep=True, rename=None, compatible
     except:
         print >> sys.stderr, 'Could not read blacklist cache, check permissions'
         print >> sys.stderr, os.getcwd(), config['blacklistcache']
-    maxTier = len(config['design']['primer3']) if deep else 1  # only search first tier unless deep
+    maxTier = len(config['design']['primer3']) if deep or compatible else 1  # only search first tier unless deep or compatibility mode
     seqhash = lambda x,y: hashlib.sha1(','.join([x,y])).hexdigest()  # sequence pair hashing function
     # build gap primers and hash valid pairs
     if compatible:
@@ -608,14 +608,14 @@ def readprimerlocations(locationfile):
     header = []
     updateList = []
     with open(locationfile) as csvfile:
-        readfile = csv.reader(csvfile, delimiter='\t')
+        readfile = csv.reader(csvfile, delimiter=',')
         for line in readfile:
             if not header:
                 header = line
             else:
                 try:
                     row = dict(zip(header,line))
-                    updateList.append([row['Primer Name'], Location(row['Box'].strip('Bbox'), row['Well'])])
+                    updateList.append([row['PrimerName'], Location(row['Box'].strip('Bbox'), row['Well'])])
                 except:
                     raise Exception('InputFormatError')
     return updateList

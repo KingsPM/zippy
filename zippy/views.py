@@ -21,24 +21,7 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['DOWNLOAD_FOLDER'] = 'results'
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 app.config['CONFIG_FILE'] = os.path.join(APP_ROOT, 'zippy.json')
-app.secret_key = 'someKey'
-
-# app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0'
-# app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
-#
-# celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
-# celery.conf.update(app.config)
-#
-# @celery.task(bind=True)
-# def query_zippy(uploadFile):
-#     filename = secure_filename(uploadFile.filename)
-#     print >> sys.stderr, filename
-#     uploadFile.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-#     print >> sys.stderr, "file saved to ./uploads/%s" % filename
-#     os.chdir('./app/')
-#     print >> sys.stderr, subprocess.call(['./zippy.py', 'get', '--outfile', outfile, '../uploads/%s'% filename], shell=False)
-#     return "running zippy..."
-
+app.secret_key = 'Zippy is the best handpuppet out there'
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -112,7 +95,12 @@ def adhocdesign():
     locus = request.form.get('locus')
     design = request.form.get('design')
     deep = request.form.get('deep')
+    gap = request.form.get('gap')
     store = request.form.get('store')
+
+    print >> sys.stderr, 'locus', locus
+    print >> sys.stderr, 'gap', gap
+
     # if locus:
     if re.match('\w{1,2}:\d+-\d+',locus) or (uploadFile and allowed_file(uploadFile.filename)):
         # get target
@@ -129,7 +117,10 @@ def adhocdesign():
             config = json.load(conf, object_hook=ascii_encode_dict)
             db = PrimerDB(config['database'])
         # run Zippy
-        primerTable, resultList, missedIntervals = zippyPrimerQuery(config, target, design, None, db, store, deep)
+        primerTable, resultList, missedIntervals = zippyPrimerQuery(config, target, design, None, db, store, deep, gap)
+
+        print >> sys.stderr, primerTable
+
         # get missed and render template
         missedIntervalNames = []
         for interval in missedIntervals:
@@ -272,8 +263,8 @@ def blacklist_pair(pairname):
 def upload_samplesheet():
     if request.method == 'POST':
         locationsheet = request.files['locationsheet']
-        if not locationsheet:
-            flash('No csvfile submitted. Please try again','warning')
+        if not locationsheet or not locationsheet.filename.endswith('.csv'):
+            flash('Not a CSV file. Please try again','warning')
         else:
             filename = secure_filename(locationsheet.filename)
             saveloc = os.path.join(app.config['UPLOAD_FOLDER'], filename)

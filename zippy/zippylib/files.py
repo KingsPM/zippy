@@ -42,6 +42,8 @@ class GenePred(IntervalList):
                 gene = Interval(f[2],geneStart,geneEnd,f[12],reverse)
                 # parse exons
                 for e in zip(f[9].split(','),f[10].split(',')):
+                    if e[1] < geneStart or geneEnd < e[0]:
+                        continue  # noncoding
                     try:
                         exonStart = int(e[0]) if noncoding else max(geneStart,int(e[0]))
                         exonEnd = int(e[1]) if noncoding else min(geneEnd,int(e[1]))
