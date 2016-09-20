@@ -57,6 +57,12 @@ zippy-install:
 	mkdir -p $(ZIPPYVAR)/results
 	chmod -R 777 $(ZIPPYVAR)
 
+# gunicorn/nginx webserver
+unicorn:
+	apt-get install nginx
+	# start gunicorn with
+	# gunicorn --bind 0.0.0.0:8000 wsgi:app
+
 # webservice install (production)
 webservice:
 	rsync -a --exclude-from=.gitignore . $(ZIPPYPATH)

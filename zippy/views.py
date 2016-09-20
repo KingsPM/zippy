@@ -152,7 +152,7 @@ def updatePrimerLocation():
         print >> sys.stderr, 'Please fill in all fields (PrimerName VesselNumber Well)'
         return render_template('location_updated.html', status=None)
     # read config
-        with open(app.config['CONFIG_FILE']) as conf:
+    with open(app.config['CONFIG_FILE']) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
         db = PrimerDB(config['database'])
     # run zippy and render
