@@ -612,11 +612,14 @@ def readprimerlocations(locationfile):
         for line in readfile:
             if not header:
                 header = line
+            elif len(line)<3:
+                pass  # empty line (CR/LF)
             else:
                 try:
                     row = dict(zip(header,line))
                     updateList.append([row['PrimerName'], Location(row['Box'].strip('Bbox'), row['Well'])])
                 except:
+                    raise
                     raise Exception('InputFormatError')
     return updateList
 
