@@ -96,5 +96,14 @@ scratch/*
 # old directories
 _*/*
 
+# bower
+bower_components/*
+
+# Alembic migrations
+migrations/*
+
+# dot directories 
+zippy/static/.webassets-cache/*
+
 # cache
 .*.cache
