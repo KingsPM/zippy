@@ -33,16 +33,20 @@ class GenePred(IntervalList):
                 # create gene and add exons
                 f = line.split()
                 assert f[3] in ['+','-']
-                # coding / noncoding
                 if getgenes and (f[12] not in getgenes or int(f[6])==int(f[7])) and not noncoding:  # ignore non-coding transcripts
                     continue
+                # coding / noncoding
                 geneStart = int(f[4]) if noncoding else int(f[6])
                 geneEnd = int(f[5]) if noncoding else int(f[7])
                 reverse = f[3].startswith('-')
                 gene = Interval(f[2],geneStart,geneEnd,f[12],reverse)
                 # parse exons
                 for e in zip(f[9].split(','),f[10].split(',')):
-                    if e[1] < geneStart or geneEnd < e[0]:
+                    try:
+                        map(int,e)
+                    except:
+                        continue
+                    if int(e[1]) < geneStart or geneEnd < int(e[0]):
                         continue  # noncoding
                     try:
                         exonStart = int(e[0]) if noncoding else max(geneStart,int(e[0]))
@@ -214,8 +218,14 @@ class SNPpy(IntervalList):
                         chromStart, chromEnd = map(int,row['position'].split('-'))
                         variantDescription += [ row['chromosome'] ]
                     else:  # variant (gene,tx,exon,hgvs/pos,zyg)
-                        chromStart, chromEnd = int(row['position']), int(row['position'])+hgvsLength(row['HGVS_c'])
-                        variantDescription += [ row['transcriptID'] ]
+                        if 'HGVS_c' in row.keys():
+                            chromStart, chromEnd = int(row['position']), int(row['position'])+hgvsLength(row['HGVS_c'])
+                        elif 'ALT' in row.keys() and 'REF' in row.keys():
+                            chromStart, chromEnd = int(row['position']), int(row['position'])+max(map(len,[row['REF'],row['ALT']]))
+                        else:
+                            raise Exception('UnkownVariantLength')
+                        if 'transcriptID' in row.keys():
+                            variantDescription += [ row['transcriptID'] ]
                     if 'rank' in row.keys() and '/' in row['rank']:
                         variantDescription += [ 'exon'+row['rank'].split('/')[0] ] # exonnumber
                     variantDescription += [ row['HGVS_c'] if 'HGVS_c' in row.keys() and row['HGVS_c'] else row['position'] ]  # HGVS
@@ -281,7 +291,7 @@ def readTargets(targets,tiling):
         rev = None if m.group(4) is None else True if m.group(4) == '-' else False
         intervals = [ Interval(m.group(1),m.group(2),m.group(3),reverse=rev) ]
     else:
-        Exception('FileNotFound')
+        raise Exception('FileNotFound')
     return intervals
 
 
