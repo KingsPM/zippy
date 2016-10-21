@@ -140,6 +140,11 @@ Set/update primer storage location
 - bugfix in exon annotation of batched variants
 - predesign exons now filtered by requested variants for speed
 
+### v2.3.0
+- added gap-PCR functionality
+- added WSGI file for gunicorn
+- bugfixes
+
 ### FUTURE
 - Support for primer collections (multiplexing)
 - Asynchronous design process on webinterface
