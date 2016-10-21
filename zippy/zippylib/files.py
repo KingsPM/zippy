@@ -3,7 +3,7 @@
 __doc__=="""File parsing classes"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "2.2.2"
+__version__ = "2.3.0"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -20,7 +20,7 @@ from urllib import quote, unquote
 
 '''GenePred parser with automatic segment numbering and tiling'''
 class GenePred(IntervalList):
-    def __init__(self,fh,getgenes=None,interval=None,overlap=None,flank=0,combine=True):
+    def __init__(self,fh,getgenes=None,interval=None,overlap=None,flank=0,combine=True,noncoding=False):
         IntervalList.__init__(self, [], source='GenePred')
         counter = Counter()
         intervalindex = defaultdict(list)
@@ -33,13 +33,25 @@ class GenePred(IntervalList):
                 # create gene and add exons
                 f = line.split()
                 assert f[3] in ['+','-']
-                if getgenes and (f[12] not in getgenes or int(f[6])==int(f[7])):  # ignore non-coding transcripts
+                if getgenes and (f[12] not in getgenes or int(f[6])==int(f[7])) and not noncoding:  # ignore non-coding transcripts
                     continue
+                # coding / noncoding
+                geneStart = int(f[4]) if noncoding else int(f[6])
+                geneEnd = int(f[5]) if noncoding else int(f[7])
                 reverse = f[3].startswith('-')
-                gene = Interval(f[2],int(f[4]),int(f[5]),f[12],reverse)
+                gene = Interval(f[2],geneStart,geneEnd,f[12],reverse)
+                # parse exons
                 for e in zip(f[9].split(','),f[10].split(',')):
                     try:
-                        gene.addSubintervals([Interval(f[2],int(e[0]),int(e[1]),f[12],reverse)])
+                        map(int,e)
+                    except:
+                        continue
+                    if int(e[1]) < geneStart or geneEnd < int(e[0]):
+                        continue  # noncoding
+                    try:
+                        exonStart = int(e[0]) if noncoding else max(geneStart,int(e[0]))
+                        exonEnd = int(e[1]) if noncoding else min(geneEnd,int(e[1]))
+                        gene.addSubintervals([Interval(f[2],exonStart,exonEnd,f[12],reverse)])
                     except ValueError:
                         pass
                     except:
@@ -206,8 +218,14 @@ class SNPpy(IntervalList):
                         chromStart, chromEnd = map(int,row['position'].split('-'))
                         variantDescription += [ row['chromosome'] ]
                     else:  # variant (gene,tx,exon,hgvs/pos,zyg)
-                        chromStart, chromEnd = int(row['position']), int(row['position'])+hgvsLength(row['HGVS_c'])
-                        variantDescription += [ row['transcriptID'] ]
+                        if 'HGVS_c' in row.keys():
+                            chromStart, chromEnd = int(row['position']), int(row['position'])+hgvsLength(row['HGVS_c'])
+                        elif 'ALT' in row.keys() and 'REF' in row.keys():
+                            chromStart, chromEnd = int(row['position']), int(row['position'])+max(map(len,[row['REF'],row['ALT']]))
+                        else:
+                            raise Exception('UnkownVariantLength')
+                        if 'transcriptID' in row.keys():
+                            variantDescription += [ row['transcriptID'] ]
                     if 'rank' in row.keys() and '/' in row['rank']:
                         variantDescription += [ 'exon'+row['rank'].split('/')[0] ] # exonnumber
                     variantDescription += [ row['HGVS_c'] if 'HGVS_c' in row.keys() and row['HGVS_c'] else row['position'] ]  # HGVS
@@ -273,7 +291,7 @@ def readTargets(targets,tiling):
         rev = None if m.group(4) is None else True if m.group(4) == '-' else False
         intervals = [ Interval(m.group(1),m.group(2),m.group(3),reverse=rev) ]
     else:
-        Exception('FileNotFound')
+        raise Exception('FileNotFound')
     return intervals
 
 

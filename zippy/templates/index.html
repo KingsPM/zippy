@@ -18,7 +18,7 @@
             <h3>Primer Query</h3>
             <form action="/adhoc_design/" method="post" enctype="multipart/form-data">
                 <span class="pop">BED, VCF, GenePred &nbsp</span><input type="file" name="filePath"><br><br>
-                or&nbsp<span class="pop">Chromosome:Start-End:[+-] &nbsp</span><input type="text" name="locus"><br><br>
+                or&nbsp<span class="pop">Chromosome:Start-End:[+-] &nbsp</span><input type="text" name="locus"> and <input type="text" name="gap"><br><br>
                 <input type="checkbox" name="design" value="True" checked>design &nbsp
                 <input type="checkbox" name="deep" value="True">deep search &nbsp
                 <input type="checkbox" name="store" value="True">store<br><br>
@@ -30,7 +30,7 @@
         </div>
         <div id="left";>
             <h3>Primer Pair Query</h3>
-            <p>Search by primer pair name or date (yyyy-mm-dd)</p>
+            <p>Name or date (yyyy-mm-dd)</p>
             <form action="/specify_searchname/" method="post" enctype="multipart/form-data">
                 <span class="pop">Search for &nbsp</span><input type="text" name="searchName"><br><br>
                 <input type="submit" id="revSubmit" value="Search">
@@ -40,7 +40,7 @@
         </div>
         <div id="right">
             <h3>Storage Location</h3>
-            <p>Upload a batch of primer storage locations as CSV file</p>
+            <p>Update from CSV file (PrimerName,Box,Well)</p>
             <form action="/upload_batch_locations/" method="post" enctype="multipart/form-data">
                 <span class="pop">CSV file &nbsp</span><input type="file" name="locationsheet"><br><br>
                 <input type="submit" id="revSubmit" value="Upload">

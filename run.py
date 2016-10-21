@@ -1,4 +1,6 @@
-#!zippyvenv/bin/python
+#!venv/bin/python
+
+'''runs flask development server'''
 
 from zippy import app
 

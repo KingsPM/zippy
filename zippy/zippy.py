@@ -10,7 +10,7 @@ __doc__=="""
 __author__ = "David Brawand"
 __credits__ = ['David Brawand','Christopher Wall']
 __license__ = "MIT"
-__version__ = "2.2.2"
+__version__ = "2.3.0"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -229,7 +229,7 @@ def importPrimerPairs(inputfile,config,primer3=True):
     return validPairs
 
 '''get primers from intervals'''
-def getPrimers(intervals, db, design, config, deep=True, rename=None):
+def getPrimers(intervals, db, design, config, deep=True, rename=None, compatible=False):
     ivpairs = defaultdict(list)  # found/designed primer pairs (from database or design)
     blacklist = db.blacklist() if db else []
     try:
@@ -237,6 +237,33 @@ def getPrimers(intervals, db, design, config, deep=True, rename=None):
     except:
         print >> sys.stderr, 'Could not read blacklist cache, check permissions'
         print >> sys.stderr, os.getcwd(), config['blacklistcache']
+    maxTier = len(config['design']['primer3']) if deep or compatible else 1  # only search first tier unless deep or compatibility mode
+    seqhash = lambda x,y: hashlib.sha1(','.join([x,y])).hexdigest()  # sequence pair hashing function
+    # build gap primers and hash valid pairs
+    if compatible:
+        assert len(intervals)==2
+        # get compatible pairs (no SNPcheck, just hash seqs)
+        compatible = set()
+        # build gap sequence
+        gap = Interval(intervals[0].chrom, intervals[0].chromEnd, intervals[1].chromStart)
+        # design primers
+        progress = Progressbar(maxTier,'Building compatibility list')
+        for tier in range(maxTier):
+            sys.stderr.write('\r'+progress.show(tier))
+            # get sequence
+            maxFlank = max([ max(x) for x in config['design']['primer3'][tier]['PRIMER_PRODUCT_SIZE_RANGE'] ])
+            p3 = Primer3(config['design']['genome'], gap.locus(), maxFlank)
+            # alter configuration for gap pcr
+            cfg = deepcopy(config['design']['primer3'][tier])
+            # redefine PRIMER_PRODUCT_SIZE_RANGE
+            cfg['PRIMER_PRODUCT_SIZE_RANGE'] = [ [x[0]+len(gap), x[1]+len(gap) ] for x in cfg['PRIMER_PRODUCT_SIZE_RANGE']]
+            # redefine primer count (Get 2x more for compatibiliy pairs as they are cheap to design)
+            cfg['PRIMER_NUM_RETURN'] *= 2
+            p3.design('gap-PCR', cfg)
+            if p3.pairs:
+                for p in p3.pairs:
+                    compatible.add(seqhash(p[0].seq, p[1].seq))
+        sys.stderr.write('\r'+progress.show(maxTier)+'\n')
 
     # primer searching in database by default
     if db:
@@ -256,7 +283,6 @@ def getPrimers(intervals, db, design, config, deep=True, rename=None):
 
     # designing
     if design:
-        maxTier = len(config['design']['primer3']) if deep else 1  # only search first tier unless deep
         for tier in range(maxTier):
             # get intervals which do not satisfy minimum amplicon number
             insufficentAmpliconIntervals = [ iv for iv in intervals if config['report']['pairs']>len(ivpairs[iv]) ]
@@ -353,26 +379,46 @@ def getPrimers(intervals, db, design, config, deep=True, rename=None):
     for iv,p in sorted(ivpairs.items(),key=lambda x:x[0].name):
         print >> sys.stderr, '{:<20} {:9} {:<10}'.format(unquote(iv.name), len(p), "FAIL" if len(p)<config['report']['pairs'] else "OK")
 
-    ## get best primer pairs
-    ##### PRIORITISE AND ALWAYS PRINT DATABASE PRIMERS
-    print >> sys.stderr, '========'
+    # select primer pairs
     primerTable = []  # primer table (text)
     primerVariants = defaultdict(list)  # primerpair -> intervalnames/variants dict
     missedIntervals = []  # list of missed intervals/variants
-    for iv in sorted(ivpairs.keys()):
-        print "IV", unquote(iv.name)
-        if not ivpairs[iv]:
-            missedIntervals.append(iv)
-        for i, p in enumerate(sorted(ivpairs[iv])):
-            if i == config['report']['pairs']:
-                break  # only report number of primer pairs requested
-            # log primer design
-            if p.designrank() >= 0:
-                p.log(config['logfile'])
-            # save result (with interval names)
-            primerVariants[p].append(iv)
-            # save to primer table
-            primerTable.append([unquote(iv.name)] + str(p).split('\t'))
+    print >> sys.stderr, '========'
+    if compatible:
+        # make pairs and exclude all pairings not in compatibility list score by geometric mean of 1based rank
+        rankedPairs = []
+        for l, left in enumerate(sorted(ivpairs[intervals[0]])):
+            for r, rite in enumerate(sorted(ivpairs[intervals[1]])):
+                if seqhash(left[0].seq, rite[1].seq) in compatible:
+                    rankedPairs.append((((l+1)*(r+1)) ** (1.0/2), max(l, r), left, rite))
+        if rankedPairs:
+            rankedPairs.sort()  # sort ranked paired primerpairs
+            primerTable.append([unquote(intervals[0].name)] + str(rankedPairs[0][2]).split('\t'))
+            primerTable.append([unquote(intervals[1].name)] + str(rankedPairs[0][3]).split('\t'))
+            primerVariants[rankedPairs[0][2]].append(intervals[0])
+            primerVariants[rankedPairs[0][3]].append(intervals[1])
+            # add gap interval
+            gapInterval = Interval(intervals[0].chrom, intervals[0].chromStart, intervals[1].chromEnd)
+            gapPrimerPair = PrimerPair([rankedPairs[0][2][0], rankedPairs[0][3][1]], name='gap_'+gapInterval.name )
+            primerTable.append([unquote(gapInterval.name)] + str(gapPrimerPair).split('\t'))
+        else:
+            missedIntervals = intervals
+    else:
+        # select by best pairs independently (always print database primers)
+        for iv in sorted(ivpairs.keys()):
+            print "IV", unquote(iv.name)
+            if not ivpairs[iv]:
+                missedIntervals.append(iv)
+            for i, p in enumerate(sorted(ivpairs[iv])):
+                if i == config['report']['pairs']:
+                    break  # only report number of primer pairs requested
+                # log primer design (0 if from database)
+                if p.designrank() >= 0:
+                    p.log(config['logfile'])
+                # save result (with interval names)
+                primerVariants[p].append(iv)
+                # save to primer table
+                primerTable.append([unquote(iv.name)] + str(p).split('\t'))
     # update primer pairs with covered variants
     for pp, v in primerVariants.items():
         pp.variants = v
@@ -383,10 +429,18 @@ def getPrimers(intervals, db, design, config, deep=True, rename=None):
 # ==============================================================================
 
 # query database / design primer for VCF,BED,GenePred or interval
-def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=False, deep=True):
+def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=False, deep=True, gap=None):
     intervals = readTargets(targets, config['tiling'])  # get intervals from file or commandline
-    # get/design primer pairs
-    primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config,deep)
+    if gap:  # gap PCR primers
+        try:
+            assert len(intervals)==1
+            intervals += readTargets(gap, config['tiling'])  # get interval of second breakpoint
+            assert len(set([i.chrom for i in intervals] ))
+        except AssertionError:
+            print >> sys.stderr, "ERROR: gap-PCR primers can only be designed for a single pair of breakpoint intervals on the same chromosome!"
+        except:
+            raise
+    primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config,deep,compatible=True if gap else False)
     ## print primerTable
     if outfile:
         with open(outfile,'w') as fh:
@@ -551,24 +605,22 @@ def blacklistPair(pairname, db):
     return blacklisted
 
 def readprimerlocations(locationfile):
-    linecount = 0
     header = []
     updateList = []
     with open(locationfile) as csvfile:
         readfile = csv.reader(csvfile, delimiter=',')
         for line in readfile:
-            if linecount == 0:
+            if not header:
                 header = line
+            elif len(line)<3:
+                pass  # empty line (CR/LF)
             else:
                 try:
                     row = dict(zip(header,line))
-                    primer = row['Primer Name']
-                    box = row['Box'][3:] if row['Box'].startswith('Box') or row['Box'].startswith('box') else row['Box']
-                    well = row['Well']
-                    updateList.append([primer, Location(box, well)])
+                    updateList.append([row['PrimerName'], Location(row['Box'].strip('Bbox'), row['Well'])])
                 except:
-                    raise Exception('File format not as expected')
-            linecount += 1
+                    raise
+                    raise Exception('InputFormatError')
     return updateList
 
 # ==============================================================================
@@ -601,9 +653,11 @@ def main():
     ## retrieve
     parser_retrieve = subparsers.add_parser('get', help='Get/design primers')
     parser_retrieve.add_argument("targets", default=None, metavar="VCF/BED/Interval/GenePred", \
-        help="File with intervals of interest or chr:start-end")
+        help="File with intervals of interest or CHR:START-END (mandatory for gap-PCR)")
     parser_retrieve.add_argument("--design", dest="design", default=False, action="store_true", \
         help="Design primers if not in database")
+    parser_retrieve.add_argument("--gap", dest="gap", default=None, metavar="CHR:START-END", \
+        help="Second break point for gap-PCR")
     parser_retrieve.add_argument("--nodeep", dest="deep", default=True, action='store_false', \
         help="Skip deep search for primers")
     parser_retrieve.add_argument("--nostore", dest="store", default=True, action='store_false', \
@@ -636,6 +690,8 @@ def main():
     parser_update = subparsers.add_parser('update', help='Update status and location of primers')
     parser_update.add_argument('-l', dest="location", nargs=3, \
         help="Update storage location of primer pair (primerid vessel well)")
+    parser_update.add_argument('-t', dest="locationtable", \
+        help="Batch update storage locations from TSV (primerid vessel well)")
     parser_update.add_argument("--force", dest="force", default=False, action='store_true', \
         help="Force Location update (resets existing)")
     parser_update.add_argument('-b', dest="blacklist", type=str, \
@@ -713,14 +769,16 @@ def main():
     elif options.which=='update':  #update location primer pairs are stored
         if options.location:
             primer, vessel, well = options.location
-            print >> sys.stderr, updateLocation(primer, Location(vessel, well), db, options.force)
+            updateLocation(primer, Location(vessel, well), db, options.force)
         if options.locationtable:
-            print >> sys.stderr, updateLocation(primer, Location(vessel, well), db, options.force)
+            updateList = readprimerlocations(options.locationtable)
+            for item in updateList:  # [ Primer, Location ]
+                updateLocation(item[0], item[1], db, options.force)
         if options.blacklist:
             print >> sys.stderr, 'BLACKLISTED PAIRS: {}'.format(','.join(db.blacklist(options.blacklist)))
             print >> sys.stderr, 'REMOVED ORPHANS:   {}'.format(','.join(db.removeOrphans()))
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
-        zippyPrimerQuery(config, options.targets, options.design, options.outfile, db, options.store, options.deep)
+        zippyPrimerQuery(config, options.targets, options.design, options.outfile, db, options.store, options.deep, options.gap)
     elif options.which=='batch':
         zippyBatchQuery(config, options.targets, options.design, options.outfile, db, options.predesign, options.deep)
     elif options.which=='query':

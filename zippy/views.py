@@ -21,24 +21,7 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['DOWNLOAD_FOLDER'] = 'results'
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 app.config['CONFIG_FILE'] = os.path.join(APP_ROOT, 'zippy.json')
-app.secret_key = 'someKey'
-
-# app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0'
-# app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
-#
-# celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
-# celery.conf.update(app.config)
-#
-# @celery.task(bind=True)
-# def query_zippy(uploadFile):
-#     filename = secure_filename(uploadFile.filename)
-#     print filename
-#     uploadFile.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-#     print "file saved to ./uploads/%s" % filename
-#     os.chdir('./app/')
-#     print subprocess.call(['./zippy.py', 'get', '--outfile', outfile, '../uploads/%s'% filename], shell=False)
-#     return "running zippy..."
-
+app.secret_key = 'Zippy is the best handpuppet out there'
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -112,7 +95,12 @@ def adhocdesign():
     locus = request.form.get('locus')
     design = request.form.get('design')
     deep = request.form.get('deep')
+    gap = request.form.get('gap')
     store = request.form.get('store')
+
+    print >> sys.stderr, 'locus', locus
+    print >> sys.stderr, 'gap', gap
+
     # if locus:
     if re.match('\w{1,2}:\d+-\d+',locus) or (uploadFile and allowed_file(uploadFile.filename)):
         # get target
@@ -129,14 +117,17 @@ def adhocdesign():
             config = json.load(conf, object_hook=ascii_encode_dict)
             db = PrimerDB(config['database'])
         # run Zippy
-        primerTable, resultList, missedIntervals = zippyPrimerQuery(config, target, design, None, db, store, deep)
+        primerTable, resultList, missedIntervals = zippyPrimerQuery(config, target, design, None, db, store, deep, gap)
+
+        print >> sys.stderr, primerTable
+
         # get missed and render template
         missedIntervalNames = []
         for interval in missedIntervals:
             missedIntervalNames.append(interval.name)
         return render_template('/adhoc_result.html', primerTable=primerTable, resultList=resultList, missedIntervals=missedIntervalNames)
     else:
-        print "no locus or file given"
+        print >> sys.stderr, "no locus or file given"
         return render_template('/adhoc_result.html', primerTable=[], resultList=[], missedIntervals=[])
 
 @app.route('/update_location/', methods=['POST'])
@@ -149,7 +140,7 @@ def updatePrimerLocation():
         assert primername
         loc = Location(vessel, well)
     except:
-        print 'Please fill in all fields (PrimerName VesselNumber Well)'
+        print >> sys.stderr, 'Please fill in all fields (PrimerName VesselNumber Well)'
         return render_template('location_updated.html', status=None)
     # read config
     with open(app.config['CONFIG_FILE']) as conf:
@@ -166,17 +157,13 @@ def pair_to_update(pairName):
 @app.route('/update_pair_name/<pairName>', methods=['POST'])
 def update_pair_name(pairName):
     newName = request.form.get('name')
-    print pairName
-    print newName
     if newName == pairName:
-        flash('Pair renaming failed - new name is the same as current', 'warning')
+        flash('New name is the same as current', 'warning')
         return render_template('update_pair.html', pairName=pairName)
     with open(app.config['CONFIG_FILE']) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
         db = PrimerDB(config['database'])
-        nameChange = updatePrimerPairName(pairName, newName, db)
-        print nameChange
-        if nameChange:
+        if updatePrimerPairName(pairName, newName, db):
             flash('Pair "%s" renamed "%s"' % (pairName, newName), 'success')
         else:
             flash('Pair renaming failed', 'warning')
@@ -184,10 +171,7 @@ def update_pair_name(pairName):
 
 @app.route('/select_primer_to_update/<primerName>/<primerLoc>')
 def primer_to_update(primerName, primerLoc):
-    print primerName
-    print primerLoc
     primerInfo = primerName + '|' + primerLoc
-    print primerInfo
     return redirect('/update_location_from_table/%s' % (primerInfo))
 
 @app.route('/update_location_from_table/<primerInfo>', methods=['GET','POST'])
@@ -201,12 +185,11 @@ def updateLocationFromTable(primerInfo):
             assert primerName
             loc = Location(vessel, well)
         except:
-            print 'Please fill in all fields (PrimerName VesselNumber Well)'
+            print >> sys.stderr, 'Please fill in all fields (PrimerName VesselNumber Well)'
             return render_template('location_updated.html', status=None)
         with open(app.config['CONFIG_FILE']) as conf:
             config = json.load(conf, object_hook=ascii_encode_dict)
             db = PrimerDB(config['database'])
-        print primerName, loc, db, force
         # run zippy and render
         updateStatus = updateLocation(primerName, loc, db, force)
         if updateStatus[0] == 'occupied':
@@ -217,22 +200,19 @@ def updateLocationFromTable(primerInfo):
             flash('%s location update to %s failed' % (primerName, str(loc)), 'warning')
         return render_template('update_location_from_table.html', primerName=primerName, primerLoc=vessel + '-' + well)
     else:
-        print primerInfo
         splitInfo = primerInfo.split('|')
         primerName = splitInfo[0]
         primerLoc = splitInfo[1]
-        print primerName
-        print primerLoc
         return render_template('update_location_from_table.html', primerName=primerName, primerLoc=primerLoc)
 
 @app.route('/select_primer_to_rename/<primerName>/<primerLoc>', methods=['POST'])
 def primer_to_rename(primerName, primerLoc):
     newName = request.form.get('name')
-    print primerName
-    print primerLoc
-    print newName
+    print >> sys.stderr, primerName
+    print >> sys.stderr, primerLoc
+    print >> sys.stderr, newName
     primerInfo = primerName + '|' + primerLoc + '|' + newName
-    print primerInfo
+    print >> sys.stderr, primerInfo
     return redirect('/update_primer_name/%s' % (primerInfo))
 
 @app.route('/update_primer_name/<primerInfo>')
@@ -247,9 +227,7 @@ def update_name_of_primer(primerInfo):
     with open(app.config['CONFIG_FILE']) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
         db = PrimerDB(config['database'])
-        nameChange = updatePrimerName(currentName, newName, db)
-        print nameChange
-        if nameChange:
+        if updatePrimerName(currentName, newName, db):
             flash('Primer "%s" renamed "%s"' % (currentName, newName), 'success')
         else:
             flash('Primer renaming failed', 'warning')
@@ -272,7 +250,7 @@ def search_by_name():
 
 @app.route('/blacklist_pair/<pairname>', methods=['POST'])
 def blacklist_pair(pairname):
-    print 'This is the pairname: ' + pairname
+    print >> sys.stderr, 'This is the pairname: ' + pairname
     with open(app.config['CONFIG_FILE']) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
         db = PrimerDB(config['database'])
@@ -285,18 +263,17 @@ def blacklist_pair(pairname):
 def upload_samplesheet():
     if request.method == 'POST':
         locationsheet = request.files['locationsheet']
-        if not locationsheet:
-            flash('No csvfile submitted. Please try again','warning')
+        if not locationsheet or not locationsheet.filename.endswith('.csv'):
+            flash('Not a CSV file. Please try again','warning')
         else:
             filename = secure_filename(locationsheet.filename)
             saveloc = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             locationsheet.save(saveloc)
             updateList = readprimerlocations(saveloc)
-            for item in updateList:
-                print 'Primer:locations to update: ', item
-                with open(app.config['CONFIG_FILE']) as conf:
-                    config = json.load(conf, object_hook=ascii_encode_dict)
-                    db = PrimerDB(config['database'])
+            with open(app.config['CONFIG_FILE']) as conf:
+                config = json.load(conf, object_hook=ascii_encode_dict)
+                db = PrimerDB(config['database'])
+                for item in updateList:
                     updateStatus = updateLocation(item[0], item[1], db, True) # Force is set to True, will force primers into any occupied locations
                     if updateStatus[0] == 'occupied':
                         flash('Location already occupied by %s' % (' and '.join(updateStatus[1])), 'warning')
@@ -304,5 +281,5 @@ def upload_samplesheet():
                         flash('%s location sucessfully set to %s' % (item[0], str(item[1])), 'success')
                     else:
                         flash('%s location update to %s failed' % (item[0], str(item[1])), 'warning')
-            print 'Updated locations using :', updateList
+            print >> sys.stderr, 'Updated locations using :', updateList
     return redirect('/index')
