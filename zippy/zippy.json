@@ -1,5 +1,5 @@
 {
-    "password_sha1": "c7b271a2c4a4763f1ba9de1b191f6afd43767f8d",
+    "password": "$2b$12$QmHmE2grqDPkoS.Z0uuSte7WS4M6KYlrT9qYh8gApXQVrV3fXszGi",
     "database": "/var/local/zippy/zippy.sqlite",
     "logfile": "/var/local/zippy/zippy.log",
     "blacklistcache": "/var/local/zippy/.blacklist.cache",
