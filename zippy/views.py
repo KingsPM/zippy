@@ -6,7 +6,8 @@ import re
 import json
 import hashlib
 import subprocess
-from flask import Flask, render_template, request, redirect, send_from_directory, session, flash
+from functools import wraps
+from flask import Flask, render_template, request, redirect, send_from_directory, session, flash, url_for
 from celery import Celery
 from werkzeug.utils import secure_filename
 from . import app
@@ -15,22 +16,53 @@ from .zippylib import ascii_encode_dict
 from .zippylib.primer import Location
 from .zippylib.database import PrimerDB
 
-ALLOWED_EXTENSIONS = set(['txt', 'batch', 'vcf', 'bed', 'csv'])
-
+app.config['ALLOWED_EXTENSIONS'] = set(['txt', 'batch', 'vcf', 'bed', 'csv', 'tsv'])
+app.secret_key = 'Zippy is the best handpuppet out there'
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['DOWNLOAD_FOLDER'] = 'results'
-APP_ROOT = os.path.dirname(os.path.abspath(__file__))
-app.config['CONFIG_FILE'] = os.path.join(APP_ROOT, 'zippy.json')
-app.secret_key = 'Zippy is the best handpuppet out there'
+app.config['CONFIG_FILE'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'zippy.json')
+# read password (SHA1 hash, not the safest)
+with open(app.config['CONFIG_FILE']) as conf:
+    config = json.load(conf, object_hook=ascii_encode_dict)
+    app.config['PASSWORD_SHA1'] = config['password_sha1']
 
 def allowed_file(filename):
-    return '.' in filename and \
-        filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
+    return '.' in filename and filename.rsplit('.', 1)[1] in app.config['ALLOWED_EXTENSIONS']
+
+def login_required(func):
+    @wraps(func)
+    def wrap(*args, **kwargs):
+        if 'logged_in' in session:
+
+            return func(*args, **kwargs)
+        else:
+            flash('Authentication required!', 'warning')
+            return redirect(url_for('login'))
+    return wrap
 
 @app.route('/')
 @app.route('/index')
+@login_required
 def index():
     return render_template('index.html')
+
+# simple access control (login)
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        if hashlib.sha1(request.form['password'].rstrip()).hexdigest() != app.config['PASSWORD_SHA1']:
+            error = 'Invalid Credentials. Please try again.'
+        else:
+            session['logged_in'] = True
+            return redirect(url_for('index'))
+    return render_template('login.html', error=error)
+
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    return redirect(url_for('login'))
+
 
 @app.route('/no_file')
 def no_file():
