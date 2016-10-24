@@ -4,6 +4,7 @@ import sys
 import os
 import re
 import json
+import bcrypt
 import hashlib
 import subprocess
 from functools import wraps
@@ -24,7 +25,7 @@ app.config['CONFIG_FILE'] = os.path.join(os.path.dirname(os.path.abspath(__file_
 # read password (SHA1 hash, not the safest)
 with open(app.config['CONFIG_FILE']) as conf:
     config = json.load(conf, object_hook=ascii_encode_dict)
-    app.config['PASSWORD_SHA1'] = config['password_sha1']
+    app.config['PASSWORD'] = config['password']
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1] in app.config['ALLOWED_EXTENSIONS']
@@ -33,7 +34,6 @@ def login_required(func):
     @wraps(func)
     def wrap(*args, **kwargs):
         if 'logged_in' in session:
-
             return func(*args, **kwargs)
         else:
             flash('Authentication required!', 'warning')
@@ -51,11 +51,11 @@ def index():
 def login():
     error = None
     if request.method == 'POST':
-        if hashlib.sha1(request.form['password'].rstrip()).hexdigest() != app.config['PASSWORD_SHA1']:
-            error = 'Invalid Credentials. Please try again.'
-        else:
+        if bcrypt.hashpw(request.form['password'].rstrip().encode('utf-8'), app.config['PASSWORD']) == app.config['PASSWORD']:
             session['logged_in'] = True
             return redirect(url_for('index'))
+        else:
+            error = 'Wrong password. Please try again.'
     return render_template('login.html', error=error)
 
 @app.route('/logout')
