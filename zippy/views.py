@@ -105,7 +105,7 @@ def upload():
         # open config file and database
         with open(app.config['CONFIG_FILE']) as conf:
             config = json.load(conf, object_hook=ascii_encode_dict)
-            db = PrimerDB(config['database'])
+            db = PrimerDB(config['database'],dump=config['ampliconbed'])
 
         # create output folder
         downloadFolder = os.path.join(app.config['DOWNLOAD_FOLDER'], hashlib.sha1(open(uploadedFile).read()).hexdigest())
@@ -147,7 +147,7 @@ def adhocdesign():
         # read config
         with open(app.config['CONFIG_FILE']) as conf:
             config = json.load(conf, object_hook=ascii_encode_dict)
-            db = PrimerDB(config['database'])
+            db = PrimerDB(config['database'],dump=config['ampliconbed'])
         # run Zippy
         primerTable, resultList, missedIntervals = zippyPrimerQuery(config, target, design, None, db, store, deep, gap)
 
@@ -177,7 +177,7 @@ def updatePrimerLocation():
     # read config
     with open(app.config['CONFIG_FILE']) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
-        db = PrimerDB(config['database'])
+        db = PrimerDB(config['database'],dump=config['ampliconbed'])
     # run zippy and render
     updateStatus = updateLocation(primername, loc, db, force)
     return render_template('location_updated.html', status=updateStatus)
@@ -194,7 +194,7 @@ def update_pair_name(pairName):
         return render_template('update_pair.html', pairName=pairName)
     with open(app.config['CONFIG_FILE']) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
-        db = PrimerDB(config['database'])
+        db = PrimerDB(config['database'],dump=config['ampliconbed'])
         if updatePrimerPairName(pairName, newName, db):
             flash('Pair "%s" renamed "%s"' % (pairName, newName), 'success')
         else:
@@ -221,7 +221,7 @@ def updateLocationFromTable(primerInfo):
             return render_template('location_updated.html', status=None)
         with open(app.config['CONFIG_FILE']) as conf:
             config = json.load(conf, object_hook=ascii_encode_dict)
-            db = PrimerDB(config['database'])
+            db = PrimerDB(config['database'],dump=config['ampliconbed'])
         # run zippy and render
         updateStatus = updateLocation(primerName, loc, db, force)
         if updateStatus[0] == 'occupied':
@@ -258,7 +258,7 @@ def update_name_of_primer(primerInfo):
         return render_template('update_location_from_table.html', primerName=newName, primerLoc=primerLoc)
     with open(app.config['CONFIG_FILE']) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
-        db = PrimerDB(config['database'])
+        db = PrimerDB(config['database'],dump=config['ampliconbed'])
         if updatePrimerName(currentName, newName, db):
             flash('Primer "%s" renamed "%s"' % (currentName, newName), 'success')
         else:
@@ -276,7 +276,7 @@ def search_by_name():
     searchName = session['searchName']
     with open(app.config['CONFIG_FILE']) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
-        db = PrimerDB(config['database'])
+        db = PrimerDB(config['database'],dump=config['ampliconbed'])
         searchResult = searchByName(searchName, db)
     return render_template('searchname_result.html', searchResult=searchResult, searchName=searchName)
 
@@ -285,7 +285,7 @@ def blacklist_pair(pairname):
     print >> sys.stderr, 'This is the pairname: ' + pairname
     with open(app.config['CONFIG_FILE']) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
-        db = PrimerDB(config['database'])
+        db = PrimerDB(config['database'],dump=config['ampliconbed'])
         blacklisted = blacklistPair(pairname, db)
         for b in blacklisted:
             flash('%s added to blacklist' % (b,), 'success')
@@ -304,7 +304,7 @@ def upload_samplesheet():
             updateList = readprimerlocations(saveloc)
             with open(app.config['CONFIG_FILE']) as conf:
                 config = json.load(conf, object_hook=ascii_encode_dict)
-                db = PrimerDB(config['database'])
+                db = PrimerDB(config['database'],dump=config['ampliconbed'])
                 for item in updateList:
                     updateStatus = updateLocation(item[0], item[1], db, True) # Force is set to True, will force primers into any occupied locations
                     if updateStatus[0] == 'occupied':

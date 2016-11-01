@@ -719,7 +719,8 @@ def main():
     # read config and open database
     with open(options.config) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
-    db = PrimerDB(config['database'])
+    here = config['primerbed'] if 'primerbed' in config.keys() and config['primerbed'] else None
+    db = PrimerDB(config['database'],dump=here)
 
     if options.which=='add':  # read primers and add to database
         # import primer pairs
