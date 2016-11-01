@@ -10,7 +10,7 @@ __doc__=="""
 __author__ = "David Brawand"
 __credits__ = ['David Brawand','Christopher Wall']
 __license__ = "MIT"
-__version__ = "2.3.2"
+__version__ = "2.3.3"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -719,7 +719,8 @@ def main():
     # read config and open database
     with open(options.config) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
-    db = PrimerDB(config['database'])
+    here = config['primerbed'] if 'primerbed' in config.keys() and config['primerbed'] else None
+    db = PrimerDB(config['database'],dump=here)
 
     if options.which=='add':  # read primers and add to database
         # import primer pairs
