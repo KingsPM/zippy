@@ -19,6 +19,19 @@ header {
 	height: 40px;
 }
 
+#wrap {
+	width:100%;
+	margin:0 auto;
+}
+#leftcol {
+	float:left;
+	width:60%;
+}
+#rightcol {
+	float:right;
+	width:40%;
+}
+
 #below_header {
 	margin-top: 80px;
 }
@@ -30,22 +43,21 @@ header {
 #left {
 	float: left;
 	width: 50%;
-	height: 200px;
-  padding-right: 0%;
-  text-align: center;
+	height: 280px;
+	padding-right: 0%;
+	text-align: center;
 }
 
 #right {
 	float: right;
 	width: 50%;
-	height: 200px;
+	height: 280px;
 	text-align: center;
 }
 
 #centre {
   text-align: center;
 }
-
 
 div.box {
   padding: 10px;
@@ -79,6 +91,26 @@ td {
 	border-bottom: 1px solid;
 	border-color: #009933;
 }
+
+table.form {
+	margin-left:auto;
+	margin-right:auto;
+	font-size: 12px;
+	text-align: left;
+	border-spacing: 0px;
+}
+
+td.left {
+	text-align: right;
+	padding: 5px;
+}
+
+td.right {
+	text-align: left;
+	padding: 5px;
+}
+
+
 
 tr:hover {
 	background-color: #edf7f0;
@@ -118,7 +150,23 @@ input[type=submit]:active {
 	background-color: white;
 	color: #009933;
 	font-weight: bold;
+	width:50px;
 	box-shadow: inset 0 0 5px 2px #009933;
+    animation: spin 2s linear infinite;
+}
+
+.loader {
+    border: 16px solid #f3f3f3; /* Light grey */
+    border-top: 16px solid #3498db; /* Blue */
+    border-radius: 50%;
+    width: 120px;
+    height: 120px;
+    animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 #revSubmit {
