@@ -22,8 +22,8 @@
         "tiers": [
             [ 0, "selected", "Stringent (<550bp)" ],
             [ 1, "selected", "Relaxed (<550bp)" ],
-            [ 2, "", "Very Relaxed (<550bp)" ]
-            [ 3, "", "Long (<1200bp)" ],
+            [ 2, "selected", "Very Relaxed (<550bp)" ],
+            [ 3, "", "Long (<1200bp)" ]
         ],
         "primer3": [
             {
@@ -38,7 +38,7 @@
                 "PRIMER_OPT_GC": 50.0,
                 "PRIMER_MAX_GC": 60.0,
                 "PRIMER_MAX_POLY_X": 4,
-                "PRIMER_PRODUCT_SIZE_RANGE": [[200,550]],
+                "PRIMER_PRODUCT_SIZE_RANGE": [[100,550]],
                 "PRIMER_GC_CLAMP": 1,
                 "PRIMER_NUM_RETURN": 10,
                 "PRIMER_MISPRIMING_LIBRARY":"/var/local/zippy/resources/human_repeat_simple.fa"
@@ -55,7 +55,7 @@
                 "PRIMER_OPT_GC": 50.0,
                 "PRIMER_MAX_GC": 65.0,
                 "PRIMER_MAX_POLY_X": 4,
-                "PRIMER_PRODUCT_SIZE_RANGE": [[200,550]],
+                "PRIMER_PRODUCT_SIZE_RANGE": [[100,550]],
                 "PRIMER_GC_CLAMP": 1,
                 "PRIMER_NUM_RETURN": 100,
                 "PRIMER_MISPRIMING_LIBRARY":"/var/local/zippy/resources/human_repeat_simple.fa"
