@@ -455,8 +455,22 @@ def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=
 
 # batch query primer database and create confirmation worksheet
 def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesign=False, tiers=[0]):
-    print >> sys.stderr, 'Reading batch file {}...'.format(targets)
-    sampleVariants, genes = readBatch(targets, config['tiling'])
+    # read targets from first file and additional files
+    if not isinstance(targets,list):
+        targets = [ targets ]
+    print >> sys.stderr, 'Reading batch file {}...'.format(targets[0])
+    sampleVariants, genes = readBatch(targets[0], config['tiling'])
+    for t in range(1,len(targets)): # read additional files
+        print >> sys.stderr, 'Reading additional file {}...'.format(targets[t])
+        sv, g = readBatch(targets[t], config['tiling'])
+        # amend target regions
+        for k,v in sv.items():
+            if k in sampleVariants.keys():
+                sampleVariants[k] += v
+            else:
+                sampleVariants[k] = v
+        genes = list(set(genes + g))
+
     print >> sys.stderr, '\n'.join([ '{:<20} {:>2d}'.format(sample,len(variants)) \
         for sample,variants in sorted(sampleVariants.items(),key=lambda x: x[0]) ])
     # predesign
@@ -505,7 +519,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
     if not outfile:
         print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTableConcat ])
     else:
-        worksheetName = '' if os.path.basename(targets).startswith(os.path.basename(outfile)) else os.path.basename(outfile)
+        worksheetName = '' if os.path.basename(targets[0]).startswith(os.path.basename(outfile)) else os.path.basename(outfile)
         # output data
         writtenFiles.append(outfile+'.txt')
         print >> sys.stderr, "Writing results to {}...".format(writtenFiles[-1])
@@ -673,8 +687,8 @@ def main():
 
     ## batch
     parser_batch = subparsers.add_parser('batch', help='Batch design primers for sample list')
-    parser_batch.add_argument("targets", default=None, metavar="SNPpy result table", \
-        help="SNPpy result table")
+    parser_batch.add_argument("targets", default=None, metavar="FILE1,FILE2,...", \
+        help="SNPpy result table(s) ")
     parser_batch.add_argument("--predesign", dest="predesign", default=False, action="store_true", \
         help="Design primers for all genes in batch")
     parser_batch.add_argument("--nodesign", dest="design", default=True, action="store_false", \
@@ -781,7 +795,7 @@ def main():
         zippyPrimerQuery(config, options.targets, options.design, options.outfile, \
             db, options.store, map(int,options.tiers.split(',')), options.gap)
     elif options.which=='batch':
-        zippyBatchQuery(config, options.targets, options.design, options.outfile, \
+        zippyBatchQuery(config, options.targets.split(','), options.design, options.outfile, \
             db, options.predesign, map(int,options.tiers.split(',')))
     elif options.which=='query':
         searchByName(options.subString, db)

@@ -150,23 +150,23 @@ input[type=submit]:active {
 	background-color: white;
 	color: #009933;
 	font-weight: bold;
-	width:50px;
-	box-shadow: inset 0 0 5px 2px #009933;
-    animation: spin 2s linear infinite;
 }
 
-.loader {
-    border: 16px solid #f3f3f3; /* Light grey */
-    border-top: 16px solid #3498db; /* Blue */
-    border-radius: 50%;
-    width: 120px;
-    height: 120px;
-    animation: spin 2s linear infinite;
+input[type=submit]:focus {
+	width: 100px;
+	height: 40px;
+	position: relative;
+	animation-name: kitt;
+	animation-duration: 2s;
+	animation-iteration-count: infinite;
+	animation: kitt 2s linear infinite;
 }
 
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+@keyframes kitt {
+	0%   {background-color:red; left:0px; top:0px;}
+	25%  {background-color:red; left:20px; top:0px;}
+	75%  {background-color:red; left:-20px; top:0px;}
+	100% {background-color:red; left:0px; top:0px;}
 }
 
 #revSubmit {

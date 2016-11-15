@@ -115,7 +115,7 @@ def upload():
         subprocess.check_call(['mkdir', '-p', downloadFolder], shell=False)
 
         # run Zippy to design primers
-        shortName = os.path.splitext(filename)[0]
+        shortName = os.path.splitext(os.path.basename(uploadedFiles[0]))[0]
         downloadFile = os.path.join(downloadFolder, outfile) if outfile else os.path.join(downloadFolder, shortName)
         arrayOfFiles, missedIntervalNames = zippyBatchQuery(config, uploadedFiles, design, downloadFile, db, predesign, tiers)
         return render_template('file_uploaded.html', outputFiles=arrayOfFiles, missedIntervals=missedIntervalNames)
