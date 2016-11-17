@@ -142,10 +142,9 @@ class PrimerDB(object):
             return [ x[0] for x in orphans ]
         finally:
             self.db.close()
-            self.writeAmpliconDump()
 
     '''show/update blacklist'''
-    def blacklist(self,add=None):
+    def blacklist(self,add=None,justdelete=False):
         try:
             self.db = sqlite3.connect(self.sqlite)
         except:
@@ -165,8 +164,9 @@ class PrimerDB(object):
                 pairlist = []
                 for uid in bl_uniqueid:
                     # add uniqueid to blacklist
-                    second_cursor.execute('''INSERT INTO blacklist(uniqueid, blacklistdate) VALUES(?,?);''', \
-                    (uid, blacklisttime))
+                    if not justdelete:
+                        second_cursor.execute('''INSERT INTO blacklist(uniqueid, blacklistdate) VALUES(?,?);''', \
+                        (uid, blacklisttime))
                     # get list of pairs to be deleted
                     second_cursor.execute('''SELECT DISTINCT p.pairid
                     FROM pairs AS p
@@ -175,7 +175,6 @@ class PrimerDB(object):
                     # delete all those pairs from pairs table
                     second_cursor.execute('''DELETE FROM pairs
                     WHERE uniqueid = ?;''', (uid,))
-                    # delete orphan primers
                     self.db.commit()
                 return pairlist
             else: #return list of uniqueids from blacklist
@@ -185,6 +184,7 @@ class PrimerDB(object):
                 return [ row[0] for row in rows ]
         finally:
             self.db.close()
+            self.removeOrphans()
             self.writeAmpliconDump()
 
 

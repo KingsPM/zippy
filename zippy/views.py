@@ -12,7 +12,7 @@ from flask import Flask, render_template, request, redirect, send_from_directory
 from celery import Celery
 from werkzeug.utils import secure_filename
 from . import app
-from .zippy import zippyBatchQuery, zippyPrimerQuery, updateLocation, searchByName, updatePrimerName, updatePrimerPairName, blacklistPair, readprimerlocations
+from .zippy import zippyBatchQuery, zippyPrimerQuery, updateLocation, searchByName, updatePrimerName, updatePrimerPairName, blacklistPair, deletePair, readprimerlocations
 from .zippylib import ascii_encode_dict
 from .zippylib.primer import Location
 from .zippylib.database import PrimerDB
@@ -293,6 +293,17 @@ def blacklist_pair(pairname):
         blacklisted = blacklistPair(pairname, db)
         for b in blacklisted:
             flash('%s added to blacklist' % (b,), 'success')
+    return redirect('/search_by_name/')
+
+@app.route('/delete_pair/<pairname>', methods=['POST'])
+def delete_pair(pairname):
+    print >> sys.stderr, 'This is the pairname: ' + pairname
+    with open(app.config['CONFIG_FILE']) as conf:
+        config = json.load(conf, object_hook=ascii_encode_dict)
+        db = PrimerDB(config['database'],dump=config['ampliconbed'])
+        deleted = deletePair(pairname, db)
+        for d in deleted:
+            flash('%s deleted' % (d,), 'success')
     return redirect('/search_by_name/')
 
 @app.route('/upload_batch_locations/', methods=['POST'])

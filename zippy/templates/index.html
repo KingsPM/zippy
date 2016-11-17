@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-    <!-- <script>
+    <script>
     window.onmousedown = function (e) {
         var el = e.target;
         if (el.tagName.toLowerCase() == 'option' && el.parentNode.hasAttribute('multiple')) {
@@ -15,9 +15,9 @@
             el.parentNode.parentNode.replaceChild(select, el.parentNode);
         }
     }
-    </script> -->
+    </script>
     <div id="indexPage">
-        <div id="left">
+        <div class="left">
             <form action="/upload/" method="post" enctype="multipart/form-data">
                 <table class="form">
                     <tr><th colspan="2"><h3>Batch PCR</h3></th></tr>
@@ -36,7 +36,6 @@
                     </tr><tr>
                         <td class="left">
                             <span class="pop">Design parameter sets</span><br>
-                            (select multiple with SHIFT/CTRL)
                         </td>
                         <td class="right">
                             <select name="tiers" multiple="tiers">
@@ -56,7 +55,7 @@
                 <input type="submit" value="Upload"><br><br>
             </form>
         </div>
-        <div id="right">
+        <div class="right">
             <form action="/adhoc_design/" method="post" enctype="multipart/form-data">
                 <table class="form">
                     <tr><th colspan="2"><h3>Primer Query</h3></th></tr>
@@ -68,13 +67,12 @@
                         </td>
                         <td class="right">
                             <input type="file" name="filePath"><br>
-                            <input type="text" name="locus"><br>
-                            <input type="text" name="gap">
+                            <input type="text" name="locus">Target/Breakpoint<br>
+                            <input type="text" name="gap">(Breakpoint)
                         </td>
                     </tr><tr>
                         <td class="left">
                             <span class="pop">Design parameter sets</span><br>
-                            (select multiple with SHIFT/CTRL)
                         </td>
                         <td class="right">
                             <select name="tiers" multiple="tiers">
@@ -96,9 +94,9 @@
             </form>
         </div>
         <div>
-            <p>&nbsp</p><br><hr><br><br>
+            <p>&nbsp</p><br><br><hr><br><br>
         </div>
-        <div id="left";>
+        <div class="left";>
             <form action="/specify_searchname/" method="post" enctype="multipart/form-data">
                 <table class="form">
                     <tr><th colspan="2"><h3>Primer Pair Query</h3></th></tr>
@@ -115,7 +113,7 @@
                 <input type="submit" id="revSubmit" value="Search">
             </form>
         </div>
-        <div id="right">
+        <div class="right">
             <form action="/upload_batch_locations/" method="post" enctype="multipart/form-data">
                 <table class="form">
                     <tr>

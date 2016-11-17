@@ -11,25 +11,11 @@ header {
 	color: white;
 	padding: 15px;
 	margin-left: -50px;
-	/*margin-bottom: 10px;*/
 	top:0;
 	font-size: 30px;
 	text-align: center;
 	position: fixed;
 	height: 40px;
-}
-
-#wrap {
-	width:100%;
-	margin:0 auto;
-}
-#leftcol {
-	float:left;
-	width:60%;
-}
-#rightcol {
-	float:right;
-	width:40%;
 }
 
 #below_header {
@@ -40,7 +26,7 @@ header {
   text-align: center;
 }
 
-#left {
+div.left {
 	float: left;
 	width: 50%;
 	height: 280px;
@@ -48,11 +34,23 @@ header {
 	text-align: center;
 }
 
-#right {
+div.right {
 	float: right;
 	width: 50%;
 	height: 280px;
 	text-align: center;
+}
+
+#left60 {
+	float: left;
+	width: 60%;
+	text-align: left;
+}
+
+#right40 {
+	float: right;
+	width: 40%;
+	text-align: left;
 }
 
 #centre {
@@ -100,6 +98,42 @@ table.form {
 	border-spacing: 0px;
 }
 
+table.primer {
+	float:left;
+	width:55%;
+	margin-left:auto;
+	margin-right:auto;
+	font-size: 12px;
+	text-align: left;
+	border-spacing: 0px;
+}
+
+table.regions {
+	float:right;
+	width:35%;
+	margin-left:auto;
+	margin-right:auto;
+	font-size: 12px;
+	text-align: left;
+	border-spacing: 0px;
+	padding: 10px;
+}
+
+th.primer {
+	padding: 5px;
+	background-color: #009933;
+	color: white;
+	height: 20px;
+}
+
+td.primer {
+	font-size: 12px;
+	padding: 5px;
+	background-color: #009933;
+	color: white;
+	font-weight: bold;
+}
+
 td.left {
 	text-align: right;
 	padding: 5px;
@@ -109,8 +143,6 @@ td.right {
 	text-align: left;
 	padding: 5px;
 }
-
-
 
 tr:hover {
 	background-color: #edf7f0;

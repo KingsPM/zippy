@@ -617,6 +617,12 @@ def blacklistPair(pairname, db):
     print >> sys.stderr, '%s added to blacklist' % (blacklisted,)
     return blacklisted
 
+# just delete primer pair in database (skip addition to blacklist)
+def deletePair(pairname, db):
+    deleted = db.blacklist(pairname,True)
+    print >> sys.stderr, '%s has been deleted' % (deleted,)
+    return deleted
+
 def readprimerlocations(locationfile):
     header = []
     updateList = []

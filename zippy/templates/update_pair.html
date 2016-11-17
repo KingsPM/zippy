@@ -13,6 +13,9 @@
         <form action="/blacklist_pair/{{pairName}}" method="post" onsubmit="return confirm('Are you sure you want to blacklist this primer pair?');">
           <input type="submit" id="revWideButton" value="Blacklist pair">
         </form>
+        <form action="/delete_pair/{{pairName}}" method="post" onsubmit="return confirm('Are you sure you want to delete this primer pair?');">
+          <input type="submit" id="revWideButton" value="Delete pair">
+        </form>
       </div>
   </div>
   <div class="holdBottom">
