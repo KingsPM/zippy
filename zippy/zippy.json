@@ -2,7 +2,7 @@
     "password": "$2b$12$QmHmE2grqDPkoS.Z0uuSte7WS4M6KYlrT9qYh8gApXQVrV3fXszGi",
     "database": "/var/local/zippy/zippy.sqlite",
     "logfile": "/var/local/zippy/zippy.log",
-    "ampliconbed": "/srv/data/resources/zippy.bed",
+    "ampliconbed": "/var/local/zippy/zippy.bed",
     "blacklistcache": "/var/local/zippy/.blacklist.cache",
     "tiling": {
         "interval": 500,
