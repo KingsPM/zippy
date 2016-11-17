@@ -29,7 +29,7 @@ header {
 div.left {
 	float: left;
 	width: 50%;
-	height: 280px;
+	height: 300px;
 	padding-right: 0%;
 	text-align: center;
 }
@@ -37,7 +37,7 @@ div.left {
 div.right {
 	float: right;
 	width: 50%;
-	height: 280px;
+	height: 300px;
 	text-align: center;
 }
 
