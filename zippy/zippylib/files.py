@@ -202,6 +202,8 @@ class SNPpy(IntervalList):
             elif i-commentcount == 0:
                 self.header = line.rstrip().split(delim)
                 self.data = { h:[] for h in self.header }
+            elif re.match('^\s+$',line):
+                pass  # tabs/space only line
             else:
                 try:
                     f = line.rstrip().split(delim)
