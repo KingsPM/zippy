@@ -319,7 +319,7 @@ def readBatch(fi,tiling):
 '''return length of variant from hgvs.c notation'''
 def hgvsLength(hgvs,default=10):
     try:
-        m = re.match('c.\d+.+(>|ins|del|dup)(\w+)$',hgvs)
+        m = re.match('c\.-?\d+.+(>|ins|del|dup)(\w+)$',hgvs)
         assert m
     except:
         try:
