@@ -459,10 +459,10 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
     if not isinstance(targets,list):
         targets = [ targets ]
     print >> sys.stderr, 'Reading batch file {}...'.format(targets[0])
-    sampleVariants, genes = readBatch(targets[0], config['tiling'])
+    sampleVariants, genes = readBatch(targets[0], config['tiling'], database=db)
     for t in range(1,len(targets)): # read additional files
         print >> sys.stderr, 'Reading additional file {}...'.format(targets[t])
-        sv, g = readBatch(targets[t], config['tiling'])
+        sv, g = readBatch(targets[t], config['tiling'], database=db)
         # amend target regions
         for k,v in sv.items():
             if k in sampleVariants.keys():
@@ -659,6 +659,8 @@ def main():
     global_group = parser.add_argument_group('Global options')
     global_group.add_argument("-c", dest="config", default='zippy.json',metavar="JSON_FILE", \
         help="configuration file [zippy.json]")
+    global_group.add_argument("--tiers", dest="tiers", default='0,1,2', \
+        help="Allowed design tiers (0,1,...,n)")
 
     # run modes
     subparsers = parser.add_subparsers(help='Help for subcommand')
@@ -677,8 +679,6 @@ def main():
         help="Design primers if not in database")
     parser_retrieve.add_argument("--gap", dest="gap", default=None, metavar="CHR:START-END", \
         help="Second break point for gap-PCR")
-    parser_retrieve.add_argument("--tiers", dest="tiers", default='0,1,2', \
-        help="Allowed design tiers (0,1,...,n)")
     parser_retrieve.add_argument("--nostore", dest="store", default=True, action='store_false', \
         help="Do not store result in database")
     parser_retrieve.add_argument("--outfile", dest="outfile", default='', type=str, \
@@ -699,8 +699,6 @@ def main():
         help="Design primers for all genes in batch")
     parser_batch.add_argument("--nodesign", dest="design", default=True, action="store_false", \
         help="Skip primer design if not in database")
-    parser_retrieve.add_argument("--tiers", dest="tiers", default='0,1,2', \
-        help="Allowed design tiers (0,1,...,n)")
     parser_batch.add_argument("--outfile", dest="outfile", default='', type=str, \
         help="Create worksheet PDF, order and robot CSV")
     parser_batch.set_defaults(which='batch')

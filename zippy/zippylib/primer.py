@@ -261,6 +261,13 @@ class PrimerPair(list):
             self[0].targetposition.offset+self[0].targetposition.length if self[0] and self[1] and self[0].targetposition else '',
             self[1].targetposition.offset if self[0] and self[1] and self[1].targetposition else '')
 
+    def sequencingTarget(self):
+        return (self[0].targetposition.chrom if self[0] and self[1] and self[0].targetposition else None, \
+                self[0].targetposition.offset+self[0].targetposition.length if self[0] and self[1] and self[0].targetposition else None,
+                self[1].targetposition.offset if self[0] and self[1] and self[1].targetposition else None,
+                self.reversed)
+
+
     def targetLength(self,includePrimers=False):
         if self[0] and self[1] and self[0].targetposition and self[0].targetposition:
             if includePrimers:
