@@ -33,7 +33,7 @@ essential:
 	apt-get install -y apache2 apache2.2-common apache2-mpm-prefork apache2-utils libexpat1 ssl-cert
 	apt-get install -y libapache2-mod-wsgi
 	# disable default site
-	a2dissite default
+	a2dissite 000-default
 
 bowtie:
 	wget -c http://netix.dl.sourceforge.net/project/bowtie-bio/bowtie2/2.2.6/bowtie2-2.2.6-linux-x86_64.zip && \
