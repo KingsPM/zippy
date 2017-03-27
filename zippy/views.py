@@ -90,6 +90,7 @@ def upload():
     # read form
     uploadFile = request.files['variantTable']
     uploadFile2 = request.files['missedRegions']
+    uploadFile3 = request.files['singleGenes']
     tiers = map(int,request.form.getlist('tiers'))
     predesign = request.form.get('predesign')
     design = request.form.get('design')
@@ -97,7 +98,7 @@ def upload():
 
     # save files
     uploadedFiles = []
-    for uf in [uploadFile, uploadFile2]:
+    for uf in [uploadFile, uploadFile2, uploadFile3]:
         if uf and allowed_file(uf.filename):
             uploadedFiles.append(os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(uf.filename)))
             uf.save(uploadedFiles[-1])

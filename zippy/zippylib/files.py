@@ -230,7 +230,8 @@ class SNPpy(IntervalList):
                         for p in pairs:
                             t = p.sequencingTarget()
                             # (gene,tx,exon,hgvs/pos,zyg)
-                            vd = [ row['geneID'], '', '', '{}:{}-{}'.format(t[0],t[1],t[2]), 'unknown' ]
+                            # vd = [ row['geneID'], '', '', '{}:{}-{}'.format(t[0],t[1],t[2]), 'unknown' ]
+                            vd = [ row['geneID'], '', '', '', '' ]
                             iv = Interval(t[0],t[1],t[2],name=quote(','.join(vd)),sample=row['sampleID'])
                             iv.extend(-flank)  # shrink search interval
                             self.append(iv)
