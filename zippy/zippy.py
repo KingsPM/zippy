@@ -458,11 +458,12 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
     # read targets from first file and additional files
     if not isinstance(targets,list):
         targets = [ targets ]
+    # load query files
     print >> sys.stderr, 'Reading batch file {}...'.format(targets[0])
-    sampleVariants, genes = readBatch(targets[0], config['tiling'], database=db)
+    sampleVariants, genes, fullgenes = readBatch(targets[0], config['tiling'], database=db)
     for t in range(1,len(targets)): # read additional files
         print >> sys.stderr, 'Reading additional file {}...'.format(targets[t])
-        sv, g = readBatch(targets[t], config['tiling'], database=db)
+        sv, g, f = readBatch(targets[t], config['tiling'], database=db)
         # amend target regions
         for k,v in sv.items():
             if k in sampleVariants.keys():
@@ -470,29 +471,52 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
             else:
                 sampleVariants[k] = v
         genes = list(set(genes + g))
+        fullgenes = list(set(fullgenes + f))
 
     print >> sys.stderr, '\n'.join([ '{:<20} {:>2d}'.format(sample,len(variants)) \
         for sample,variants in sorted(sampleVariants.items(),key=lambda x: x[0]) ])
+
     # predesign
-    if predesign and genes and db:
+    if predesign and db and genes:
+        print 'GENES',genes
+        print 'FULL ',fullgenes
+
         print >> sys.stderr, "Designing primers for {} genes..".format(str(len(genes)))
         # Create interval list
         intervals = IntervalList([],source='GenePred')
         # parse gene intervals from refGene and retain those intersecting variants
-        with open(config['design']['annotation']) as fh:
-            for iv in GenePred(fh,getgenes=genes,**config['tiling']):  # get intervals from file or commandline
-                found = False
-                for sl in sampleVariants.values():
-                    for iv2 in sl:
-                        if iv.overlap(iv2):
-                            intervals.append(iv)
-                            found = True
+        selectedgeneexons = list(set(genes)-fullgenes)
+        if selectedgeneexons:
+            with open(config['design']['annotation']) as fh:
+                for iv in GenePred(fh,getgenes=selectedgeneexons,**config['tiling']):  # get intervals from file or commandline
+                    found = False
+                    for sl in sampleVariants.values():
+                        for iv2 in sl:
+                            if iv.overlap(iv2):
+                                intervals.append(iv)
+                                found = True
+                            if found: break
                         if found: break
-                    if found: break
+        # add full genes
+        if fullgenes:
+            with open(config['design']['annotation']) as fh:
+                intervals += GenePred(fh,getgenes=fullgenes,**config['tiling'])
         # predesign and store
         primerTable, resultList, missedIntervals = getPrimers(intervals,db,predesign,config,tiers)
         if db:
             db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
+        # reload query files ()
+        print >> sys.stderr, 'Updating query table...'
+        sampleVariants = readBatch(targets[0], config['tiling'], database=db)[0]
+        for t in range(1,len(targets)): # read additional files
+            sv = readBatch(targets[t], config['tiling'], database=db)[0]
+            # amend target regions
+            for k,v in sv.items():
+                if k in sampleVariants.keys():
+                    sampleVariants[k] += v
+                else:
+                    sampleVariants[k] = v
+
     # for each sample design
     primerTableConcat = []
     allMissedIntervals = {}

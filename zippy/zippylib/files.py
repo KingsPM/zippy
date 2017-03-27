@@ -195,6 +195,7 @@ class SNPpy(IntervalList):
         self.header = []
         self.samples = []
         self.data = {}
+        self.missedgenes = set()
         commentcount = 0
         for i, line in enumerate(fh):
             if line.startswith('#'):
@@ -223,6 +224,8 @@ class SNPpy(IntervalList):
                     for pp in pairnames:
                         # get pair(s)
                         pairs = db.query(pp)
+                        if not pairs:
+                            self.missedgenes.add(row['geneID'])
                         # create interval
                         for p in pairs:
                             t = p.sequencingTarget()
@@ -328,13 +331,9 @@ def readBatch(fi,tiling,database=None):
             sampleVariants[iv.sample] = IntervalList([iv],source='SNPpy')
         except:
             raise
-    # extract gene names
-    print "SAMPLEVAR", sampleVariants
-    print "DATA", intervals.data
-
-
     return sampleVariants, \
-        sorted(list(set(intervals.data['geneID'])))
+        sorted(list(set(intervals.data['geneID']))), \
+        intervals.missedgenes
 
 
 '''return length of variant from hgvs.c notation'''
