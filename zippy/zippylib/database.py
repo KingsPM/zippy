@@ -27,11 +27,12 @@ def changeConflictingName(n):
     if len(f)==4:  # try to increase suffix
         try:
             f[2] = str(int(f[2])+1)
+            newname = '_'.join(f)
         except:
             raise Exception('PrimerNameChangeError')
-        return '_'.join(f)
+        return newname
     elif len(f)==3:  # add number suffix after exon
-        return '_'.join(f[:2]+[str(1)]+f[2])
+        return '_'.join(f[:2]+[str(1)]+f[2:])
     raise Exception('PrimerNameChangeError')
 
 # Primer Database
@@ -257,10 +258,10 @@ class PrimerDB(object):
         return
 
     '''query for interval or name'''
-    def query(self, query):
+    def query(self, query,opendb=None):
         '''returns suitable primer pairs for the specified interval'''
         try:
-            self.db = sqlite3.connect(self.sqlite)
+            self.db = opendb if opendb else sqlite3.connect(self.sqlite)
         except:
             raise
         else:
@@ -300,7 +301,8 @@ class PrimerDB(object):
                     (int(query.chromStart+int(query.chromEnd-query.chromStart)/2.0), query.chrom, query.chromStart, query.chromEnd))
             rows = cursor.fetchall()
         finally:
-            self.db.close()
+            if not opendb:
+                self.db.close()
         # return primer pairs that would match
         primerPairs = []
         for row in rows:

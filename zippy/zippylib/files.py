@@ -203,6 +203,8 @@ class SNPpy(IntervalList):
             elif i-commentcount == 0:
                 self.header = line.rstrip().split(delim)
                 self.data = { h:[] for h in self.header }
+            elif re.match('^\s+$',line):
+                pass  # tabs/space only line
             else:
                 # parse fields
                 try:
@@ -340,7 +342,7 @@ def readBatch(fi,tiling,database=None):
 '''return length of variant from hgvs.c notation'''
 def hgvsLength(hgvs,default=10):
     try:
-        m = re.match('c.\d+.+(>|ins|del|dup)(\w+)$',hgvs)
+        m = re.match('c\.-?\d+.+(>|ins|del|dup)(\w+)$',hgvs)
         assert m
     except:
         try:

@@ -478,33 +478,30 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
 
     # predesign
     if predesign and db and genes:
-        print 'GENES',genes
-        print 'FULL ',fullgenes
-
-        print >> sys.stderr, "Designing primers for {} genes..".format(str(len(genes)))
-        # Create interval list
-        intervals = IntervalList([],source='GenePred')
-        # parse gene intervals from refGene and retain those intersecting variants
+        designVariants = [ var for var in variants if not db.query(var) ]
         selectedgeneexons = list(set(genes)-fullgenes)
-        if selectedgeneexons:
+        print >> sys.stderr, "Designing exon primers for {} variants..".format(str(len(designVariants)))
+        # get variants with no overlapping amplicon -> get variants which need new primer designs
+        intervals = IntervalList([],source='GenePred')
+        if designVariants:
             with open(config['design']['annotation']) as fh:
                 for iv in GenePred(fh,getgenes=selectedgeneexons,**config['tiling']):  # get intervals from file or commandline
                     found = False
-                    for sl in sampleVariants.values():
-                        for iv2 in sl:
-                            if iv.overlap(iv2):
-                                intervals.append(iv)
-                                found = True
-                            if found: break
+                    for dv in designVariants:
+                        if not found and iv.overlap(dv):
+                            intervals.append(iv)
+                            found = True
                         if found: break
+                    if found: break
         # add full genes
         if fullgenes:
             with open(config['design']['annotation']) as fh:
                 intervals += GenePred(fh,getgenes=fullgenes,**config['tiling'])
         # predesign and store
-        primerTable, resultList, missedIntervals = getPrimers(intervals,db,predesign,config,tiers)
-        if db:
-            db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
+        if intervals:
+            primerTable, resultList, missedIntervals = getPrimers(intervals,db,predesign,config,tiers)
+            if db:
+                db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
         # reload query files ()
         print >> sys.stderr, 'Updating query table...'
         sampleVariants = readBatch(targets[0], config['tiling'], database=db)[0]
@@ -723,6 +720,8 @@ def main():
         help="Design primers for all genes in batch")
     parser_batch.add_argument("--nodesign", dest="design", default=True, action="store_false", \
         help="Skip primer design if not in database")
+    parser_batch.add_argument("--tiers", dest="tiers", default='0,1,2', \
+        help="Allowed design tiers (0,1,...,n)")
     parser_batch.add_argument("--outfile", dest="outfile", default='', type=str, \
         help="Create worksheet PDF, order and robot CSV")
     parser_batch.set_defaults(which='batch')
