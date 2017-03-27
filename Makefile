@@ -18,6 +18,7 @@ install: essential bowtie zippy-install import-resources
 # requirements
 essential:
 	apt-get update
+	apt-get install -y wget
 	apt-get install -y sqlite3 unzip git htop
 	apt-get install -y python-pip python2.7-dev ncurses-dev python-virtualenv
 	apt-get install -y libxslt-dev libxml2-dev libffi-dev
@@ -46,6 +47,7 @@ zippy-install:
 	# virtualenv
 	mkdir -p $(ZIPPYPATH)
 	cd $(ZIPPYPATH) && virtualenv venv
+	$(ZIPPYPATH)/venv/bin/pip install Cython==0.24
 	$(ZIPPYPATH)/venv/bin/pip install -r package-requirements.txt
 	# create empty database
 	mkdir -p $(ZIPPYVAR)
