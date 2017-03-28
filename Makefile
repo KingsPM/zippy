@@ -17,8 +17,8 @@ install: essential bowtie zippy-install import-resources
 
 # requirements
 essential:
-	locale-gen en_GB.UTF-8
 	apt-get update
+	apt-get install -y wget
 	apt-get install -y sqlite3 unzip git htop
 	apt-get install -y python-pip python2.7-dev ncurses-dev python-virtualenv
 	apt-get install -y libxslt-dev libxml2-dev libffi-dev
@@ -34,7 +34,7 @@ essential:
 	apt-get install -y apache2 apache2.2-common apache2-mpm-prefork apache2-utils libexpat1 ssl-cert
 	apt-get install -y libapache2-mod-wsgi
 	# disable default site
-	a2dissite default
+	a2dissite 000-default
 
 bowtie:
 	wget -c http://netix.dl.sourceforge.net/project/bowtie-bio/bowtie2/2.2.6/bowtie2-2.2.6-linux-x86_64.zip && \
@@ -47,6 +47,7 @@ zippy-install:
 	# virtualenv
 	mkdir -p $(ZIPPYPATH)
 	cd $(ZIPPYPATH) && virtualenv venv
+	$(ZIPPYPATH)/venv/bin/pip install Cython==0.24
 	$(ZIPPYPATH)/venv/bin/pip install -r package-requirements.txt
 	# create empty database
 	mkdir -p $(ZIPPYVAR)
