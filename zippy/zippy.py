@@ -470,8 +470,8 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
                 sampleVariants[k] += v
             else:
                 sampleVariants[k] = v
-        genes = list(set(genes + g))
-        fullgenes = list(set(fullgenes + f))
+        genes = list(set(genes) | set(g))
+        fullgenes = list(set(fullgenes) | set(f))
 
     print >> sys.stderr, '\n'.join([ '{:<20} {:>2d}'.format(sample,len(variants)) \
         for sample,variants in sorted(sampleVariants.items(),key=lambda x: x[0]) ])
@@ -479,7 +479,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
     # predesign
     if predesign and db and genes:
         designVariants = [ var for var in variants if not db.query(var) ]
-        selectedgeneexons = list(set(genes)-fullgenes)
+        selectedgeneexons = list(set(genes) - set(fullgenes))
         print >> sys.stderr, "Designing exon primers for {} variants..".format(str(len(designVariants)))
         # get variants with no overlapping amplicon -> get variants which need new primer designs
         intervals = IntervalList([],source='GenePred')
