@@ -5,27 +5,53 @@
 		<hr>
 		{% for item in resultList %}
 			<b>Primer Pair Name:</b> {{item.name}}  <b>Amplicon:</b> {{item[0].targetposition.chrom}}:{{item[0].targetposition.offset+item[0].targetposition.length}}-{{item[1].targetposition.offset}} (Length: {{item[1].targetposition.offset+item[1].targetposition.length-item[0].targetposition.offset}})
-				<hr>
-				<b>Name:<i> {{ item[0].name }}</i></b><br>
-				<b>Sequence:</b> {{ item[0].tag }}-{{ item[0].seq }}<br>
-				<b>Locus:</b> {{ item[0].targetposition }}<br>
-				<b>TM:</b> {{ '%0.1f'|format(item[0].tm|float) }}˚C<br>
-				<b>GC:</b> {{ '%0.1f'|format((item[0].gc * 100)|float) }}%<br>
-				<br>
-				<b>Name:<i> {{item[1].name}}</i></b><br>
-				<b>Sequence:</b> {{ item[1].tag }}-{{ item[1].seq }}<br>
-				<b>Locus:</b> {{item[1].targetposition}}<br>
-				<b>TM:</b> {{ '%0.1f'|format(item[1].tm|float) }}˚C<br>
-				<b>GC:</b> {{ '%0.1f'|format((item[1].gc * 100)|float) }}%<br>
-				<hr>
+			<br><hr><br>
+			<table class="primer">
+				<th class="primer">
+					<td class="primer">Left</td>
+					<td class="primer">Right</td>
+				</th>
+				<tr>
+					<td class="left"><span class="pop">Name</span></td>
+					<td class="right">{{ item[0].name }}</td>
+					<td class="right">{{ item[1].name }}</td>
+				</tr>
+				<tr>
+					<td class="left"><span class="pop">Sequence</span></td>
+					<td class="right">{{ item[0].tag }}-{{ item[0].seq }}</td>
+					<td class="right">{{ item[1].tag }}-{{ item[1].seq }}</td>
+				</tr>
+				<tr>
+					<td class="left"><span class="pop">Locus</span></td>
+					<td class="right">{{ item[0].targetposition }}</td>
+					<td class="right">{{ item[1].targetposition }}</td>
+				</tr>
+				<tr>
+					<td class="left"><span class="pop">Tm</span></td>
+					<td class="right">{{ '%0.1f'|format(item[0].tm|float) }}˚C</td>
+					<td class="right">{{ '%0.1f'|format(item[1].tm|float) }}˚C</td>
+				</tr>
+				<tr>
+					<td class="left"><span class="pop">GC content</span></td>
+					<td class="right">{{ '%0.1f'|format((item[0].gc * 100)|float) }}%</td>
+					<td class="right">{{ '%0.1f'|format((item[1].gc * 100)|float) }}%</td>
+				</tr>
+			</table>
 		{% endfor %}
 	{% endif %}
-	<hr/>
-	{% if resultList is not equalto [] %}
-		<p>No results for: </p>
-		{% for interval in missedIntervals %}
-			<p>{{interval}}</p>
-		{% endfor %}
+	{% if missedIntervals is not equalto [] %}
+		<table class="region">
+			<th class="primer">
+				<tr>
+					<td class="primer">Missed regions</td>
+				</tr>
+			</th>
+			{% for interval in missedIntervals %}
+				<tr>
+					<td class="right">{{interval}}</span></td>
+				</tr>
+			{% endfor %}
+		</table>
 	{% endif %}
 	{% if not missedIntervals and not resultList %}
 		<p>The specific locus to design primers for was not given in the correct format. Please re-submit in the correct format: <span class="pop">Chromosome:Start-End[:-]</span></p>

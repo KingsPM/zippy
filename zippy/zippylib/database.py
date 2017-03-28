@@ -3,7 +3,7 @@
 __doc__=="""SQLITE Database API"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "2.3.3"
+__version__ = "2.3.4"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -27,11 +27,12 @@ def changeConflictingName(n):
     if len(f)==4:  # try to increase suffix
         try:
             f[2] = str(int(f[2])+1)
+            newname = '_'.join(f)
         except:
             raise Exception('PrimerNameChangeError')
-        return '_'.join(f)
+        return newname
     elif len(f)==3:  # add number suffix after exon
-        return '_'.join(f[:2]+[str(1)]+f[2])
+        return '_'.join(f[:2]+[str(1)]+f[2:])
     raise Exception('PrimerNameChangeError')
 
 # Primer Database
@@ -142,10 +143,9 @@ class PrimerDB(object):
             return [ x[0] for x in orphans ]
         finally:
             self.db.close()
-            self.writeAmpliconDump()
 
     '''show/update blacklist'''
-    def blacklist(self,add=None):
+    def blacklist(self,add=None,justdelete=False):
         try:
             self.db = sqlite3.connect(self.sqlite)
         except:
@@ -165,8 +165,9 @@ class PrimerDB(object):
                 pairlist = []
                 for uid in bl_uniqueid:
                     # add uniqueid to blacklist
-                    second_cursor.execute('''INSERT INTO blacklist(uniqueid, blacklistdate) VALUES(?,?);''', \
-                    (uid, blacklisttime))
+                    if not justdelete:
+                        second_cursor.execute('''INSERT INTO blacklist(uniqueid, blacklistdate) VALUES(?,?);''', \
+                        (uid, blacklisttime))
                     # get list of pairs to be deleted
                     second_cursor.execute('''SELECT DISTINCT p.pairid
                     FROM pairs AS p
@@ -175,7 +176,6 @@ class PrimerDB(object):
                     # delete all those pairs from pairs table
                     second_cursor.execute('''DELETE FROM pairs
                     WHERE uniqueid = ?;''', (uid,))
-                    # delete orphan primers
                     self.db.commit()
                 return pairlist
             else: #return list of uniqueids from blacklist
@@ -185,6 +185,7 @@ class PrimerDB(object):
                 return [ row[0] for row in rows ]
         finally:
             self.db.close()
+            self.removeOrphans()
             self.writeAmpliconDump()
 
 
@@ -257,10 +258,10 @@ class PrimerDB(object):
         return
 
     '''query for interval or name'''
-    def query(self, query):
+    def query(self, query,opendb=None):
         '''returns suitable primer pairs for the specified interval'''
         try:
-            self.db = sqlite3.connect(self.sqlite)
+            self.db = opendb if opendb else sqlite3.connect(self.sqlite)
         except:
             raise
         else:
@@ -300,7 +301,8 @@ class PrimerDB(object):
                     (int(query.chromStart+int(query.chromEnd-query.chromStart)/2.0), query.chrom, query.chromStart, query.chromEnd))
             rows = cursor.fetchall()
         finally:
-            self.db.close()
+            if not opendb:
+                self.db.close()
         # return primer pairs that would match
         primerPairs = []
         for row in rows:
