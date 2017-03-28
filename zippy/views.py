@@ -12,7 +12,7 @@ from flask import Flask, render_template, request, redirect, send_from_directory
 from celery import Celery
 from werkzeug.utils import secure_filename
 from . import app
-from .zippy import zippyBatchQuery, zippyPrimerQuery, updateLocation, searchByName, updatePrimerName, updatePrimerPairName, blacklistPair, readprimerlocations
+from .zippy import zippyBatchQuery, zippyPrimerQuery, updateLocation, searchByName, updatePrimerName, updatePrimerPairName, blacklistPair, deletePair, readprimerlocations
 from .zippylib import ascii_encode_dict
 from .zippylib.primer import Location
 from .zippylib.database import PrimerDB
@@ -44,7 +44,7 @@ def login_required(func):
 @app.route('/index')
 @login_required
 def index():
-    return render_template('index.html')
+    return render_template('index.html',designtiers=config['design']['tiers'])
 
 # simple access control (login)
 @app.route('/login', methods=['GET', 'POST'])
@@ -88,33 +88,37 @@ def location_updated(status):
 @app.route('/upload/', methods=['POST', 'GET'])
 def upload():
     # read form
-    uploadFile = request.files['filePath']
-    deep = request.form.get('deep')
+    uploadFile = request.files['variantTable']
+    uploadFile2 = request.files['missedRegions']
+    uploadFile3 = request.files['singleGenes']
+    tiers = map(int,request.form.getlist('tiers'))
     predesign = request.form.get('predesign')
     design = request.form.get('design')
     outfile = request.form.get('outfile')
-    if uploadFile and allowed_file(uploadFile.filename):
-        filename = secure_filename(uploadFile.filename)
-        print >> sys.stderr, "Uploaded: ", filename
 
-        # save file
-        uploadedFile = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        uploadFile.save(uploadedFile)
-        print >> sys.stderr, "file saved to %s" % uploadedFile
+    # save files
+    uploadedFiles = []
+    for uf in [uploadFile, uploadFile2, uploadFile3]:
+        if uf and allowed_file(uf.filename):
+            uploadedFiles.append(os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(uf.filename)))
+            uf.save(uploadedFiles[-1])
+            print >> sys.stderr, "file saved to %s" % uploadedFiles[-1]
 
+    if uploadedFiles:
         # open config file and database
         with open(app.config['CONFIG_FILE']) as conf:
             config = json.load(conf, object_hook=ascii_encode_dict)
             db = PrimerDB(config['database'],dump=config['ampliconbed'])
 
         # create output folder
-        downloadFolder = os.path.join(app.config['DOWNLOAD_FOLDER'], hashlib.sha1(open(uploadedFile).read()).hexdigest())
+        filehash = hashlib.sha1(''.join([ open(uf).read() for uf in uploadedFiles ])).hexdigest()
+        downloadFolder = os.path.join(app.config['DOWNLOAD_FOLDER'], filehash)
         subprocess.check_call(['mkdir', '-p', downloadFolder], shell=False)
 
         # run Zippy to design primers
-        shortName = os.path.splitext(filename)[0]
+        shortName = os.path.splitext(os.path.basename(uploadedFiles[0]))[0]
         downloadFile = os.path.join(downloadFolder, outfile) if outfile else os.path.join(downloadFolder, shortName)
-        arrayOfFiles, missedIntervalNames = zippyBatchQuery(config, uploadedFile, design, downloadFile, db, predesign, deep)
+        arrayOfFiles, missedIntervalNames = zippyBatchQuery(config, uploadedFiles, design, downloadFile, db, predesign, tiers)
         return render_template('file_uploaded.html', outputFiles=arrayOfFiles, missedIntervals=missedIntervalNames)
     else:
         print("file for upload not supplied or file-type not allowed")
@@ -126,10 +130,11 @@ def adhocdesign():
     uploadFile = request.files['filePath']
     locus = request.form.get('locus')
     design = request.form.get('design')
-    deep = request.form.get('deep')
+    tiers = map(int,request.form.getlist('tiers'))
     gap = request.form.get('gap')
     store = request.form.get('store')
 
+    print >> sys.stderr, 'tiers', tiers
     print >> sys.stderr, 'locus', locus
     print >> sys.stderr, 'gap', gap
 
@@ -149,7 +154,7 @@ def adhocdesign():
             config = json.load(conf, object_hook=ascii_encode_dict)
             db = PrimerDB(config['database'],dump=config['ampliconbed'])
         # run Zippy
-        primerTable, resultList, missedIntervals = zippyPrimerQuery(config, target, design, None, db, store, deep, gap)
+        primerTable, resultList, missedIntervals = zippyPrimerQuery(config, target, design, None, db, store, tiers, gap)
 
         print >> sys.stderr, primerTable
 
@@ -289,6 +294,17 @@ def blacklist_pair(pairname):
         blacklisted = blacklistPair(pairname, db)
         for b in blacklisted:
             flash('%s added to blacklist' % (b,), 'success')
+    return redirect('/search_by_name/')
+
+@app.route('/delete_pair/<pairname>', methods=['POST'])
+def delete_pair(pairname):
+    print >> sys.stderr, 'This is the pairname: ' + pairname
+    with open(app.config['CONFIG_FILE']) as conf:
+        config = json.load(conf, object_hook=ascii_encode_dict)
+        db = PrimerDB(config['database'],dump=config['ampliconbed'])
+        deleted = deletePair(pairname, db)
+        for d in deleted:
+            flash('%s deleted' % (d,), 'success')
     return redirect('/search_by_name/')
 
 @app.route('/upload_batch_locations/', methods=['POST'])

@@ -4,7 +4,7 @@
 __doc__=="""Report Generator"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "2.3.3"
+__version__ = "2.3.4"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -152,7 +152,7 @@ class Report(object):
             ('BACKGROUND', (6,0), (6,0), colors.cyan)
             ])
         self.elements.append(Spacer(1, 2))
-        data = [[ 'Date','','','Checker','','','Worklist',worklist]]
+        data = [[ 'Date','','','Operator','','','Worklist',worklist]]
         t = Table(data, \
             colWidths=[2.3*cm, 2.3*cm, 0.85*cm, 2.3*cm, 2.3*cm, 0.85*cm, 2.3*cm, 2.3*cm], rowHeights=0.6*cm)
         t.setStyle(TABLE_STYLE)
