@@ -8,7 +8,7 @@ WWWUSER=flask
 WWWGROUP=www-data
 
 # production install
-release: install webservice
+release: install resources webservice
 
 # development installs (with mounted volume)
 all: install resources
@@ -25,6 +25,7 @@ essential:
 	apt-get install -y redis-server
 	apt-get install -y build-essential libjpeg-dev libfreetype6-dev python-dev python-imaging libcurl3-dev
 	apt-get install -y mysql-client
+	apt-get install -y postgresql postgresql-client postgresql-server-dev-9.4
 	# add apache user
 	useradd -M $(WWWUSER)
 	usermod -s /bin/false $(WWWUSER)
@@ -104,7 +105,7 @@ genome-download:
 	mkdir -p $(ZIPPYVAR)/resources && cd $(ZIPPYVAR)/resources && \
 	wget -c ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/human_g1k_v37.fasta.gz && \
 	wget -c ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/human_g1k_v37.fasta.fai && \
-	gunzip human_g1k_v37.fasta.gz
+	gunzip -q human_g1k_v37.fasta.gz
 
 genome-index:
 	cd $(ZIPPYVAR)/resources && \
