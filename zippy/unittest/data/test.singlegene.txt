@@ -1,2 +1,4 @@
-geneID	sampleID	primers
-SULT1B1	sample1	SULT1B1_1
+sampleID	primers	geneID
+patientA	_HBB_%	HBB
+patientB	_HBA1	HBA1
+patientC	_HBB_3_1,_HBB_3_2	HBB
