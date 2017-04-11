@@ -13,11 +13,10 @@ release: install resources webservice
 # development installs (with mounted volume)
 all: install resources
 
-install: essential bowtie zippy-install import-resources
+install: essential bowtie zippy-install
 
 # requirements
 essential:
-	apt-get update
 	apt-get install -y wget
 	apt-get install -y sqlite3 unzip git htop
 	apt-get install -y python-pip python2.7-dev ncurses-dev python-virtualenv
@@ -93,7 +92,7 @@ webservice-dev:
 #### genome resources
 import-resources:
 	# Copy resource files
-	mkdir -p $(ZIPPYVAR)
+	mkdir -p $(ZIPPYVAR)/resources
 	rsync -avPp resources $(ZIPPYVAR)
 	chown -R $(WWWUSER):$(WWWGROUP) $(ZIPPYVAR)
 
@@ -102,10 +101,11 @@ resources: genome annotation
 genome: genome-download genome-index
 
 genome-download:
-	mkdir -p $(ZIPPYVAR)/resources && cd $(ZIPPYVAR)/resources && \
-	wget -c ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/human_g1k_v37.fasta.gz && \
-	wget -c ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/human_g1k_v37.fasta.fai && \
-	gunzip -q human_g1k_v37.fasta.gz
+	mkdir -p $(ZIPPYVAR)/resources
+	cd $(ZIPPYVAR)/resources && \
+	wget -qO- ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/human_g1k_v37.fasta.gz | \
+	gzip -dcq | cat > human_g1k_v37.fasta && rm -f human_g1k_v37.fasta.gz && \
+	wget -c ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/human_g1k_v37.fasta.fai
 
 genome-index:
 	cd $(ZIPPYVAR)/resources && \
@@ -121,4 +121,4 @@ variation-download:
 refgene-download:
 	mkdir -p $(ZIPPYVAR)/resources && cd $(ZIPPYVAR)/resources && \
 	mysql --user=genome --host=genome-mysql.cse.ucsc.edu -A -N -D hg19 -P 3306 \
-	 -e "SELECT DISTINCT r.bin,CONCAT(r.name,'.',i.version),c.ensembl,r.strand, r.txStart,r.txEnd,r.cdsStart,r.cdsEnd,r.exonCount,r.exonStarts,r.exonEnds,r.score,r.name2,r.cdsStartStat,r.cdsEndStat,r.exonFrames FROM refGene as r, gbCdnaInfo as i, ucscToEnsembl as c WHERE r.name=i.acc AND c.ucsc = r.chrom ORDER BY r.bin;" > refGene
+	 -e "SELECT DISTINCT r.bin,CONCAT(r.name,'.',i.version),c.ensembl,r.strand, r.txStart,r.txEnd,r.cdsStart,r.cdsEnd,r.exonCount,r.exonStarts,r.exonEnds,r.score,r.name2,r.cdsStartStat,r.cdsEndStat,r.exonFrames FROM refGene as r, hgFixed.gbCdnaInfo as i, ucscToEnsembl as c WHERE r.name=i.acc AND c.ucsc = r.chrom ORDER BY r.bin;" > refGene
