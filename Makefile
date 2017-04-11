@@ -72,7 +72,7 @@ webservice:
 	cp install/zippy.wsgi $(ZIPPYWWW)/zippy.wsgi
 	chown -R $(WWWUSER):$(WWWGROUP) $(ZIPPYWWW)
 	# apache WSGI config
-	cp install/zippy.hostconfig /etc/apache2/sites-available/zippy
+	cp install/zippy.hostconfig /etc/apache2/sites-available/zippy.conf
 	# enable site and restart
 	a2ensite zippy
 	/etc/init.d/apache2 restart
@@ -84,7 +84,7 @@ webservice-dev:
 	cp install/zippy_dev.wsgi $(ZIPPYWWW)/zippy.wsgi
 	chown -R $(WWWUSER):$(WWWGROUP) $(ZIPPYWWW)
 	# apache WSGI config
-	cp install/zippy_dev.hostconfig /etc/apache2/sites-available/zippy
+	cp install/zippy_dev.hostconfig /etc/apache2/sites-available/zippy.conf
 	# enable site and restart
 	a2ensite zippy
 	/etc/init.d/apache2 restart
