@@ -15,10 +15,15 @@ RUN cd zippy && make genome-index
 RUN cd zippy && make variation-download
 RUN cd zippy && make refgene-download
 
+# add some convenience utils
+RUN apt-get -y install curl less vim
+
 # install zippy
-#ADD . /zippy
-#RUN cd zippy && make webservice
+ADD . /zippy
+RUN cd /zippy && make webservice
 
 EXPOSE 80
 
-CMD /bin/bash
+RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
+CMD /bin/bash /zippy/zippyd.sh
+
