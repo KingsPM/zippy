@@ -34,7 +34,7 @@ The easiest way to test zippy without changing your existing system is to run zi
 Alternatively you can pull an image from DockerHub
 > docker pull dbrawand/zippy
 2. start the image (and bind to local port 9999)
-> docker run -it -p 9999:80 dbrawand/zippy
+> docker run -it -p 9999:80 -m 6144m dbrawand/zippy
 3. Web interface can be accessed on `localhost:9999`
 
 ### Virtual machine setup
