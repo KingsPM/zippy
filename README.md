@@ -26,6 +26,17 @@ For information on the Hamilton Robot program please contact the authors.
 ## Install
 The installation procedure installs an Apache2 webserver and installs all required python modules in a *virtualenv* in `/usr/local/zippy`. Genomic data is stored
 
+### Docker setup
+The easiest way to test zippy without changing your existing system is to run zippy from a docker container.
+
+1. Build the image (requires installation of docker)
+> docker build -t dbrawand/zippy .
+Alternatively you can pull an image from DockerHub
+> docker pull dbrawand/zippy
+2. start the image (and bind to local port 9999)
+> docker run -it -p 9999:80 -m 6144m dbrawand/zippy
+3. Web interface can be accessed on `localhost:9999`
+
 ### Virtual machine setup
 fire up the virtual machine and connect with
 > `vagrant up && vagrant ssh`

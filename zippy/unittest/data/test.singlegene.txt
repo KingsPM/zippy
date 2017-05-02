@@ -1,0 +1,4 @@
+sampleID	primers	geneID
+patientA	_HBB_%	HBB
+patientB	_HBA1	HBA1
+patientC	_HBB_3_1,_HBB_3_2	HBB
