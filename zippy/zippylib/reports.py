@@ -4,7 +4,7 @@
 __doc__=="""Report Generator"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "2.3.2"
+__version__ = "2.3.4"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -43,7 +43,7 @@ class MolPathTemplate(canvas.Canvas):
         self.auth = ""
         self.docid = ""
         self.site = ""
-        # document authorisation and header
+        # document authorisation, header and worklist
         if 'auth' in kwargs.keys():
             self.auth = kwargs['auth']
             del kwargs['auth']
@@ -53,6 +53,9 @@ class MolPathTemplate(canvas.Canvas):
         if 'site' in kwargs.keys():
             self.site = kwargs['site']
             del kwargs['site']
+        if 'worklist' in kwargs.keys():
+            self.worklist = kwargs['worklist']
+            del kwargs['worklist']
         # build canvas
         canvas.Canvas.__init__(self, *args, **kwargs)
         self.pages = []
@@ -83,7 +86,7 @@ class MolPathTemplate(canvas.Canvas):
         # version
         self.drawCentredString(pagesize[0]/2, bottomMargin/2, githash('zippy'))
         # page number
-        page = "Page %s of %s" % (self._pageNumber, page_count)
+        page = "%sPage %s of %s" % ((self.worklist+' / ') if self.worklist else '', self._pageNumber, page_count)
         self.drawRightString(pagesize[0]-rightMargin, bottomMargin/2, page)
 
 
@@ -94,6 +97,7 @@ class Report(object):
         self.site = site
         self.auth = auth
         self.docid = docid
+        self.worklist = worklist
         # get document
         self.doc = BaseDocTemplate(fi,
                       rightMargin=rightMargin,
@@ -152,7 +156,7 @@ class Report(object):
             ('BACKGROUND', (6,0), (6,0), colors.cyan)
             ])
         self.elements.append(Spacer(1, 2))
-        data = [[ 'Date','','','Checker','','','Worklist',worklist]]
+        data = [[ 'Date','','','Operator','','','Worklist',self.worklist]]
         t = Table(data, \
             colWidths=[2.3*cm, 2.3*cm, 0.85*cm, 2.3*cm, 2.3*cm, 0.85*cm, 2.3*cm, 2.3*cm], rowHeights=0.6*cm)
         t.setStyle(TABLE_STYLE)
@@ -397,7 +401,7 @@ class Report(object):
 
     def build(self):
         self.doc.build(self.elements, \
-            canvasmaker=partial(MolPathTemplate, site=self.site, auth=self.auth, docid=self.docid))
+            canvasmaker=partial(MolPathTemplate, site=self.site, auth=self.auth, docid=self.docid, worklist=self.worklist))
 
 
 '''PCR test (PrimerPair (with variants), samplename]'''

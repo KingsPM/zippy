@@ -3,7 +3,7 @@
 __doc__=="""Interval Lists"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "2.3.2"
+__version__ = "2.3.4"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"

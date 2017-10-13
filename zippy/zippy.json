@@ -2,6 +2,7 @@
     "password": "$2b$12$QmHmE2grqDPkoS.Z0uuSte7WS4M6KYlrT9qYh8gApXQVrV3fXszGi",
     "database": "/var/local/zippy/zippy.sqlite",
     "logfile": "/var/local/zippy/zippy.log",
+    "ampliconbed": "/var/local/zippy/zippy.bed",
     "blacklistcache": "/var/local/zippy/.blacklist.cache",
     "tiling": {
         "interval": 500,
@@ -18,6 +19,12 @@
             "identity3prime": 6
         },
         "tag": "M13",
+        "tiers": [
+            [ 0, "selected", "Stringent (<550bp)" ],
+            [ 1, "selected", "Relaxed (<550bp)" ],
+            [ 2, "selected", "Very Relaxed (<550bp)" ],
+            [ 3, "", "Long (<1200bp)" ]
+        ],
         "primer3": [
             {
                 "PRIMER_TASK": "generic",
@@ -48,9 +55,26 @@
                 "PRIMER_OPT_GC": 50.0,
                 "PRIMER_MAX_GC": 65.0,
                 "PRIMER_MAX_POLY_X": 4,
-                "PRIMER_PRODUCT_SIZE_RANGE": [[100,550],[550,1100]],
+                "PRIMER_PRODUCT_SIZE_RANGE": [[100,550]],
                 "PRIMER_GC_CLAMP": 1,
                 "PRIMER_NUM_RETURN": 100,
+                "PRIMER_MISPRIMING_LIBRARY":"/var/local/zippy/resources/human_repeat_simple.fa"
+            },
+            {
+                "PRIMER_TASK": "generic",
+                "PRIMER_MIN_SIZE": 16,
+                "PRIMER_OPT_SIZE": 20,
+                "PRIMER_MAX_SIZE": 26,
+                "PRIMER_MIN_TM": 57.0,
+                "PRIMER_OPT_TM": 62.0,
+                "PRIMER_MAX_TM": 65.0,
+                "PRIMER_MIN_GC": 25.0,
+                "PRIMER_OPT_GC": 50.0,
+                "PRIMER_MAX_GC": 75.0,
+                "PRIMER_MAX_POLY_X": 4,
+                "PRIMER_PRODUCT_SIZE_RANGE": [[100,550]],
+                "PRIMER_GC_CLAMP": 1,
+                "PRIMER_NUM_RETURN": 200,
                 "PRIMER_MISPRIMING_LIBRARY":"/var/local/zippy/resources/human_repeat_simple.fa"
             },
             {

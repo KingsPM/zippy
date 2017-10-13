@@ -3,7 +3,7 @@
 __doc__=="""SQLITE Database API"""
 __author__ = "David Brawand"
 __license__ = "MIT"
-__version__ = "2.3.2"
+__version__ = "2.3.4"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -27,20 +27,21 @@ def changeConflictingName(n):
     if len(f)==4:  # try to increase suffix
         try:
             f[2] = str(int(f[2])+1)
+            newname = '_'.join(f)
         except:
             raise Exception('PrimerNameChangeError')
-        return '_'.join(f)
+        return newname
     elif len(f)==3:  # add number suffix after exon
-        return '_'.join(f[:2]+[str(1)]+f[2])
+        return '_'.join(f[:2]+[str(1)]+f[2:])
     raise Exception('PrimerNameChangeError')
 
 # Primer Database
 class PrimerDB(object):
-    def __init__(self, database, user='unkown'):
+    def __init__(self, database, dump=None):
         # open database and get a cursor
         self.sqlite = database
         self.db = sqlite3.connect(self.sqlite)
-        self.user = user
+        self.dump = dump  # Primer BED file created by destructor
         # create file table if not exists
         cursor = self.db.cursor()
         try:
@@ -96,6 +97,32 @@ class PrimerDB(object):
             self.db.close()
         return "\n".join([ '{:<20} {:40} {:>20} {:<25} {:>20} {:<25} {:>8} {:>9d} {:>9d} {}'.format(*row) for row in rows ])
 
+    def writeAmpliconDump(self):
+        ## dump amplicons to bed file
+        if self.dump:
+            try:
+                self.db = sqlite3.connect(self.sqlite)
+            except:
+                raise
+            else:
+                # get amplicons
+                cursor = self.db.cursor()
+                cursor.execute('''SELECT DISTINCT p.chrom, p.start, p.end, p.pairid
+                    FROM pairs AS p
+                    ORDER BY p.chrom, p.start;''')
+                rows = cursor.fetchall()
+                # write bed file
+                try:
+                    with open(self.dump,'w') as fh:
+                        for row in rows:
+                            print >> fh, '\t'.join(map(str,row))
+                except IOError:
+                    print >> sys.stderr, "cannot write to %s" % self.dump
+                    pass  # fail silently (eg if data cannot be written)
+                except:
+                    raise
+            finally:
+                self.db.close()
 
     def removeOrphans(self):
         try:
@@ -118,7 +145,7 @@ class PrimerDB(object):
             self.db.close()
 
     '''show/update blacklist'''
-    def blacklist(self,add=None):
+    def blacklist(self,add=None,justdelete=False):
         try:
             self.db = sqlite3.connect(self.sqlite)
         except:
@@ -138,8 +165,9 @@ class PrimerDB(object):
                 pairlist = []
                 for uid in bl_uniqueid:
                     # add uniqueid to blacklist
-                    second_cursor.execute('''INSERT INTO blacklist(uniqueid, blacklistdate) VALUES(?,?);''', \
-                    (uid, blacklisttime))
+                    if not justdelete:
+                        second_cursor.execute('''INSERT INTO blacklist(uniqueid, blacklistdate) VALUES(?,?);''', \
+                        (uid, blacklisttime))
                     # get list of pairs to be deleted
                     second_cursor.execute('''SELECT DISTINCT p.pairid
                     FROM pairs AS p
@@ -148,7 +176,6 @@ class PrimerDB(object):
                     # delete all those pairs from pairs table
                     second_cursor.execute('''DELETE FROM pairs
                     WHERE uniqueid = ?;''', (uid,))
-                    # delete orphan primers
                     self.db.commit()
                 return pairlist
             else: #return list of uniqueids from blacklist
@@ -158,6 +185,9 @@ class PrimerDB(object):
                 return [ row[0] for row in rows ]
         finally:
             self.db.close()
+            self.removeOrphans()
+            self.writeAmpliconDump()
+
 
     '''adds list of primers to database and automatically renames'''
     def addPrimer(self, *primers):
@@ -193,6 +223,7 @@ class PrimerDB(object):
             self.db.commit()
         finally:
             self.db.close()
+            self.writeAmpliconDump()
         return
 
     def addPair(self, *pairs):
@@ -223,13 +254,14 @@ class PrimerDB(object):
             self.db.commit()
         finally:
             self.db.close()
+            self.writeAmpliconDump()
         return
 
     '''query for interval or name'''
-    def query(self, query):
+    def query(self, query,opendb=None):
         '''returns suitable primer pairs for the specified interval'''
         try:
-            self.db = sqlite3.connect(self.sqlite)
+            self.db = opendb if opendb else sqlite3.connect(self.sqlite)
         except:
             raise
         else:
@@ -269,7 +301,8 @@ class PrimerDB(object):
                     (int(query.chromStart+int(query.chromEnd-query.chromStart)/2.0), query.chrom, query.chromStart, query.chromEnd))
             rows = cursor.fetchall()
         finally:
-            self.db.close()
+            if not opendb:
+                self.db.close()
         # return primer pairs that would match
         primerPairs = []
         for row in rows:
@@ -426,6 +459,7 @@ class PrimerDB(object):
                 raise
         finally:
             self.db.close()
+            self.writeAmpliconDump()
 
     def updatePairName(self,pairName,newName):
         '''changes the name of a primer stored in the database'''
@@ -457,6 +491,7 @@ class PrimerDB(object):
                 raise
         finally:
             self.db.close()
+            self.writeAmpliconDump()
 
     def dump(self,what,**kwargs):
         if what=='amplicons':

@@ -1,48 +1,134 @@
 {% extends "base.html" %}
 {% block content %}
+    <script>
+    window.onmousedown = function (e) {
+        var el = e.target;
+        if (el.tagName.toLowerCase() == 'option' && el.parentNode.hasAttribute('multiple')) {
+            e.preventDefault();
+
+            // toggle selection
+            if (el.hasAttribute('selected')) el.removeAttribute('selected');
+            else el.setAttribute('selected', '');
+
+            // hack to correct buggy behavior
+            var select = el.parentNode.cloneNode(true);
+            el.parentNode.parentNode.replaceChild(select, el.parentNode);
+        }
+    }
+    </script>
     <div id="indexPage">
-        <div id="left">
-            <h3>Batch PCR</h3>
+        <div class="left">
             <form action="/upload/" method="post" enctype="multipart/form-data">
-                <span class="pop">SNPpy output &nbsp</span><input type="file" name="filePath"><br><br>
-                <span class="pop">Output name (optional) &nbsp</span><input type="text" name="outfile"><br><br>
-                <input type="checkbox" name="deep" value="True" checked>deep search &nbsp
-                <input type="checkbox" name="predesign" value="True" checked>predesign &nbsp
-                <input type="checkbox" name="design" value="True" checked>postdesign<br><br>
+                <table class="form">
+                    <tr><th colspan="2"><h3>Batch PCR</h3></th></tr>
+                    <tr>
+                        <td class="left">
+                            <span class="pop">SNPpy variants</span><br>
+                            <span class="pop">Missed Regions</span><br>
+                            <span class="pop">Primers</span>
+                        </td>
+                        <td class="right">
+                            <input type="file" name="variantTable"><br>
+                            <input type="file" name="missedRegions"><br>
+                            <input type="file" name="singleGenes">
+                        </td>
+                    </tr><tr>
+                        <td class="left"><span class="pop">Worksheet identifier</span></td>
+                        <td class="right"><input type="text" name="outfile"></td>
+                    </tr><tr>
+                        <td class="left">
+                            <span class="pop">Design parameter sets</span><br>
+                        </td>
+                        <td class="right">
+                            <select name="tiers" multiple="tiers">
+                                {% for o in designtiers %}
+                                <option value="{{ o[0] }}" {{ o[1] }}>{{ o[2] }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr><tr>
+                        <td class="left"><span class="pop">Design strategy</span><br></td>
+                        <td class="right">
+                            <input type="checkbox" name="predesign" value="True" checked>Exon Amplicons<br>
+                            <input type="checkbox" name="design" value="True" checked>Variant Amplicons<br>
+                        </td>
+                    </tr>
+                </table><br>
                 <input type="submit" value="Upload"><br><br>
             </form>
         </div>
-        <div>
-        </div>
-        <div id="right">
-            <h3>Primer Query</h3>
+        <div class="right">
             <form action="/adhoc_design/" method="post" enctype="multipart/form-data">
-                <span class="pop">BED, VCF, GenePred &nbsp</span><input type="file" name="filePath"><br><br>
-                or&nbsp<span class="pop">Chromosome:Start-End:[+-] &nbsp</span><input type="text" name="locus"> and <input type="text" name="gap"><br><br>
-                <input type="checkbox" name="design" value="True" checked>design &nbsp
-                <input type="checkbox" name="deep" value="True">deep search &nbsp
-                <input type="checkbox" name="store" value="True">store<br><br>
+                <table class="form">
+                    <tr><th colspan="2"><h3>Primer Query</h3></th></tr>
+                    <tr>
+                        <td class="left">
+                            <span class="pop">BED, VCF, GenePred</span><br>
+                            or <span class="pop">Chromosome:Start-End:[+-]</span><br>
+                            (optional second locus for gap-PCR)<br>
+                        </td>
+                        <td class="right">
+                            <input type="file" name="filePath"><br>
+                            <input type="text" name="locus">Target/Breakpoint<br>
+                            <input type="text" name="gap">(Breakpoint)
+                        </td>
+                    </tr><tr>
+                        <td class="left">
+                            <span class="pop">Design parameter sets</span><br>
+                        </td>
+                        <td class="right">
+                            <select name="tiers" multiple="tiers">
+                                {% for o in designtiers %}
+                                <option value="{{ o[0] }}" {{ o[1] }}>{{ o[2] }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="left"><span class="pop">Design strategy</span><br></td>
+                        <td class="right">
+                            <input type="checkbox" name="design" value="True" checked>design if not in database<br>
+                            <input type="checkbox" name="store" value="True">store designed primers<br>
+                        </td>
+                    </tr>
+                </table><br>
                 <input type="submit" value="Submit"><br><br>
             </form>
         </div>
         <div>
-            <p>&nbsp</p><br><hr><br><br>
+            <p>&nbsp</p><br><br><hr><br><br>
         </div>
-        <div id="left";>
-            <h3>Primer Pair Query</h3>
-            <p>Name or date (yyyy-mm-dd)</p>
+        <div class="left";>
             <form action="/specify_searchname/" method="post" enctype="multipart/form-data">
-                <span class="pop">Search for &nbsp</span><input type="text" name="searchName"><br><br>
+                <table class="form">
+                    <tr><th colspan="2"><h3>Primer Pair Query</h3></th></tr>
+                    <tr>
+                        <td class="left">
+                            <span class="pop">Search for</span><br>
+                            Name or date (yyyy-mm-dd)
+                        </td>
+                        <td class="right">
+                            <input type="text" name="searchName">
+                        </td>
+                    </tr>
+                </table><br><br>
                 <input type="submit" id="revSubmit" value="Search">
             </form>
         </div>
-        <div>
-        </div>
-        <div id="right">
-            <h3>Storage Location</h3>
-            <p>Update from CSV file (PrimerName,Box,Well)</p>
+        <div class="right">
             <form action="/upload_batch_locations/" method="post" enctype="multipart/form-data">
-                <span class="pop">CSV file &nbsp</span><input type="file" name="locationsheet"><br><br>
+                <table class="form">
+                    <tr>
+                        <th colspan="2"><h3>Update Storage Locations</h3></th>
+                    </tr>
+                    <tr>
+                        <td class="left">
+                            <span class="pop">CSV file</span><br>
+                            (PrimerName,Box,Well)
+                        </td>
+                        <td class="right"><input type="file" name="locationsheet"></td>
+                    </tr>
+                </table><br><br>
                 <input type="submit" id="revSubmit" value="Upload">
             </form>
         </div>

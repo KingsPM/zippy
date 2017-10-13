@@ -10,7 +10,7 @@ __doc__=="""
 __author__ = "David Brawand"
 __credits__ = ['David Brawand','Christopher Wall']
 __license__ = "MIT"
-__version__ = "2.3.2"
+__version__ = "2.3.4"
 __maintainer__ = "David Brawand"
 __email__ = "dbrawand@nhs.net"
 __status__ = "Production"
@@ -229,7 +229,7 @@ def importPrimerPairs(inputfile,config,primer3=True):
     return validPairs
 
 '''get primers from intervals'''
-def getPrimers(intervals, db, design, config, deep=True, rename=None, compatible=False):
+def getPrimers(intervals, db, design, config, tiers=[0], rename=None, compatible=False):
     ivpairs = defaultdict(list)  # found/designed primer pairs (from database or design)
     blacklist = db.blacklist() if db else []
     try:
@@ -237,7 +237,6 @@ def getPrimers(intervals, db, design, config, deep=True, rename=None, compatible
     except:
         print >> sys.stderr, 'Could not read blacklist cache, check permissions'
         print >> sys.stderr, os.getcwd(), config['blacklistcache']
-    maxTier = len(config['design']['primer3']) if deep or compatible else 1  # only search first tier unless deep or compatibility mode
     seqhash = lambda x,y: hashlib.sha1(','.join([x,y])).hexdigest()  # sequence pair hashing function
     # build gap primers and hash valid pairs
     if compatible:
@@ -247,8 +246,8 @@ def getPrimers(intervals, db, design, config, deep=True, rename=None, compatible
         # build gap sequence
         gap = Interval(intervals[0].chrom, intervals[0].chromEnd, intervals[1].chromStart)
         # design primers
-        progress = Progressbar(maxTier,'Building compatibility list')
-        for tier in range(maxTier):
+        progress = Progressbar(len(tiers),'Building compatibility list')
+        for tier in tiers:
             sys.stderr.write('\r'+progress.show(tier))
             # get sequence
             maxFlank = max([ max(x) for x in config['design']['primer3'][tier]['PRIMER_PRODUCT_SIZE_RANGE'] ])
@@ -263,7 +262,7 @@ def getPrimers(intervals, db, design, config, deep=True, rename=None, compatible
             if p3.pairs:
                 for p in p3.pairs:
                     compatible.add(seqhash(p[0].seq, p[1].seq))
-        sys.stderr.write('\r'+progress.show(maxTier)+'\n')
+        sys.stderr.write('\r'+progress.show(len(tiers))+'\n')
 
     # primer searching in database by default
     if db:
@@ -283,7 +282,7 @@ def getPrimers(intervals, db, design, config, deep=True, rename=None, compatible
 
     # designing
     if design:
-        for tier in range(maxTier):
+        for tier in tiers:
             # get intervals which do not satisfy minimum amplicon number
             insufficentAmpliconIntervals = [ iv for iv in intervals if config['report']['pairs']>len(ivpairs[iv]) ]
             if not insufficentAmpliconIntervals:
@@ -429,7 +428,7 @@ def getPrimers(intervals, db, design, config, deep=True, rename=None, compatible
 # ==============================================================================
 
 # query database / design primer for VCF,BED,GenePred or interval
-def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=False, deep=True, gap=None):
+def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=False, tiers=[0], gap=None):
     intervals = readTargets(targets, config['tiling'])  # get intervals from file or commandline
     if gap:  # gap PCR primers
         try:
@@ -440,7 +439,7 @@ def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=
             print >> sys.stderr, "ERROR: gap-PCR primers can only be designed for a single pair of breakpoint intervals on the same chromosome!"
         except:
             raise
-    primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config,deep,compatible=True if gap else False)
+    primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config,tiers,compatible=True if gap else False)
     ## print primerTable
     if outfile:
         with open(outfile,'w') as fh:
@@ -455,31 +454,66 @@ def zippyPrimerQuery(config, targets, design=True, outfile=None, db=None, store=
     return primerTable, resultList, missedIntervals
 
 # batch query primer database and create confirmation worksheet
-def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesign=False, deep=True):
-    print >> sys.stderr, 'Reading batch file {}...'.format(targets)
-    sampleVariants, genes = readBatch(targets, config['tiling'])
+def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesign=False, tiers=[0]):
+    # read targets from first file and additional files
+    if not isinstance(targets,list):
+        targets = [ targets ]
+    # load query files
+    print >> sys.stderr, 'Reading batch file {}...'.format(targets[0])
+    sampleVariants, genes, fullgenes = readBatch(targets[0], config['tiling'], database=db)
+    for t in range(1,len(targets)): # read additional files
+        print >> sys.stderr, 'Reading additional file {}...'.format(targets[t])
+        sv, g, f = readBatch(targets[t], config['tiling'], database=db)
+        # amend target regions
+        for k,v in sv.items():
+            if k in sampleVariants.keys():
+                sampleVariants[k] += v
+            else:
+                sampleVariants[k] = v
+        genes = list(set(genes) | set(g))
+        fullgenes = list(set(fullgenes) | set(f))
+
     print >> sys.stderr, '\n'.join([ '{:<20} {:>2d}'.format(sample,len(variants)) \
         for sample,variants in sorted(sampleVariants.items(),key=lambda x: x[0]) ])
+
     # predesign
-    if predesign and genes and db:
-        print >> sys.stderr, "Designing primers for {} genes..".format(str(len(genes)))
-        # Create interval list
+    if predesign and db and genes:
+        designVariants = [ var for var in variants if not db.query(var) ]
+        selectedgeneexons = list(set(genes) - set(fullgenes))
+        print >> sys.stderr, "Designing exon primers for {} variants..".format(str(len(designVariants)))
+        # get variants with no overlapping amplicon -> get variants which need new primer designs
         intervals = IntervalList([],source='GenePred')
-        # parse gene intervals from refGene and retain those intersecting variants
-        with open(config['design']['annotation']) as fh:
-            for iv in GenePred(fh,getgenes=genes,**config['tiling']):  # get intervals from file or commandline
-                found = False
-                for sl in sampleVariants.values():
-                    for iv2 in sl:
-                        if iv.overlap(iv2):
+        if designVariants:
+            with open(config['design']['annotation']) as fh:
+                for iv in GenePred(fh,getgenes=selectedgeneexons,**config['tiling']):  # get intervals from file or commandline
+                    found = False
+                    for dv in designVariants:
+                        if not found and iv.overlap(dv):
                             intervals.append(iv)
                             found = True
                         if found: break
                     if found: break
+        # add full genes
+        if fullgenes:
+            with open(config['design']['annotation']) as fh:
+                intervals += GenePred(fh,getgenes=fullgenes,**config['tiling'])
         # predesign and store
-        primerTable, resultList, missedIntervals = getPrimers(intervals,db,predesign,config,deep)
-        if db:
-            db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
+        if intervals:
+            primerTable, resultList, missedIntervals = getPrimers(intervals,db,predesign,config,tiers)
+            if db:
+                db.addPair(*resultList)  # store pairs in database (assume they are correctly designed as mispriming is ignored and capped at 1000)
+        # reload query files ()
+        print >> sys.stderr, 'Updating query table...'
+        sampleVariants = readBatch(targets[0], config['tiling'], database=db)[0]
+        for t in range(1,len(targets)): # read additional files
+            sv = readBatch(targets[t], config['tiling'], database=db)[0]
+            # amend target regions
+            for k,v in sv.items():
+                if k in sampleVariants.keys():
+                    sampleVariants[k] += v
+                else:
+                    sampleVariants[k] = v
+
     # for each sample design
     primerTableConcat = []
     allMissedIntervals = {}
@@ -489,7 +523,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
         print >> sys.stderr, "Getting primers for {} variants in sample {}".format(len(intervals),sample)
         # get/design primers
         #print >> sys.stderr, intervals
-        primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config,deep,rename=shortHumanReadable)
+        primerTable, resultList, missedIntervals = getPrimers(intervals,db,design,config,tiers,rename=shortHumanReadable)
         if missedIntervals:
             allMissedIntervals[sample] = missedIntervals
             missedIntervalNames += [ i.name for i in missedIntervals ]
@@ -506,7 +540,7 @@ def zippyBatchQuery(config, targets, design=True, outfile=None, db=None, predesi
     if not outfile:
         print >> sys.stdout, '\n'.join([ '\t'.join(l) for l in primerTableConcat ])
     else:
-        worksheetName = '' if os.path.basename(targets).startswith(os.path.basename(outfile)) else os.path.basename(outfile)
+        worksheetName = '' if os.path.basename(targets[0]).startswith(os.path.basename(outfile)) else os.path.basename(outfile)
         # output data
         writtenFiles.append(outfile+'.txt')
         print >> sys.stderr, "Writing results to {}...".format(writtenFiles[-1])
@@ -604,6 +638,12 @@ def blacklistPair(pairname, db):
     print >> sys.stderr, '%s added to blacklist' % (blacklisted,)
     return blacklisted
 
+# just delete primer pair in database (skip addition to blacklist)
+def deletePair(pairname, db):
+    deleted = db.blacklist(pairname,True)
+    print >> sys.stderr, '%s has been deleted' % (deleted,)
+    return deleted
+
 def readprimerlocations(locationfile):
     header = []
     updateList = []
@@ -640,6 +680,8 @@ def main():
     global_group = parser.add_argument_group('Global options')
     global_group.add_argument("-c", dest="config", default='zippy.json',metavar="JSON_FILE", \
         help="configuration file [zippy.json]")
+    global_group.add_argument("--tiers", dest="tiers", default='0,1,2', \
+        help="Allowed design tiers (0,1,...,n)")
 
     # run modes
     subparsers = parser.add_subparsers(help='Help for subcommand')
@@ -658,8 +700,6 @@ def main():
         help="Design primers if not in database")
     parser_retrieve.add_argument("--gap", dest="gap", default=None, metavar="CHR:START-END", \
         help="Second break point for gap-PCR")
-    parser_retrieve.add_argument("--nodeep", dest="deep", default=True, action='store_false', \
-        help="Skip deep search for primers")
     parser_retrieve.add_argument("--nostore", dest="store", default=True, action='store_false', \
         help="Do not store result in database")
     parser_retrieve.add_argument("--outfile", dest="outfile", default='', type=str, \
@@ -674,14 +714,14 @@ def main():
 
     ## batch
     parser_batch = subparsers.add_parser('batch', help='Batch design primers for sample list')
-    parser_batch.add_argument("targets", default=None, metavar="SNPpy result table", \
-        help="SNPpy result table")
+    parser_batch.add_argument("targets", default=None, metavar="FILE1,FILE2,...", \
+        help="SNPpy result table(s) ")
     parser_batch.add_argument("--predesign", dest="predesign", default=False, action="store_true", \
         help="Design primers for all genes in batch")
     parser_batch.add_argument("--nodesign", dest="design", default=True, action="store_false", \
         help="Skip primer design if not in database")
-    parser_batch.add_argument("--nodeep", dest="deep", default=True, action='store_false', \
-        help="Skip deep search for primers")
+    parser_batch.add_argument("--tiers", dest="tiers", default='0,1,2', \
+        help="Allowed design tiers (0,1,...,n)")
     parser_batch.add_argument("--outfile", dest="outfile", default='', type=str, \
         help="Create worksheet PDF, order and robot CSV")
     parser_batch.set_defaults(which='batch')
@@ -719,7 +759,8 @@ def main():
     # read config and open database
     with open(options.config) as conf:
         config = json.load(conf, object_hook=ascii_encode_dict)
-    db = PrimerDB(config['database'])
+    here = config['primerbed'] if 'primerbed' in config.keys() and config['primerbed'] else None
+    db = PrimerDB(config['database'],dump=here)
 
     if options.which=='add':  # read primers and add to database
         # import primer pairs
@@ -778,9 +819,11 @@ def main():
             print >> sys.stderr, 'BLACKLISTED PAIRS: {}'.format(','.join(db.blacklist(options.blacklist)))
             print >> sys.stderr, 'REMOVED ORPHANS:   {}'.format(','.join(db.removeOrphans()))
     elif options.which=='get':  # get primers for targets (BED/VCF or interval)
-        zippyPrimerQuery(config, options.targets, options.design, options.outfile, db, options.store, options.deep, options.gap)
+        zippyPrimerQuery(config, options.targets, options.design, options.outfile, \
+            db, options.store, map(int,options.tiers.split(',')), options.gap)
     elif options.which=='batch':
-        zippyBatchQuery(config, options.targets, options.design, options.outfile, db, options.predesign, options.deep)
+        zippyBatchQuery(config, options.targets.split(','), options.design, options.outfile, \
+            db, options.predesign, map(int,options.tiers.split(',')))
     elif options.which=='query':
         searchByName(options.subString, db)
 
