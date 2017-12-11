@@ -24,7 +24,7 @@ essential:
 	apt-get install -y redis-server
 	apt-get install -y build-essential libjpeg-dev libfreetype6-dev python-dev python-imaging libcurl3-dev
 	apt-get install -y mysql-client
-	apt-get install -y postgres-server-dev-9.1
+	apt-get install -y postgresql-server-dev-9.4
 	# add apache user
 	useradd -M $(WWWUSER)
 	usermod -s /bin/false $(WWWUSER)
@@ -37,7 +37,7 @@ essential:
 	a2dissite 000-default
 
 bowtie:
-	wget -c https://downloads.sourceforge.net/project/bowtie-bio/bowtie2/2.3.3.1/bowtie2-2.3.3.1-linux-x86_64.zip?r=https%3A%2F%2Fsourceforge.net%2Fprojects%2Fbowtie-bio%2Ffiles%2Fbowtie2%2F2.3.3.1&ts=1507890163&use_mirror=kent && \
+	wget -c https://downloads.sourceforge.net/project/bowtie-bio/bowtie2/2.3.3.1/bowtie2-2.3.3.1-linux-x86_64.zip && \
 	unzip bowtie2-2.3.3.1-linux-x86_64.zip && \
 	cd bowtie2-2.3.3.1-linux-x86_64 && mv bowtie2* /usr/local/bin
 	rm -rf bowtie2-2.3.3.1*
