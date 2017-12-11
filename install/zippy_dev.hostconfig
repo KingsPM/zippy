@@ -1,0 +1,15 @@
+<VirtualHost *:80>
+	ServerAdmin dbrawand@nhs.net
+    ServerName zippy
+
+    WSGIDaemonProcess zippy user=flask group=www-data threads=5 home=/home/vagrant/zippy/
+    WSGIScriptAlias / /var/www/zippy/zippy.wsgi
+
+    <Directory /var/www/zippy>
+        WSGIProcessGroup zippy
+        WSGIApplicationGroup %{GLOBAL}
+        WSGIScriptReloading On
+        Order deny,allow
+        Allow from all
+    </Directory>
+</VirtualHost>

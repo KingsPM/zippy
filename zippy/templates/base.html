@@ -1,0 +1,26 @@
+<html>
+    <head>
+      <title>Zippy - Primer Design Tool</title>
+      <link rel="stylesheet" type="text/css" href="../static/styles.css">
+    </head>
+    <body>
+      <div>
+        <a href="/index"><header><b>Zippy: Primer Design and Storage</b></header></a>
+      </div>
+      <div id="below_header">
+        <br>
+      </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="flash flash-{{category}}" align ="center">
+                <p>{{message}}</p>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+       {% block content %}{% endblock %}
+     <div>
+     </div>
+    </body>
+</html>

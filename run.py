@@ -1,6 +1,8 @@
-#!flask/bin/python
+#!venv/bin/python
 
-from app import app
+'''runs flask development server'''
 
-#app.run(debug=True)  # not accessible outside guest
+from zippy import app
+
+app.debug = True
 app.run(host='0.0.0.0')
