@@ -1,3 +1,5 @@
+> NOTE: This repository is mirrored on github.com/kingspm/zippy
+
 # Zippy
 Primer database and design tool
 
